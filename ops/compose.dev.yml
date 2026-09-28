@@ -1,0 +1,31 @@
+services:
+  mongo:
+    image: mongo:8.0
+    command: ["mongod", "--replSet", "kl-dev", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mongosh",
+          "--quiet",
+          "--eval",
+          "quit(db.adminCommand({ping:1}).ok ? 0 : 1)",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  initialize:
+    image: mongo:8.0
+    depends_on:
+      mongo:
+        condition: service_healthy
+    entrypoint: ["mongosh", "--host", "mongo:27017", "--quiet", "--eval"]
+    command:
+      - "try { rs.status(); } catch (e) { if (e.code === 94) { rs.initiate({_id:'kl-dev',members:[{_id:0,host:'localhost:27017'}]}); } else { throw e; } }"
+    restart: "no"
+volumes:
+  mongo-data:
