@@ -1,0 +1,12 @@
+import type { Document, IndexDescription } from "mongodb";
+import { WRITER_KINDS } from "./contracts";
+const uuid={bsonType:"string",pattern:"^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"};
+const integer={bsonType:["int","long","double"],minimum:0,maximum:Number.MAX_SAFE_INTEGER,multipleOf:1};
+const date={bsonType:"date"};
+const nullable=(shape:Document)=>({anyOf:[shape,{bsonType:"null"}]});
+const object=(properties:Document)=>({bsonType:"object",additionalProperties:false,required:Object.keys(properties),properties});
+export const OPERATIONS_V7_SCHEMAS:Record<string,{validator:Document;indexes:IndexDescription[]}>= {
+  operational_state:{validator:{$and:[{$jsonSchema:object({_id:{enum:["environment"]},environment_id:nullable(uuid),mode:{enum:["unregistered","active","draining","maintenance","restore_quarantined"]},revision:integer,access_fence:integer,restore_id:nullable(uuid),maintenance_token:nullable(uuid),owner:nullable({bsonType:"string",minLength:1,maxLength:120}),updated_at:date})},{$expr:{$and:[{$cond:[{$eq:["$mode","unregistered"]},{$and:[{$eq:["$environment_id",null]},{$eq:["$maintenance_token",null]},{$eq:["$restore_id",null]}]},{$ne:["$environment_id",null]}]},{$cond:[{$eq:["$mode","maintenance"]},{$ne:["$maintenance_token",null]},{$eq:["$maintenance_token",null]}]},{$cond:[{$eq:["$mode","restore_quarantined"]},{$ne:["$restore_id",null]},true]}]}}]},indexes:[]},
+  operational_writers:{validator:{$and:[{$jsonSchema:object({_id:uuid,environment_id:nullable(uuid),kind:{enum:[...WRITER_KINDS]},token:uuid,pid:{...integer,minimum:1},state:{enum:["running","stopped"]},started_at:date,heartbeat_at:date,stopped_at:nullable(date),shutdown_nonce:nullable(uuid)})},{$expr:{$and:[{$gte:["$heartbeat_at","$started_at"]},{$eq:[{$eq:["$state","running"]},{$eq:["$stopped_at",null]}]}]}}]},indexes:[{name:"operational_running",key:{state:1,environment_id:1}},{name:"operational_writer_token",key:{token:1},unique:true}]},
+  backup_restore_runs:{validator:{$jsonSchema:object({_id:uuid,environment_id:uuid,status:{enum:["quarantined","ready","released","failed"]},manifest_hash:{bsonType:"string",pattern:"^[a-f0-9]{64}$"},file_root_hash:{bsonType:"string",pattern:"^[a-f0-9]{64}$"},ledger_sequence:integer,revision:integer,checks:object({schema:{bsonType:"bool"},files:{bsonType:"bool"},ledger:{bsonType:"bool"},identities:{bsonType:"bool"},smoke:{bsonType:"bool"}}),created_at:date,updated_at:date})},indexes:[{name:"restore_environment_status",key:{environment_id:1,status:1}}]},
+};

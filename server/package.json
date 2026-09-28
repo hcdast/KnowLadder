@@ -1,0 +1,56 @@
+{
+  "name": "knowladder-server",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=.env dist/main.js",
+    "migrate": "node --env-file-if-exists=.env dist/migrations/run.js",
+    "admin": "node --env-file-if-exists=.env dist/cli/main.js",
+    "files:worker": "node --env-file-if-exists=.env dist/files/worker.js run",
+    "files:scan": "node --env-file-if-exists=.env dist/files/worker.js once",
+    "files:reconcile": "node --env-file-if-exists=.env dist/files/worker.js reconcile",
+    "files:cleanup": "node --env-file-if-exists=.env dist/files/worker.js cleanup",
+    "files:usage": "node --env-file-if-exists=.env dist/files/worker.js usage",
+    "assessment:worker": "node --env-file-if-exists=.env dist/assessment/worker.js run",
+    "assessment:once": "node --env-file-if-exists=.env dist/assessment/worker.js once",
+    "assessment:reconcile": "node --env-file-if-exists=.env dist/assessment/worker.js reconcile",
+    "learning:worker": "node --env-file-if-exists=.env dist/learning/worker.js run",
+    "learning:once": "node --env-file-if-exists=.env dist/learning/worker.js once",
+    "learning:reconcile": "node --env-file-if-exists=.env dist/learning/worker.js reconcile",
+    "learning:cleanup": "node --env-file-if-exists=.env dist/learning/worker.js cleanup",
+    "reading:cleanup": "node --env-file-if-exists=.env dist/learning/reading-cleanup.js",
+    "privacy": "node --env-file-if-exists=.env dist/privacy/cli.js",
+    "operations": "node --env-file-if-exists=.env dist/operations/cli.js",
+    "system:backup": "node --env-file-if-exists=.env ../ops/system-backup.cjs",
+    "test:integration": "node --test --test-concurrency=1 test/*.test.cjs",
+    "format": "prettier --write src test package.json tsconfig.json"
+  },
+  "dependencies": {
+    "@nestjs/common": "^12.0.3",
+    "@nestjs/core": "^12.0.3",
+    "@nestjs/platform-express": "^12.0.3",
+    "@nestjs/mongoose": "^12.0.0",
+    "@nestjs/swagger": "^12.0.1",
+    "mongoose": "^8.19.0",
+    "mongodb": "^6.20.0",
+    "argon2": "^0.44.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "cookie-parser": "^1.4.7",
+    "helmet": "^8.1.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/express": "^5.0.0",
+    "@types/cookie-parser": "^1.4.9",
+    "typescript": "~5.9.3",
+    "prettier": "^3.6.2",
+    "mongodb-memory-server-core": "^10.3.0"
+  }
+}
