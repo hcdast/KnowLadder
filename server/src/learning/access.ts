@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { Injectable } from '@nestjs/common';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import { AssessmentAccess } from '../assessment/access';
@@ -16,7 +17,7 @@ export class LearningAccess {
     let rated = false;
     return this.assessment.run(req, write, async ctx => {
       this.assessment.require(ctx, 'learning:self');
-      if (pureStudent && LEARNING_CONFLICTS.some(c => ctx.capabilities.includes(c))) fail(403, 'FORBIDDEN', '兼任内容或评估管理者不能访问学生学情');
+      if (pureStudent && (ctx.studentConflict || LEARNING_CONFLICTS.some(c => ctx.capabilities.includes(c)))) fail(403, 'FORBIDDEN', '兼任内容或评估管理者不能访问学生学情');
       if (!rated) { await this.assessment.auth.rate('learning', `${ctx.orgId}:${ctx.memberId}:${write ? 'write' : 'read'}`, 60); rated = true; }
       return work(ctx);
     });
@@ -26,7 +27,7 @@ export class LearningAccess {
     return this.idempotentKey(ctx, req.get('Idempotency-Key') ?? '', operation, resourceId, payload, work);
   }
   async idempotentKey<T>(ctx: AssessmentContext, key: string, operation: string, resourceId: string, payload: unknown, work: () => Promise<T>, responseStatus = 200): Promise<T> {
-    await requireEvidenceSubject(this.assessment.database.db, ctx.session, ctx.userId);
+    await requireEvidenceSubject(this.assessment.database.db, ctx.session, ctx.userId, ctx.orgId);
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(key)) fail(422, 'IDEMPOTENCY_KEY_REQUIRED', '请提供8至128字符幂等键');
     const filter = { org_id: ctx.orgId, user_id: ctx.userId, operation, resource_id: resourceId, key };
     const request_hash = createHash('sha256').update(canonical(payload)).digest('hex');
@@ -37,7 +38,7 @@ export class LearningAccess {
       return previous.result as T;
     }
     const result = await work(), now = await this.now(ctx);
-    await records.insertOne({ _id: randomUUID(), ...filter, request_hash, response_status: responseStatus, result: result as Record<string, unknown>, created_at: now, updated_at: now }, { session: ctx.session });
+    await records.insertOne({ _id: newId(), ...filter, request_hash, response_status: responseStatus, result: result as Record<string, unknown>, created_at: now, updated_at: now }, { session: ctx.session });
     return result;
   }
   cursor(ctx: AssessmentContext, resource: string, filters: unknown, generation: string | null, rawCursor: unknown, limit: number) {

@@ -20,7 +20,7 @@ test("v5正式切换、只读预检与租约恢复",{concurrency:false,timeout:2
     await assert.rejects(assertSchema(f.db),/v5/);
     const before=await capture(f.db);
     const report=await inspectMigration(f.uri);
-    assert.equal(report.target_version,7); assert.equal(report.duplicate_keys,0);
+    assert.equal(report.duplicate_keys,0);
     assert.ok(report.new_collections.includes("learning_question_states"));
     assert.deepEqual(await capture(f.db),before);
     assert.equal(await f.db.collection("learning_tracking_config").countDocuments(),0);

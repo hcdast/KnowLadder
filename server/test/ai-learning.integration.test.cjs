@@ -1,0 +1,95 @@
+"use strict";
+const {test}=require("node:test");
+const assert=require("node:assert/strict");
+const {randomUUID}=require("node:crypto");
+const {assessmentFixture,practice,good}=require("./assessment-helpers.cjs");
+const {status}=require("./helpers.cjs");
+const {newId}=require("../dist/database/object-id");
+
+test("AI有效学情：真实评分/投影、4与5人、匿名派发、采纳审核、过期与unknown",{timeout:240000},async t=>{
+  const ledgerEnv=await require("./ai-learning-ledger-helpers.cjs").setupLedger(t);
+  const f=await assessmentFixture(t,{env:{...ledgerEnv,KL_TRAINING_ENABLED:"true",KL_TRAINING_REPORTS_ENABLED:"true",KL_AI_POLICY_ENABLED:"true",KL_AI_LEARNING_REPORTS_ENABLED:"true",KL_AI_ENDPOINT:"https://ai-learning.invalid/v1/chat/completions",KL_AI_MODEL:"controlled-test",KL_AI_API_KEY:"controlled-fixture-only"}});
+  const teacher=await f.actor(["teacher"],["training:report-edit","training:report-review","ai:generate","ai:manage","course:edit"]);
+  const reviewer=await f.actor(["teacher"],["training:report-review"]);
+  const now=new Date(), classId=newId();
+  await f.db.collection("classes").insertOne({_id:classId,org_id:f.org,name:"原创匿名学情班",year_label:"2026",status:"active",revision:1,created_by:teacher.user.user_id,created_at:now,updated_at:now});
+  for(const actor of [teacher,reviewer])await f.db.collection("teaching_assignments").insertOne({_id:newId(),org_id:f.org,class_id:classId,member_id:actor.memberId,subject_id:f.subject,status:"active",revision:1,valid_from:null,valid_to:null,created_at:now,updated_at:now});
+  const post=(actor,path,body,key=randomUUID())=>actor.browser.request("/training"+path,{method:"POST",body,headers:{"X-Org-Id":f.org,"Idempotency-Key":key}});
+  const ok=async(actor,path,body,key)=>{const r=await post(actor,path,body,key);status(r,200);return r.data.data;};
+  const settle=async()=>{for(let i=0;i<30;i++)if(!await require("../dist/assessment/worker").processOne(f.db))break;for(let i=0;i<50;i++)if(!await require("../dist/learning/worker").processOne(f.db)){await require("../dist/learning/worker").processDue(f.db);break;}};
+  const students=[];
+  for(let i=0;i<5;i++){
+    f.student=i===0?f.student:await f.actor();students.push(f.student);
+    const s=await practice(f,{count:1});await good(f.student,"/sessions/"+s.id+"/submissions",{method:"POST",body:{expected_revision:s.revision,answers:[]}},202);
+    if(i<4)await f.db.collection("class_members").insertOne({_id:newId(),org_id:f.org,class_id:classId,member_id:f.student.memberId,kind:"student",status:"active",valid_from:null,valid_to:null,created_at:now,updated_at:now});
+  }
+  await settle();
+  let report=await ok(teacher,"/reports",{class_id:classId,subject_id:f.subject,title:"原创报告",body:"PRIVATE_MANUAL_BODY",task_id:null});
+  const input=()=>({kind:"learning-report",context_id:report._id,prompt:"PRIVATE_TEACHER_PROMPT"});
+  status(await post(students[0],"/ai/jobs",input()),403);
+  const insufficient=await post(teacher,"/ai/jobs",input());status(insufficient,422);assert.equal(insufficient.data.error.code,"AI_LEARNING_EVIDENCE_INSUFFICIENT");
+  assert.equal(await f.db.collection("ai_usage_ledger").countDocuments({org_id:f.org}),0);
+  await f.db.collection("class_members").insertOne({_id:newId(),org_id:f.org,class_id:classId,member_id:students[4].memberId,kind:"student",status:"active",valid_from:null,valid_to:null,created_at:now,updated_at:now});
+  report=await ok(teacher,"/reports/"+report._id+"/actions",{action:"refresh-facts",expected_revision:report.revision});
+  assert.equal(JSON.parse(report.facts_json).learning.projected_count,5);
+  await ok(teacher,"/ai/config",{enabled:true,daily_limit:20,expected_revision:0,enabled_kinds:["report"],currency:"USD",daily_budget_micro:5000000,max_request_micro:50000});
+  const originalFetch=global.fetch;let calls=0,mode="valid",sent=[];
+  global.fetch=async(url,opts)=>{
+    if(String(url)!=="https://ai-learning.invalid/v1/chat/completions")return originalFetch(url,opts);
+    calls++;sent.push(JSON.parse(opts.body));
+    if(mode==="unknown")throw Error("CONTROLLED_RESPONSE_LOST");
+    if(mode==="facts-change")await f.db.collection("class_members").updateOne({member_id:students[0].memberId,class_id:classId},{$set:{status:"ended"}});
+    if(mode==="change")await ok(teacher,"/reports/"+report._id+"/actions",{action:"edit",expected_revision:report.revision,title:report.title,body:"并发教师改稿"});
+    return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({interpretation:mode==="numeric"?"已有5人掌握":"证据仍有限，宜继续观察。",suggestions:["安排基础巩固练习。"],source_keys:["effective-learning"]})}}]}),{status:200});
+  };
+  t.after(()=>{global.fetch=originalFetch;});
+  const createKey=randomUUID();let job=await ok(teacher,"/ai/jobs",input(),createKey);
+  assert.equal((await ok(teacher,"/ai/jobs",input(),createKey)).id,job.id);
+  job=await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(job.status,"succeeded");
+  const outbound=JSON.stringify(sent[0]);for(const privateValue of [f.org,classId,f.subject,report._id,"PRIVATE_MANUAL_BODY","PRIVATE_TEACHER_PROMPT",...students.map(x=>x.memberId)])assert.equal(outbound.includes(privateValue),false);
+  assert.equal(sent[0].messages[1].content.includes("mastery_bands"),true);
+  assert.equal((await f.db.collection("ai_usage_ledger").findOne({org_id:f.org})).reserved_micro,0);
+  status(await post(teacher,"/ai/jobs/"+job.id+"/accept",{course_id:newId(),expected_revision:1,lesson_key:"bad",title:"bad",body:"bad"}),403);
+  const acceptKey=randomUUID(),acceptBody={expected_revision:report.revision};
+  report=await ok(teacher,"/ai/jobs/"+job.id+"/accept-report",acceptBody,acceptKey);assert.equal(report.status,"draft");assert.match(report.body,/AI辅助解读/);
+  assert.equal((await ok(teacher,"/ai/jobs/"+job.id+"/accept-report",acceptBody,acceptKey)).revision,report.revision);
+  assert.equal((await ok(teacher,"/receipts/query",{key:acceptKey})).status,"confirmed");
+  report=await ok(teacher,"/reports/"+report._id+"/actions",{action:"request-review",expected_revision:report.revision});
+  status(await post(teacher,"/reports/"+report._id+"/actions",{action:"publish",expected_revision:report.revision,note:"拒绝自审"}),403);
+  report=await ok(reviewer,"/reports/"+report._id+"/actions",{action:"publish",expected_revision:report.revision,note:"独立核对事实与建议"});assert.equal(report.status,"published");
+  report=await ok(teacher,"/reports",{class_id:classId,subject_id:f.subject,title:"异常结果报告",body:"人工正文",task_id:null});
+  mode="numeric";job=await ok(teacher,"/ai/jobs",input());job=await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(job.status,"unknown");assert.equal(job.output,"");
+  const before=calls;await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(calls,before);
+  mode="change";job=await ok(teacher,"/ai/jobs",input());job=await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(job.status,"failed");assert.equal(job.error_code,"CONTEXT_CHANGED");assert.equal(job.output,"");
+  report=await good(teacher,"/training/reports/"+report._id);
+  mode="facts-change";job=await ok(teacher,"/ai/jobs",input());job=await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(job.status,"failed");assert.equal(job.error_code,"CONTEXT_CHANGED");
+  await f.db.collection("class_members").updateOne({member_id:students[0].memberId,class_id:classId},{$set:{status:"active"}});
+  mode="unknown";job=await ok(teacher,"/ai/jobs",input());job=await ok(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});assert.equal(job.status,"unknown");
+  mode="valid";job=await ok(teacher,"/ai/jobs",input());await f.db.collection("ai_jobs").updateOne({_id:job.id},{$set:{learning_valid_until:new Date(0)}});
+  const expiry=await post(teacher,"/ai/jobs/"+job.id+"/dispatch",{expected_revision:job.revision});status(expiry,409);assert.equal(expiry.data.error.code,"CONTEXT_CHANGED");assert.equal(calls,5);
+  await ok(teacher,"/ai/jobs/"+job.id+"/recover",{expected_revision:job.revision});
+  const ledger=await f.db.collection("ai_usage_ledger").findOne({org_id:f.org});assert.equal(ledger.reserved,0);assert.equal(ledger.unknown,2);assert.equal(ledger.used,3);
+  const {AI_LEARNING_CHECKSUM}=require("../dist/training/ai-learning-schema");assert.equal((await f.db.collection("schema_migrations").findOne({version:16})).checksum,AI_LEARNING_CHECKSUM);
+  const registry=require("../dist/migrations/schema").systemBackupRegistry();assert.equal(registry.version,16);assert.equal(registry.checksums["16"],AI_LEARNING_CHECKSUM);
+  await f.migrate(f.uri);
+  for(const app of f.apps.splice(0))await app.close();
+  const operator={actor:"ai-learning-privacy-test",reason:"原创合成学情派生擦除验收"};
+  await require("../dist/operations/control").registerEnvironment(f.client,f.db,{environmentId:ledgerEnv.KL_ENVIRONMENT_ID,fileRoot:null,...operator});
+  const privacy=require("../dist/privacy/execution"), deletion={_id:newId(),user_id:students[0].user.user_id,scope:"account",policy_revision:require("../dist/privacy/schema").PRIVACY_POLICY_REVISION,status:"requested",revision:0,plan_hash:null,actor:null,reason_code:null,deleted_categories:[],retained_categories:[],retention_basis:null,remaining_actions:[],created_at:new Date(),updated_at:new Date(),lease_token:null,lease_until:null,ledger_sequence:null,completed_steps:[]};
+  await f.db.collection("privacy_deletion_requests").insertOne(deletion);
+  const inspected=await privacy.inspectPrivacyRequest(f.db,deletion._id);
+  const affectedJobs=await f.db.collection("ai_jobs").find({org_id:f.org,kind:"learning-report"}).toArray();assert.ok(affectedJobs.length>=6);assert.equal(inspected.categories.ai_jobs,affectedJobs.length);
+  await privacy.approvePrivacyRequest(f.client,f.db,{requestId:deletion._id,expectedRevision:inspected.revision,planHash:inspected.plan_hash,retentionBasis:"local_minimal_provenance",...operator});
+  await privacy.executePrivacyRequest(f.client,f.db,{requestId:deletion._id,...operator});
+  assert.equal(await f.db.collection("ai_jobs").countDocuments({kind:"learning-report",org_id:f.org}),0);
+  assert.equal(await f.db.collection("training_reports").countDocuments({class_id:classId}),0);
+  assert.equal(await f.db.collection("training_idempotency").countDocuments({operation:{$regex:"^ai[.]"},resource_id:{$in:[...affectedJobs.map(x=>String(x._id)),...affectedJobs.map(x=>String(x.context_id))]}}),0);
+});
+
+test("AI学情：默认不迁移v16，缺少金额策略时拒绝启用",{timeout:60000},async t=>{
+ const {fixture}=require("./helpers.cjs");const f=await fixture(t,{env:{KL_TRAINING_ENABLED:"true",KL_AI_LEARNING_REPORTS_ENABLED:"false",KL_AI_POLICY_ENABLED:"false",KL_TRAINING_REPORTS_ENABLED:"false"}});
+ assert.equal(await f.db.collection("schema_migrations").findOne({version:16}),null);
+ const {assertSchema,systemBackupRegistry}=require("../dist/migrations/schema");assert.equal(systemBackupRegistry().version,11);
+ process.env.KL_AI_LEARNING_REPORTS_ENABLED="true";
+ try{await assert.rejects(assertSchema(f.db),/require training, reports and amount policy/);}finally{process.env.KL_AI_LEARNING_REPORTS_ENABLED="false";}
+});

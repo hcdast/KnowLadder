@@ -1,9 +1,10 @@
+const traceUuid = { type: "string" as const, format: "uuid" };
 import type {
   OpenAPIObject,
   SchemaObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 const string: SchemaObject = { type: "string" };
-const uuid: SchemaObject = { type: "string", format: "uuid" };
+const resourceId: SchemaObject = { type: "string", pattern: "^[0-9a-f]{24}$" };
 const date: SchemaObject = { type: "string", format: "date-time" };
 const boolean: SchemaObject = { type: "boolean" };
 const object = (properties: Record<string, SchemaObject>): SchemaObject => ({
@@ -13,7 +14,7 @@ const object = (properties: Record<string, SchemaObject>): SchemaObject => ({
   properties,
 });
 const array = (items: SchemaObject): SchemaObject => ({ type: "array", items });
-const wrap = (data: SchemaObject) => object({ data, request_id: uuid });
+const wrap = (data: SchemaObject) => object({ data, request_id: traceUuid });
 export function completeOpenApi(document: OpenAPIObject): OpenAPIObject {
   const schemas: Record<string, SchemaObject> = {
     "/api/v1/auth/csrf": object({
@@ -21,22 +22,22 @@ export function completeOpenApi(document: OpenAPIObject): OpenAPIObject {
       expires_at: date,
     }),
     "/api/v1/auth/login": object({
-      user_id: uuid,
+      user_id: resourceId,
       must_change_password: boolean,
       session_expires_at: date,
     }),
     "/api/v1/auth/refresh": object({ session_expires_at: date }),
     "/api/v1/me": object({
-      user: object({ id: uuid, display_name: string }),
+      user: object({ id: resourceId, display_name: string }),
       organizations: array(
         object({
-          id: uuid,
+          id: resourceId,
           name: string,
           kind: { type: "string", enum: ["school", "personal", "platform"] },
         }),
       ),
       context: {
-        ...object({ org_id: uuid, capabilities: array(string) }),
+        ...object({ org_id: resourceId, capabilities: array(string), student_conflict: boolean }),
         nullable: true,
       },
       must_change_password: boolean,
@@ -55,9 +56,10 @@ export function completeOpenApi(document: OpenAPIObject): OpenAPIObject {
         code: string,
         message: string,
         fields: { type: "object", additionalProperties: string },
+        operation_id: resourceId,
       },
     },
-    request_id: uuid,
+    request_id: traceUuid,
   });
   document.components ??= {};
   document.components.schemas ??= {};
@@ -84,7 +86,7 @@ export function completeOpenApi(document: OpenAPIObject): OpenAPIObject {
         operation.responses[status] = {
           description: status === "204" ? "操作已确认，无正文" : "请求成功",
           headers: {
-            "X-Request-Id": { schema: uuid },
+            "X-Request-Id": { schema: traceUuid },
             "Cache-Control": { schema: { type: "string", enum: ["no-store"] } },
           },
           ...(schemas[path]

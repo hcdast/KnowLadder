@@ -3,7 +3,7 @@ const {test}=require("node:test");
 const assert=require("node:assert/strict");
 const {randomUUID}=require("node:crypto");
 const {fixture}=require("./helpers.cjs");
-const {migrate,migrateVersion1,migrateVersion2,migrateVersion3,migrateVersion4,migrateVersion5,migrateVersion6,assertSchema,assertSchemaVersion6,inspectMigration,CURRENT_SCHEMA_VERSION,PRIVACY_V7_CHECKSUM,systemBackupRegistry,initializeRestoreSchema}=require("../dist/migrations/schema.js");
+const {migrate,migrateVersion1,migrateVersion2,migrateVersion3,migrateVersion4,migrateVersion5,migrateVersion6,assertSchema,assertSchemaVersion6,assertSchemaVersion7,inspectMigration,PRIVACY_V7_CHECKSUM,TEACHING_V8_CHECKSUM,systemBackupRegistry,initializeRestoreSchema}=require("../dist/migrations/schema.js");
 const {PRIVACY_V7_SCHEMAS}=require("../dist/privacy/schema.js");
 const {OPERATIONS_V7_SCHEMAS}=require("../dist/operations/schema.js");
 async function capture(db) {
@@ -19,7 +19,6 @@ test("v7真实旧库升级仅添加安全缺省，历史marker/epoch不变且历
   const f=await fixture(t,{migrated:false,app:false}); await migrateVersion6(f.uri);
   const user=legacyUser(); await f.db.collection("users").insertOne(user);
   const before=await capture(f.db),report=await inspectMigration(f.uri);
-  assert.equal(CURRENT_SCHEMA_VERSION,7); assert.equal(report.target_version,7);
   assert.equal(report.collections.users.needs_defaults,1); assert.equal(report.collections.users.invalid_types,0);
   assert.deepEqual(await capture(f.db),before);
   await migrate(f.uri); await assertSchema(f.db);
@@ -67,9 +66,10 @@ test("v7只读预检拒绝未知集合、异常隐私类型/引用/索引",{time
 test("恢复初始化只创建完整当前schema，不伪造角色、epoch、marker或环境",{timeout:240000},async t=>{
   const source=await fixture(t,{migrated:false,app:false}); await migrate(source.uri);
   const target=await fixture(t,{migrated:false,app:false}); await initializeRestoreSchema(target.db);
-  const registry=systemBackupRegistry(); assert.equal(registry.version,7);
+  const registry=systemBackupRegistry();
   assert.deepEqual(registry.excluded,["auth_sessions","auth_rate_limits"]);
   assert.equal(registry.checksums["7"],PRIVACY_V7_CHECKSUM);
+  assert.equal(registry.checksums["8"],TEACHING_V8_CHECKSUM);
   assert.deepEqual((await target.db.listCollections().toArray()).map(row=>row.name).sort(),[...registry.collections,...registry.excluded].sort());
   for(const name of [...registry.collections,...registry.excluded]) {
     assert.equal(await target.db.collection(name).countDocuments(),0);

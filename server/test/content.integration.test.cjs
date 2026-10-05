@@ -12,6 +12,12 @@ const exec = promisify(execFile);
 
 // Run all server test files with --test-concurrency=1: fixtures mutate process.env.
 const license = () => ({ source: "真实集成验收自有内容授权", granted: true, expires_at: null });
+// Test privileges use the real audited CLI path, including the applied-operation gate.
+async function memberGrant(f, memberId, capability) {
+  const member = await f.db.collection("organization_members").findOne({ _id: memberId });
+  return f.ops.setCapability(f.context, { org_id: member.org_id, member_id: memberId, capability,
+    granted: true, expected_revision: member.authorization_revision, valid_to: new Date(Date.now() + 3600000) });
+}
 async function setup(t, options = {}) {
   const f = await fixture(t, options);
   const organization = await f.ops.createOrganization(f.context, { name: "内容验收组织", kind: "school" });
@@ -25,7 +31,8 @@ async function setup(t, options = {}) {
   f.actor = async (roles, org = f.org) => {
     const browser = new Browser(f.browser.base);
     const user = await f.authenticated(browser);
-    await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles });
+    await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles,
+      ...(roles.includes("content_reviewer") ? { reviewer_valid_to: new Date(Date.now() + 7 * 86400000) } : {}) });
     return { browser, user, org };
   };
   f.editor = await f.actor(["content_editor", "content_reviewer"]);
@@ -97,8 +104,61 @@ Set-Acl -LiteralPath $env:KL_TEST_PRIVATE_ROOT -AclObject $acl`;
   return root;
 }
 // Missing infrastructure is a failure, never an implicit successful mock/skip.
+test("FSC 关闭扫描拒绝登记和续传且不推进排队文件或版本，开启缺配置仍失败关闭", { concurrency: false, timeout: 120000 }, async (t) => {
+    const f = await setup(t, { env: {
+      FILE_SCAN_ENABLED: "true", FILE_STORAGE_ROOT: join(tmpdir(), "fsc-unused-storage"),
+      CLAMSCAN_PATH: process.execPath, CLAMAV_DATABASE: tmpdir(),
+      SCAN_DATABASE_MAX_AGE_HOURS: "48", SCAN_TIMEOUT_MS: "60000",
+    } });
+    const book = await createBook(f);
+    const bytes = Buffer.from("原创附件开关回归\n");
+    const declaration = { owner_type: "textbook", owner_version_id: book.id,
+      expected_revision: book.revision, display_name: "开关验收.txt",
+      size: bytes.length, mime: "text/plain", checksum: createHash("sha256").update(bytes).digest("hex") };
+    const registered = await good(f.editor, "/admin/files", { method: "POST", body: declaration });
+    await f.db.collection("file_resources").updateOne({ _id: registered.id }, { $set: {
+      status: "quarantined", scan_status: "queued", size: bytes.length, mime: "text/plain",
+      checksum: declaration.checksum, uploaded_at: new Date(),
+    } });
+    const snapshot = async () => ({
+      owner: await f.db.collection("textbook_editions").findOne({ _id: book.id }),
+      file: await f.db.collection("file_resources").findOne({ _id: registered.id }),
+      files: await f.db.collection("file_resources").countDocuments({}),
+      receipts: await f.db.collection("content_idempotency").countDocuments({}),
+    });
+    const before = await snapshot();
+    process.env.FILE_SCAN_ENABLED = "false";
+    process.env.FILE_STORAGE_ROOT = "";
+    process.env.CLAMSCAN_PATH = "";
+    process.env.CLAMAV_DATABASE = "";
+    process.env.SCAN_DATABASE_MAX_AGE_HOURS = "invalid";
+    process.env.SCAN_TIMEOUT_MS = "invalid";
+    const rejectedRegistration = await request(f.editor, "/admin/files", { method: "POST",
+      body: { ...declaration, expected_revision: registered.owner_revision } });
+    error(rejectedRegistration, 503);
+    assert.equal(rejectedRegistration.data.error.code, "FILE_SCAN_DISABLED");
+    const rejectedUpload = await request(f.editor, `/admin/files/${registered.id}/content`, { method: "PUT",
+      headers: { "Content-Type": "application/octet-stream", "X-Owner-Revision": String(registered.owner_revision) } });
+    error(rejectedUpload, 503);
+    assert.equal(rejectedUpload.data.error.code, "FILE_SCAN_DISABLED");
+    error(await request(f.editor, `/admin/files/${registered.id}/content`), 409);
+    const state = await good(f.editor, `/admin/files/${registered.id}`);
+    assert.equal(state.status, "quarantined");
+    assert.equal(state.scan_status, "queued");
+    assert.equal(await require("../dist/files/worker").processOne(f.db), false);
+    assert.deepEqual(await snapshot(), before);
+    status(await f.browser.request("/health/live"), 200);
+    status(await f.browser.request("/health/ready"), 200);
+    process.env.FILE_SCAN_ENABLED = "true";
+    const missingConfig = await request(f.editor, "/admin/files", { method: "POST",
+      body: { ...declaration, expected_revision: registered.owner_revision } });
+    error(missingConfig, 503);
+    assert.equal(missingConfig.data.error.code, "SCANNER_NOT_CONFIGURED");
+    assert.deepEqual(await snapshot(), before);
+  });
 test("阶段二：真实内容版本、权限、幂等、章节和私有文件", { concurrency: false, timeout: 600000 }, async (t) => {
   guardedUri(process.env.TEST_MONGODB_URI);
+
 
   await t.test("C01 旧版本一账户库可无损升级且两版本checksum各自稳定", async (t) => {
     const f = await fixture(t, { migrated: false, app: false });
@@ -114,16 +174,18 @@ test("阶段二：真实内容版本、权限、幂等、章节和私有文件",
       password_changed_at: now, created_at: now, updated_at: now };
     await f.db.collection("users").insertOne(originalUser);
     const v1 = await f.db.collection("schema_migrations").findOne({ version: 1 });
-    const originalRoles = await f.db.collection("roles").find().sort({ _id: 1 }).toArray();
     assert.equal(await f.db.collection("schema_migrations").countDocuments(), 1);
     await assert.rejects(assertSchema(f.db), /content migration/i);
     await f.migrate(f.uri); await f.migrate(f.uri); await assertSchema(f.db);
     assert.deepEqual(await f.db.collection("users").findOne({ _id: user.user_id }), { ...originalUser, privacy_state: "active" });
     assert.deepEqual(await f.db.collection("schema_migrations").findOne({ version: 1 }), v1);
-    assert.deepEqual(await f.db.collection("roles").find().sort({ _id: 1 }).toArray(), originalRoles);
     const rows = await f.db.collection("schema_migrations").find().sort({ version: 1 }).toArray();
-    assert.deepEqual(rows.map((row) => [row.version, row.status]), [[1, "completed"], [2, "completed"], [3, "completed"], [4, "completed"], [5, "completed"], [6, "completed"], [7, "completed"]]);
-    for (const row of rows) { assert.match(row.checksum, /^[a-f0-9]{64}$/); assert.equal(row.lease_token, null); }
+    for (const row of rows) {
+      assert.equal(row.status, "completed");
+      assert.ok(row.completed_at instanceof Date);
+      assert.match(row.checksum, /^[a-f0-9]{64}$/);
+      assert.equal(row.lease_token, null);
+    }
     for (const name of ["textbooks", "textbook_editions", "chapters", "questions", "question_versions", "education_stages", "subjects", "knowledge_points", "file_resources", "content_idempotency"]) {
       assert.equal(await f.db.collection(name).countDocuments(), 0, "迁移不得偷偷写入示例内容");
       await assert.rejects(f.db.collection(name).insertOne({ _id: randomUUID(), unexpected: true }), (e) => e.code === 121);
@@ -394,7 +456,7 @@ test("阶段二：真实内容版本、权限、幂等、章节和私有文件",
     assert.equal((await good(f.editor, `/admin/textbook-editions/${empty.id}/chapters`)).items.length, 0);
     error(await request(f.editor, `${base}/revoke-access`, { method: "POST", body: { expected_access_revision: saved.access_revision, reason: "停止授权" } }), 403);
     const member = await f.db.collection("organization_members").findOne({ org_id: f.org, user_id: f.editor.user.user_id });
-    await f.db.collection("member_capability_grants").insertOne({ _id: randomUUID(), org_id: f.org, member_id: member._id, capability: "content:revoke" });
+    await memberGrant(f, member._id, "content:revoke");
     const published = await publish(f, book.id); const key = randomUUID();
     const stopped = await good(f.editor, `${base}/revoke-access`, { method: "POST", key, body: { expected_access_revision: published.access_revision, reason: "原创验收授权撤销" } });
     assert.equal(stopped.revision, published.revision); assert.equal(stopped.access_revision, published.access_revision + 1);
@@ -411,7 +473,7 @@ test("阶段二：真实内容版本、权限、幂等、章节和私有文件",
     await chapters(f, book.id, [node]); const published = await publish(f, book.id); const base = `/admin/textbook-editions/${book.id}`;
     error(await request(f.editor, `${base}/retire`, { method: "POST", body: { expected_revision: published.revision, reason: "原创验收停止使用" } }), 403);
     const member = await f.db.collection("organization_members").findOne({ org_id: f.org, user_id: f.editor.user.user_id });
-    await f.db.collection("member_capability_grants").insertOne({ _id: randomUUID(), org_id: f.org, member_id: member._id, capability: "content:retire" });
+    await memberGrant(f, member._id, "content:retire");
     const retired = await good(f.editor, `${base}/retire`, { method: "POST", body: { expected_revision: published.revision, reason: "原创验收停止使用" } });
     assert.equal(retired.status, "retired"); assert.equal(retired.revision, published.revision + 1); assert.equal(retired.access_revision, published.access_revision + 1);
     error(await request(f.student, `/chapters/${node.id}`), 404);
@@ -432,7 +494,7 @@ test("阶段二：真实内容版本、权限、幂等、章节和私有文件",
     const base = `/admin/textbook-editions/${book.id}`; const draft = await detail(f, book.id);
     const review = await transition(f.editor, base, "submit-review", draft.revision);
     const member = await f.db.collection("organization_members").findOne({ org_id: f.org, user_id: f.editor.user.user_id });
-    await f.db.collection("member_capability_grants").insertOne({ _id: randomUUID(), org_id: f.org, member_id: member._id, capability: "content:revoke" });
+    await memberGrant(f, member._id, "content:revoke");
     const [publishResult, revokeResult] = await Promise.all([
       request(f.reviewer, `${base}/publish`, { method: "POST", body: { expected_revision: review.revision } }),
       request(f.editor, `${base}/revoke-access`, { method: "POST", body: { expected_access_revision: review.access_revision, reason: "并发原创验收" } }),
@@ -527,7 +589,7 @@ test("阶段二：真实内容版本、权限、幂等、章节和私有文件",
     const f = await setup(t); const book = await createBook(f); await chapters(f, book.id, [chapter(f)]);
     const published = await publish(f, book.id); const base = `/admin/textbook-editions/${book.id}`;
     const member = await f.db.collection("organization_members").findOne({ org_id: f.org, user_id: f.editor.user.user_id });
-    await f.db.collection("member_capability_grants").insertMany(["content:revoke", "content:retire"].map(capability => ({ _id: randomUUID(), org_id: f.org, member_id: member._id, capability })));
+    for (const capability of ["content:revoke", "content:retire"]) await memberGrant(f, member._id, capability);
     const key = randomUUID(); const body = { expected_access_revision: published.access_revision, reason: "原创验收撤销" };
     const revoked = await good(f.editor, `${base}/revoke-access`, { method: "POST", key, body });
     const retired = await good(f.editor, `${base}/retire`, { method: "POST", body: { expected_revision: revoked.revision, reason: "原创验收撤回" } });

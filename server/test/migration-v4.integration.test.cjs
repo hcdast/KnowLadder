@@ -65,15 +65,16 @@ test("v4迁移及持久约束", { concurrency: false, timeout: 240000 }, async t
     let member = await setMembership(ctx,{user_id:user.user_id,org_id:org.organization_id,roles:["org_admin"]});
     assert.equal(await f.db.collection("member_capability_grants").countDocuments(),0);
     for (const capability of ["assessment:manage","assessment:review"]) {
-      const input = {member_id:member.member_id,org_id:org.organization_id,capability,granted:true,expected_revision:member.authorization_revision};
+      const input = {member_id:member.member_id,org_id:org.organization_id,capability,granted:true,valid_to:new Date(Date.now()+3600000),expected_revision:member.authorization_revision};
       member = await setCapability(ctx,input);
       await assert.rejects(setCapability(ctx,input),e=>e.code==="REVISION_CONFLICT");
       const audit = await f.db.collection("audit_events").findOne({action:`capability.grant.${capability}`});
       assert.equal(audit.reason,ctx.reason); assert.equal(audit.access_revision_after,member.authorization_revision);
     }
-    await assert.rejects(setCapability(ctx,{member_id:member.member_id,org_id:org.organization_id,capability:"assessment:worker",granted:true,expected_revision:member.authorization_revision}),e=>e.code==="INVALID_OPERATION");
+    await assert.rejects(setCapability(ctx,{member_id:member.member_id,org_id:org.organization_id,capability:"assessment:worker",granted:true,valid_to:new Date(Date.now()+3600000),expected_revision:member.authorization_revision}),e=>e.code==="INVALID_OPERATION");
     await setMembership(ctx,{user_id:user.user_id,org_id:org.organization_id,roles:["org_admin"],expected_revision:member.authorization_revision});
-    assert.equal(await f.db.collection("member_capability_grants").countDocuments(),0);
+    assert.equal(await f.db.collection("member_capability_grants").countDocuments({ member_id: member.member_id, status: "active" }), 0);
+    assert.equal(await f.db.collection("member_capability_grants").countDocuments({ member_id: member.member_id, status: "revoked" }), 2);
     for (const role of await f.db.collection("roles").find().toArray()) assert.ok(role.capabilities.every(cap=>!cap.startsWith("assessment:")));
   });
   await t.test("活动会话部分唯一约束及Decimal128精度和分值上界", async t => {

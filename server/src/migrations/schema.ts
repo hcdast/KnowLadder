@@ -1,3 +1,11 @@
+import {aiLearningSchemas,migrateAiLearning,AI_LEARNING_CHECKSUM} from "../training/ai-learning-schema";
+import {trainingPhase2Schemas,migrateTrainingPhase2,TRAINING_PHASE2_CHECKSUM} from '../training/phase2-schema';
+import {trainingReportSchemas,migrateTrainingReports,TRAINING_REPORT_CHECKSUM} from '../training/report-schema';
+import {aiPolicySchemas,migrateAiPolicy,AI_POLICY_CHECKSUM} from '../training/ai-policy-schema';
+import {courseworkFilesSchemas,migrateCourseworkFiles,COURSEWORK_FILES_CHECKSUM} from '../training/coursework-files-schema';
+import { trainingSchemas, migrateTraining, TRAINING_CHECKSUM } from "../training/schema";
+import { objectIdSchemas, objectIdChecksum, assertObjectIdSchema, initializeObjectId } from "./object-id-v10";
+import { rawDatabase } from "../database/object-id";
 import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import {
@@ -7,16 +15,22 @@ import {
   type Document,
   type IndexDescription,
 } from "mongodb";
-import { ROLE_CAPABILITIES } from "../database/contracts";
+import { ROLE_CAPABILITIES, type AdministrationGuard } from "../database/contracts";
 import { CONTENT_SCHEMAS, CONTENT_SCHEMA_CHECKSUM } from "./content-schema";
-import { CONTENT_V3_SCHEMAS, CONTENT_V3_CHECKSUM, V3_DEFAULTS, withVersion3Defaults, assertImpactSafe } from "./content-v3";
+import { CONTENT_V3_SCHEMAS, CONTENT_V3_CHECKSUM, V3_DEFAULTS, withVersion3Defaults, assertImpactSafe, inspectVersion3 } from "./content-v3";
 import { ASSESSMENT_V4_SCHEMAS, ASSESSMENT_V4_CHECKSUM } from "./assessment-v4";
 import { LEARNING_V5_SCHEMAS, LEARNING_V5_CHECKSUM, inspectVersion5 } from "./learning-v5";
 import { LEARNING_API_V6_SCHEMAS, LEARNING_API_V6_CHECKSUM } from "./learning-api-v6";
-import { privacyVersion7, inspectVersion7 } from "./privacy-v7";
+import { privacyVersion7 } from "./privacy-v7";
+import { TEACHING_V8_SCHEMAS, TEACHING_V8_CHECKSUM, inspectVersion8 } from "./teaching-v8";
+import { ADMINISTRATION_V9_SCHEMAS, ADMINISTRATION_V9_CHECKSUM, inspectVersion9 } from "./administration-v9";
 import { acquireWriter } from "../operations/control";
+import { loadConfig } from "../config";
+import { assertTopology } from "../database/topology";
+import { runInTxn } from "../database/txn";
 
-export const CURRENT_SCHEMA_VERSION = 7;
+
+export const CURRENT_SCHEMA_VERSION = 10;
 
 const VERSION = 1;
 const LEASE_MS = 120_000;
@@ -36,8 +50,16 @@ const COUNTER = {
   maximum: Number.MAX_SAFE_INTEGER,
   multipleOf: 1,
 };
-const ROLE_CODES = Object.keys(ROLE_CAPABILITIES);
-const ROLE = { bsonType: "string", enum: ROLE_CODES };
+// Historical v1 role catalog must stay frozen so CHECKSUM and validators do not drift.
+const V1_ROLE_CAPABILITIES = {
+  student: ["account:read", "learning:self"],
+  content_editor: ["account:read", "content:edit"],
+  content_reviewer: ["account:read", "content:review"],
+  org_admin: ["account:read", "organization:admin"],
+  platform_ops: ["account:read", "operations:health"],
+} as const;
+const V1_ROLE_CODES = Object.keys(V1_ROLE_CAPABILITIES);
+const ROLE = { bsonType: "string", enum: V1_ROLE_CODES };
 const STATUS = { bsonType: "string", enum: ["active", "disabled"] };
 
 interface CollectionSchema {
@@ -161,12 +183,12 @@ const schemas: Record<string, CollectionSchema> = {
           uniqueItems: true,
           items: {
             bsonType: "string",
-            enum: [...new Set(Object.values(ROLE_CAPABILITIES).flat())],
+            enum: [...new Set(Object.values(V1_ROLE_CAPABILITIES).flat())],
           },
         },
       },
       [{ $eq: ["$_id", "$code"] }],
-      Object.entries(ROLE_CAPABILITIES).map(([code, capabilities]) => ({
+      Object.entries(V1_ROLE_CAPABILITIES).map(([code, capabilities]) => ({
         properties: {
           code: { enum: [code] },
           capabilities: { enum: [capabilities] },
@@ -370,39 +392,33 @@ const CHECKSUM = createHash("sha256")
       version: VERSION,
       schemas,
       migrationSchema,
-      roles: ROLE_CAPABILITIES,
+      roles: V1_ROLE_CAPABILITIES,
     }),
   )
   .digest("hex");
 
 const { schemas: PRIVACY_SCHEMAS, checksum: PRIVACY_V7_CHECKSUM } = privacyVersion7(schemas.users);
-export { PRIVACY_V7_CHECKSUM };
-const CURRENT_SCHEMAS = { ...schemas, ...CONTENT_SCHEMAS, ...CONTENT_V3_SCHEMAS, ...ASSESSMENT_V4_SCHEMAS, ...LEARNING_V5_SCHEMAS, ...LEARNING_API_V6_SCHEMAS, ...PRIVACY_SCHEMAS, schema_migrations: migrationSchema };
+export { PRIVACY_V7_CHECKSUM, TEACHING_V8_CHECKSUM };
+const CURRENT_SCHEMAS = { ...schemas, ...CONTENT_SCHEMAS, ...CONTENT_V3_SCHEMAS, ...ASSESSMENT_V4_SCHEMAS, ...LEARNING_V5_SCHEMAS, ...LEARNING_API_V6_SCHEMAS, ...PRIVACY_SCHEMAS, ...TEACHING_V8_SCHEMAS, ...ADMINISTRATION_V9_SCHEMAS, schema_migrations: migrationSchema };
+export const OBJECT_ID_SCHEMAS = objectIdSchemas(CURRENT_SCHEMAS);
+export const OBJECT_ID_CHECKSUM = objectIdChecksum(OBJECT_ID_SCHEMAS);
+function preAiTrainingSchemas(){const s=trainingSchemas(OBJECT_ID_SCHEMAS);return process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? courseworkFilesSchemas(s):s;}
+function preReportSchemas(){const s=preAiTrainingSchemas();return process.env.KL_AI_POLICY_ENABLED === "true" ? aiPolicySchemas(s):s;}
+function prePhase2Schemas(){const s=preReportSchemas();return process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? trainingReportSchemas(s):s;}
+function preLearningAiSchemas(){const s=prePhase2Schemas();return process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? trainingPhase2Schemas(s):s;}
+function effectiveTrainingSchemas(){const s=preLearningAiSchemas();return process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? aiLearningSchemas(s):s;}
+function requireLearningAiDependencies(){if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && ["KL_TRAINING_ENABLED","KL_TRAINING_REPORTS_ENABLED","KL_AI_POLICY_ENABLED"].some(key=>process.env[key]!=="true"))throw Error("AI learning reports require training, reports and amount policy");}
 export function systemBackupRegistry() {
-  return { version: CURRENT_SCHEMA_VERSION, collections: Object.keys(CURRENT_SCHEMAS).filter(name => !["auth_sessions", "auth_rate_limits"].includes(name)), excluded: ["auth_sessions", "auth_rate_limits"], checksums: { "1": CHECKSUM, "2": CONTENT_SCHEMA_CHECKSUM, "3": CONTENT_V3_CHECKSUM, "4": ASSESSMENT_V4_CHECKSUM, "5": LEARNING_V5_CHECKSUM, "6": LEARNING_API_V6_CHECKSUM, "7": PRIVACY_V7_CHECKSUM } };
+  return { version: process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : CURRENT_SCHEMA_VERSION, collections: Object.keys(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS).filter(name => !["auth_sessions", "auth_rate_limits"].includes(name)), excluded: ["auth_sessions", "auth_rate_limits"], checksums: { "1": CHECKSUM, "2": CONTENT_SCHEMA_CHECKSUM, "3": CONTENT_V3_CHECKSUM, "4": ASSESSMENT_V4_CHECKSUM, "5": LEARNING_V5_CHECKSUM, "6": LEARNING_API_V6_CHECKSUM, "7": PRIVACY_V7_CHECKSUM, "8": TEACHING_V8_CHECKSUM, "9": ADMINISTRATION_V9_CHECKSUM, "10": OBJECT_ID_CHECKSUM, ...(process.env.KL_TRAINING_ENABLED === "true" ? { "11": TRAINING_CHECKSUM, ...(process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? {"12":COURSEWORK_FILES_CHECKSUM}:{}), ...(process.env.KL_AI_POLICY_ENABLED === "true" ? {"13":AI_POLICY_CHECKSUM}:{}), ...(process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? {"14":TRAINING_REPORT_CHECKSUM}:{}), ...(process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? {"15":TRAINING_PHASE2_CHECKSUM}:{}), ...(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? {"16":AI_LEARNING_CHECKSUM}:{}) } : {}) } };
 }
 
 /** Empty restore targets only. No markers, epochs, role catalog or state seeds. */
 export async function initializeRestoreSchema(db: Db): Promise<void> {
-  await assertReplicaSet(db);
+  await assertTopology(db, loadConfig());
   if ((await db.listCollections({}, { nameOnly: true, maxTimeMS: COMMAND_MS }).toArray()).length) throw new Error("Restore target must be empty");
-  for (const [name, schema] of Object.entries(CURRENT_SCHEMAS)) await ensureCollection(db, name, schema, async () => {});
+  for (const [name, schema] of Object.entries(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS)) await ensureCollection(rawDatabase(db), name, schema, async () => {});
 }
 
-async function assertReplicaSet(db: Db): Promise<void> {
-  const hello = await db
-    .admin()
-    .command(
-      { hello: 1, maxTimeMS: COMMAND_MS },
-      { readPreference: "primary" },
-    );
-  if (
-    typeof hello.setName !== "string" ||
-    !hello.isWritablePrimary ||
-    hello.logicalSessionTimeoutMinutes == null
-  )
-    throw new Error("MongoDB writable replica set is required");
-}
 
 async function ensureCollection(
   db: Db,
@@ -489,6 +505,8 @@ async function assertCollection(
 
 async function assertEffectiveCollection(db: Db, name: string, schema: CollectionSchema, version: number): Promise<void> {
   for (const [newerVersion, checksum, definitions] of [
+    [9, ADMINISTRATION_V9_CHECKSUM, ADMINISTRATION_V9_SCHEMAS],
+    [8, TEACHING_V8_CHECKSUM, TEACHING_V8_SCHEMAS],
     [7, PRIVACY_V7_CHECKSUM, PRIVACY_SCHEMAS],
     [6, LEARNING_API_V6_CHECKSUM, LEARNING_API_V6_SCHEMAS],
     [5, LEARNING_V5_CHECKSUM, LEARNING_V5_SCHEMAS],
@@ -509,7 +527,7 @@ async function assertEffectiveCollection(db: Db, name: string, schema: Collectio
 
 /** Read-only readiness check. The caller may cache success briefly, never authorization. */
 export async function assertSchemaVersion1(db: Db): Promise<void> {
-  await assertReplicaSet(db);
+  await assertTopology(db, loadConfig());
   await assertCollection(db, "schema_migrations", migrationSchema);
   const migration = await db
     .collection("schema_migrations")
@@ -541,9 +559,15 @@ export async function assertSchemaVersion1(db: Db): Promise<void> {
       },
     )
     .toArray();
+  const catalogMarker = await db.collection("schema_migrations").findOne({ version: 8 });
+  const catalog =
+    catalogMarker?.status === "completed" && catalogMarker.checksum === TEACHING_V8_CHECKSUM
+      ? ROLE_CAPABILITIES
+      : V1_ROLE_CAPABILITIES;
+  const catalogCodes = Object.keys(catalog);
   if (
-    roles.length !== ROLE_CODES.length ||
-    ROLE_CODES.some(
+    roles.length !== catalogCodes.length ||
+    catalogCodes.some(
       (code) =>
         !roles.some(
           (role) =>
@@ -551,7 +575,7 @@ export async function assertSchemaVersion1(db: Db): Promise<void> {
             role.code === code &&
             isDeepStrictEqual(
               role.capabilities,
-              ROLE_CAPABILITIES[code as keyof typeof ROLE_CAPABILITIES],
+              catalog[code as keyof typeof catalog],
             ),
         ),
     )
@@ -565,7 +589,7 @@ async function migrateVersion(uri: string, spec: {
   checksum: string;
   schemas: Record<string, CollectionSchema>;
   assert: (db: Db) => Promise<void>;
-  seedRoles: boolean;
+  seedRoles: false | Record<string, readonly string[]>;
   prepare?: (db: Db, client: MongoClient, renew: () => Promise<void>, held: () => Document) => Promise<void>;
   finalize?: (db: Db, session: import("mongodb").ClientSession) => Promise<void>;
 }): Promise<void> {
@@ -581,7 +605,7 @@ async function migrateVersion(uri: string, spec: {
   try {
     await client.connect();
     const db = client.db();
-    await assertReplicaSet(db);
+    await assertTopology(db, loadConfig());
     // Bootstrap is deliberately idempotent and contains no application data writes.
     await ensureCollection(
       db,
@@ -667,13 +691,15 @@ async function migrateVersion(uri: string, spec: {
     };
     try {
       if (spec.prepare) await spec.prepare(db, client, renew, held);
+      const completedV9 = VERSION < 9 && await migrations.findOne({ version: 9, status: "completed", checksum: ADMINISTRATION_V9_CHECKSUM });
+      const completedV8 = VERSION < 8 && await migrations.findOne({ version: 8, status: "completed", checksum: TEACHING_V8_CHECKSUM });
       const completedV7 = VERSION < 7 && await migrations.findOne({ version: 7, status: "completed", checksum: PRIVACY_V7_CHECKSUM });
       const completedV6 = VERSION < 6 && await migrations.findOne({ version: 6, status: "completed", checksum: LEARNING_API_V6_CHECKSUM });
       const completedV5 = VERSION < 5 && await migrations.findOne({ version: 5, status: "completed", checksum: LEARNING_V5_CHECKSUM });
       const completedV4 = VERSION < 4 && await migrations.findOne({ version: 4, status: "completed", checksum: ASSESSMENT_V4_CHECKSUM });
       const completedV3 = VERSION < 3 && await migrations.findOne({ version: 3, status: "completed", checksum: CONTENT_V3_CHECKSUM });
       const effectiveSchemas = Object.entries(schemas).map(([name, schema]) =>
-        [name, (completedV7 && PRIVACY_SCHEMAS[name]) || (completedV6 && LEARNING_API_V6_SCHEMAS[name]) || (completedV5 && LEARNING_V5_SCHEMAS[name]) || (completedV4 && ASSESSMENT_V4_SCHEMAS[name]) || (completedV3 && CONTENT_V3_SCHEMAS[name]) || schema] as const);
+        [name, (completedV9 && ADMINISTRATION_V9_SCHEMAS[name]) || (completedV8 && TEACHING_V8_SCHEMAS[name]) || (completedV7 && PRIVACY_SCHEMAS[name]) || (completedV6 && LEARNING_API_V6_SCHEMAS[name]) || (completedV5 && LEARNING_V5_SCHEMAS[name]) || (completedV4 && ASSESSMENT_V4_SCHEMAS[name]) || (completedV3 && CONTENT_V3_SCHEMAS[name]) || schema] as const);
       // DDL cannot join a transaction. Bounded idempotent steps are renewed individually.
       for (const [name, schema] of effectiveSchemas)
         await ensureCollection(db, name, schema, renew);
@@ -682,55 +708,49 @@ async function migrateVersion(uri: string, spec: {
         await assertCollection(db, name, schema);
       }
       await renew();
-      const session = client.startSession();
-      try {
-        await session.withTransaction(
-          async () => {
-            const fence = await migrations.updateOne(
-              held(),
-              [{ $set: { lease_until: { $add: ["$$NOW", LEASE_MS] } } }],
-              { session, maxTimeMS: COMMAND_MS },
-            );
-            if (fence.matchedCount !== 1)
-              throw new Error("Migration lease lost");
-            if (spec.seedRoles) for (const [code, capabilities] of Object.entries(
-              ROLE_CAPABILITIES,
-            ))
-              await db
-                .collection<Document & { _id: string }>("roles")
-                .replaceOne(
-                  { _id: code },
-                  { _id: code, code, capabilities },
-                  { upsert: true, session, maxTimeMS: COMMAND_MS },
-                );
-            if (spec.finalize) await spec.finalize(db, session);
-            const completed = await migrations.updateOne(
-              held(),
-              [
-                {
-                  $set: {
-                    status: "completed",
-                    completed_at: "$$NOW",
-                    lease_token: null,
-                    lease_until: null,
-                  },
+      await runInTxn(
+        client,
+        async (session) => {
+          const fence = await migrations.updateOne(
+            held(),
+            [{ $set: { lease_until: { $add: ["$$NOW", LEASE_MS] } } }],
+            { session, maxTimeMS: COMMAND_MS },
+          );
+          if (fence.matchedCount !== 1)
+            throw new Error("Migration lease lost");
+          if (spec.seedRoles) for (const [code, capabilities] of Object.entries(spec.seedRoles))
+            await db
+              .collection<Document & { _id: string }>("roles")
+              .replaceOne(
+                { _id: code },
+                { _id: code, code, capabilities: [...capabilities] },
+                { upsert: true, session, maxTimeMS: COMMAND_MS },
+              );
+          if (spec.finalize) await spec.finalize(db, session);
+          const completed = await migrations.updateOne(
+            held(),
+            [
+              {
+                $set: {
+                  status: "completed",
+                  completed_at: "$$NOW",
+                  lease_token: null,
+                  lease_until: null,
                 },
-              ],
-              { session, maxTimeMS: COMMAND_MS },
-            );
-            if (completed.matchedCount !== 1)
-              throw new Error("Migration lease lost");
-          },
-          {
-            readConcern: { level: "snapshot" },
-            writeConcern: WRITE_CONCERN,
-            readPreference: "primary",
-            maxCommitTimeMS: COMMAND_MS,
-          },
-        );
-      } finally {
-        await session.endSession();
-      }
+              },
+            ],
+            { session, maxTimeMS: COMMAND_MS },
+          );
+          if (completed.matchedCount !== 1)
+            throw new Error("Migration lease lost");
+        },
+        {
+          readConcern: { level: "snapshot" },
+          writeConcern: WRITE_CONCERN,
+          readPreference: "primary",
+          maxCommitTimeMS: COMMAND_MS,
+        },
+      );
       await assertVersion(db);
     } catch (error) {
       // A late worker may neither mark success nor alter a successor's failure state.
@@ -760,7 +780,7 @@ async function migrateVersion(uri: string, spec: {
 /** Retained for explicit upgrades and recovery of phase-one backups. */
 export async function migrateVersion1(uri: string): Promise<void> {
   await migrateVersion(uri, { version: VERSION, checksum: CHECKSUM, schemas,
-    assert: assertSchemaVersion1, seedRoles: true });
+    assert: assertSchemaVersion1, seedRoles: V1_ROLE_CAPABILITIES });
 }
 
 async function assertContentSchema(db: Db): Promise<void> {
@@ -816,7 +836,7 @@ export async function assertSchemaVersion6(db: Db): Promise<void> {
   for (const [name, schema] of Object.entries(LEARNING_API_V6_SCHEMAS)) await assertEffectiveCollection(db, name, schema, 6);
 }
 
-export async function assertSchema(db: Db): Promise<void> {
+export async function assertSchemaVersion7(db: Db): Promise<void> {
   await assertSchemaVersion6(db);
   const marker = await db.collection("schema_migrations").findOne({ version: 7 });
   if (!marker || marker.status !== "completed" || marker.checksum !== PRIVACY_V7_CHECKSUM || !(marker.completed_at instanceof Date)) throw new Error("Required v7 migration is incomplete or its checksum differs");
@@ -824,18 +844,78 @@ export async function assertSchema(db: Db): Promise<void> {
   if (!await db.collection<Document & { _id: string }>("operational_state").findOne({ _id: "environment" })) throw new Error("Operational state is missing");
 }
 
+export async function assertSchemaVersion8(db: Db): Promise<void> {
+  await assertSchemaVersion7(db);
+  const marker = await db.collection("schema_migrations").findOne({ version: 8 });
+  if (!marker || marker.status !== "completed" || marker.checksum !== TEACHING_V8_CHECKSUM || !(marker.completed_at instanceof Date)) throw new Error("Required v8 migration is incomplete or its checksum differs");
+  for (const [name, schema] of Object.entries(TEACHING_V8_SCHEMAS)) await assertEffectiveCollection(db, name, schema, 8);
+}
+
+export async function assertLegacySchema(db: Db): Promise<void> {
+  await assertSchemaVersion8(db);
+  const marker = await db.collection("schema_migrations").findOne({ version: 9 });
+  if (!marker || marker.status !== "completed" || marker.checksum !== ADMINISTRATION_V9_CHECKSUM || !(marker.completed_at instanceof Date)) throw new Error("Required v9 migration is incomplete or its checksum differs");
+  for (const [name, schema] of Object.entries(ADMINISTRATION_V9_SCHEMAS)) await assertCollection(db, name, schema);
+  if (!await db.collection<AdministrationGuard>("administration_guard").findOne({ _id: "administration" })) throw new Error("Administration guard missing");
+}
+
 /** A read-only impact command, including on databases without migration markers. */
-export async function inspectMigration(uri: string) {
+export async function inspectLegacyMigration(uri: string) {
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: COMMAND_MS, readConcern: { level: "majority" }, readPreference: "primary" });
-  try { await client.connect(); await assertReplicaSet(client.db()); return await inspectCurrent(client.db()); }
+  try { await client.connect(); await assertTopology(client.db(), loadConfig()); return await inspectCurrent(client.db()); }
   finally { await client.close(); }
 }
 
 async function inspectCurrent(db: Db) {
-  const report = await inspectVersion7(db, PRIVACY_SCHEMAS, CURRENT_SCHEMAS);
-  const checksums = new Map([[1,CHECKSUM],[2,CONTENT_SCHEMA_CHECKSUM],[3,CONTENT_V3_CHECKSUM],[4,ASSESSMENT_V4_CHECKSUM],[5,LEARNING_V5_CHECKSUM],[6,LEARNING_API_V6_CHECKSUM],[7,PRIVACY_V7_CHECKSUM]]);
+  const markerV9 = await db.collection("schema_migrations").findOne({ version: 9 });
+  const v9Cutover = markerV9?.checksum === ADMINISTRATION_V9_CHECKSUM;
+  const publishedV9 = v9Cutover && markerV9.status === "completed";
+  const report = await inspectVersion8(db, PRIVACY_SCHEMAS, CURRENT_SCHEMAS);
+  // A crashed v9 prepare may have converted some grants before its DDL/marker.
+  // Accept only the two valid contracts; neither old definition is rewritten.
+  const effectiveSchemas: Record<string, CollectionSchema> = !v9Cutover || publishedV9 ? CURRENT_SCHEMAS : {
+    ...CURRENT_SCHEMAS,
+    member_roles: { ...ADMINISTRATION_V9_SCHEMAS.member_roles,
+      validator: { $or: [TEACHING_V8_SCHEMAS.member_roles.validator, ADMINISTRATION_V9_SCHEMAS.member_roles.validator] } },
+    member_capability_grants: { ...ADMINISTRATION_V9_SCHEMAS.member_capability_grants,
+      validator: { $or: [TEACHING_V8_SCHEMAS.member_capability_grants.validator, ADMINISTRATION_V9_SCHEMAS.member_capability_grants.validator] } },
+  };
+  if (v9Cutover) {
+    const content = await inspectVersion3(db, undefined, effectiveSchemas);
+    for (const [name, counts] of Object.entries(content.collections)) report.collections[name] = counts;
+    report.invalid_references = Math.max(report.invalid_references, content.invalid_references);
+  }
+  if (v9Cutover) {
+    const listed = new Set((await db.listCollections({}, { nameOnly: true, maxTimeMS: COMMAND_MS }).toArray()).map(row => row.name));
+    for (const [name, schema] of Object.entries(ADMINISTRATION_V9_SCHEMAS)) {
+      const count = await db.collection(name).countDocuments({}, { maxTimeMS: COMMAND_MS });
+      const expected = publishedV9 ? schema : name === "member_roles" || name === "member_capability_grants"
+        ? effectiveSchemas[name] : schema;
+      const invalid = await db.collection(name).countDocuments({ $nor: [expected.validator] }, { maxTimeMS: COMMAND_MS });
+      report.collections[name] = { documents: count, needs_defaults: 0, invalid_types: invalid };
+      const indexes = listed.has(name) ? await db.collection(name).listIndexes({ maxTimeMS: COMMAND_MS }).toArray() : [];
+      report.indexes[name] = indexes.map(index => index.name!);
+      const previous = PRIVACY_SCHEMAS[name];
+      for (const index of indexes) {
+        if (index.name === "_id_" || previous?.indexes.some(old => old.name === index.name)) continue;
+        const expected = schema.indexes.find(candidate => candidate.name === index.name);
+        if (expected && isDeepStrictEqual(index.key, expected.key) &&
+            Boolean(index.unique) === Boolean(expected.unique) &&
+            index.expireAfterSeconds === expected.expireAfterSeconds &&
+            isDeepStrictEqual(index.partialFilterExpression, expected.partialFilterExpression) &&
+            !index.sparse && !index.hidden && !index.collation) {
+          if (previous) report.invalid_indexes--;
+        } else if (!previous) report.invalid_indexes++;
+      }
+      if (publishedV9) for (const required of schema.indexes) {
+        if (!indexes.some(index => index.name === required.name)) report.invalid_indexes++;
+      }
+    }
+  }
+  const checksums = new Map([[1,CHECKSUM],[2,CONTENT_SCHEMA_CHECKSUM],[3,CONTENT_V3_CHECKSUM],[4,ASSESSMENT_V4_CHECKSUM],[5,LEARNING_V5_CHECKSUM],[6,LEARNING_API_V6_CHECKSUM],[7,PRIVACY_V7_CHECKSUM],[8,TEACHING_V8_CHECKSUM],[9,ADMINISTRATION_V9_CHECKSUM]]);
   for (const marker of report.markers) if (checksums.get(marker.version) !== marker.checksum) throw new Error("Migration checksum mismatch");
-  return report;
+  const administration = await inspectVersion9(db, Object.keys(CURRENT_SCHEMAS));
+  return { ...report, ...administration, invalid_references: report.invalid_references + administration.unbound_grants };
 }
 
 function assertLearningImpactSafe(report: Awaited<ReturnType<typeof inspectVersion5>>): void {
@@ -856,7 +936,7 @@ export async function migrateVersion2(uri: string): Promise<void> {
 
 /** Upgrade sequentially without ever rewriting historical definitions or checksums. */
 export async function migrateVersion3(uri: string): Promise<void> {
-  assertLearningImpactSafe(await inspectMigration(uri));
+  assertLearningImpactSafe(await inspectLegacyMigration(uri));
   await migrateVersion2(uri);
   await migrateVersion(uri, { version: 3, checksum: CONTENT_V3_CHECKSUM, schemas: CONTENT_V3_SCHEMAS,
     assert: assertVersion3, seedRoles: false,
@@ -865,9 +945,9 @@ export async function migrateVersion3(uri: string): Promise<void> {
       assertLearningImpactSafe(await inspectCurrent(db));
       for (const [name, defaults] of Object.entries(V3_DEFAULTS)) {
         await renew();
-        const session = client.startSession();
-        try {
-          await session.withTransaction(async () => {
+        await runInTxn(
+          client,
+          async (session) => {
             const fence = await db.collection("schema_migrations").updateOne(held(),
               [{ $set: { lease_until: { $add: ["$$NOW", LEASE_MS] } } }], { session, maxTimeMS: COMMAND_MS });
             if (fence.matchedCount !== 1) throw new Error("Migration lease lost");
@@ -876,8 +956,9 @@ export async function migrateVersion3(uri: string): Promise<void> {
               { $or: Object.keys(defaults).map(field => ({ [field]: { $exists: false } })) },
               [{ $replaceWith: withVersion3Defaults(name) }],
               { session, bypassDocumentValidation: true, maxTimeMS: COMMAND_MS });
-          }, { readConcern: { level: "snapshot" }, writeConcern: WRITE_CONCERN, readPreference: "primary" });
-        } finally { await session.endSession(); }
+          },
+          { readConcern: { level: "snapshot" }, writeConcern: WRITE_CONCERN, readPreference: "primary" },
+        );
       }
       await renew();
       assertLearningImpactSafe(await inspectCurrent(db));
@@ -886,7 +967,7 @@ export async function migrateVersion3(uri: string): Promise<void> {
 
 /** Upgrade v4 through bounded lease-fenced DDL; no seed or legacy content rewrite. */
 export async function migrateVersion4(uri: string): Promise<void> {
-  assertLearningImpactSafe(await inspectMigration(uri));
+  assertLearningImpactSafe(await inspectLegacyMigration(uri));
   await migrateVersion3(uri);
   await migrateVersion(uri, { version: 4, checksum: ASSESSMENT_V4_CHECKSUM, schemas: ASSESSMENT_V4_SCHEMAS,
     assert: assertSchemaVersion4, seedRoles: false, prepare: async (db, _client, renew) => {
@@ -898,7 +979,7 @@ export async function migrateVersion4(uri: string): Promise<void> {
 
 /** The epoch is published atomically with the completed marker, never during DDL. */
 export async function migrateVersion5(uri: string): Promise<void> {
-  assertLearningImpactSafe(await inspectMigration(uri));
+  assertLearningImpactSafe(await inspectLegacyMigration(uri));
   await migrateVersion4(uri);
   await migrateVersion(uri, { version:5, checksum:LEARNING_V5_CHECKSUM, schemas:LEARNING_V5_SCHEMAS,
     assert:assertSchemaVersion5, seedRoles:false,
@@ -912,7 +993,7 @@ export async function migrateVersion5(uri: string): Promise<void> {
 
 /** Add only the collections used by the learning HTTP APIs; preserve the v5 epoch. */
 export async function migrateVersion6(uri: string): Promise<void> {
-  assertLearningImpactSafe(await inspectMigration(uri));
+  assertLearningImpactSafe(await inspectLegacyMigration(uri));
   await migrateVersion5(uri);
   await migrateVersion(uri, { version:6, checksum:LEARNING_API_V6_CHECKSUM, schemas:LEARNING_API_V6_SCHEMAS,
     assert:assertSchemaVersion6, seedRoles:false,
@@ -920,36 +1001,125 @@ export async function migrateVersion6(uri: string): Promise<void> {
   });
 }
 
+/** Retained to verify actual v8 upgrades without manufacturing a v9 marker. */
+export async function migrateVersion8(uri: string): Promise<void> {
+  await migrateThrough(uri, 8);
+}
+
 export async function migrate(uri: string): Promise<void> {
-  assertLearningImpactSafe(await inspectMigration(uri));
+  requireLearningAiDependencies();
+  if (process.env.KL_TRAINING_ENABLED !== "true") { await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES); return; }
+  const client = new MongoClient(uri); await client.connect();
+  try {
+    const marker = await client.db().collection('schema_migrations').findOne({version:10,status:'completed',checksum:OBJECT_ID_CHECKSUM});
+    if (!marker) await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);
+    if (await client.db().collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM}) && (process.env.KL_COURSEWORK_FILES_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) && (process.env.KL_AI_POLICY_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) && (process.env.KL_TRAINING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:14,status:'completed',checksum:TRAINING_REPORT_CHECKSUM})) && (process.env.KL_TRAINING_PHASE2_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:15,status:'completed',checksum:TRAINING_PHASE2_CHECKSUM})) && (process.env.KL_AI_LEARNING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:16,status:'completed',checksum:AI_LEARNING_CHECKSUM}))) { await assertSchema(client.db()); return; }
+    // No active application writers may observe a half-migrated extension.
+    const writers = await client.db().collection('operational_writers').findOne({state:'running'});
+    if (writers) throw new Error('Training migration requires stopped writers');
+    await migrateTraining(client.db(),OBJECT_ID_SCHEMAS); if(process.env.KL_COURSEWORK_FILES_ENABLED === "true") await migrateCourseworkFiles(client.db(),trainingSchemas(OBJECT_ID_SCHEMAS)); if(process.env.KL_AI_POLICY_ENABLED === "true") await migrateAiPolicy(client.db(),preAiTrainingSchemas()); if(process.env.KL_TRAINING_REPORTS_ENABLED === "true") await migrateTrainingReports(client.db(),preReportSchemas()); if(process.env.KL_TRAINING_PHASE2_ENABLED === "true") await migrateTrainingPhase2(client.db(),prePhase2Schemas()); if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true") await migrateAiLearning(client.db(),preLearningAiSchemas()); await assertSchema(client.db());
+  } finally { await client.close(); }
+}
+
+async function migrateThrough(uri: string, targetVersion: 8 | 9): Promise<void> {
+  const preflight = await inspectLegacyMigration(uri);
+  assertLearningImpactSafe(preflight);
+  if (targetVersion === 9 && (preflight.invalid_grants || preflight.invalid_roles !== preflight.old_reviewer_roles ||
+      preflight.unbound_grants || preflight.unfinished_operations))
+    throw new Error("v9 migration preflight found invalid grants, invalid roles or unfinished operations");
+  if (Array.from({ length: targetVersion }, (_, index) => index + 1).every(version =>
+    preflight.markers.some(marker => marker.version === version && marker.status === "completed"))) {
+    const ready = new MongoClient(uri, { serverSelectionTimeoutMS: COMMAND_MS });
+    try { await ready.connect(); await (targetVersion === 9 ? assertLegacySchema(ready.db()) : assertSchemaVersion8(ready.db())); return; }
+    finally { await ready.close(); }
+  }
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: COMMAND_MS });
   await client.connect();
   let writer: { release: () => Promise<void> } | undefined;
   try {
     const state = await client.db().collection<Document & { _id: string }>("operational_state").findOne({ _id: "environment" });
     if (!state && await client.db().collection("schema_migrations").findOne({ version: 7, status: "completed" })) throw new Error("Operational state is missing for completed v7");
-    if (state) writer = await acquireWriter(client.db(), "migration");
+    if (state) writer = await acquireWriter(client.db(), "migration", true);
     await migrateVersion6(uri);
-    writer ??= await acquireWriter(client.db(), "migration");
-    await migrateVersion(uri, { version: 7, checksum: PRIVACY_V7_CHECKSUM, schemas: PRIVACY_SCHEMAS, assert: assertSchema, seedRoles: false,
+    writer ??= await acquireWriter(client.db(), "migration", true);
+    await migrateVersion(uri, { version: 7, checksum: PRIVACY_V7_CHECKSUM, schemas: PRIVACY_SCHEMAS, assert: assertSchemaVersion7, seedRoles: false,
       prepare: async (db, migrationClient, renew, held) => {
         await renew();
         assertLearningImpactSafe(await inspectCurrent(db));
-        const session = migrationClient.startSession();
-        try {
-          await session.withTransaction(async () => {
+        await runInTxn(
+          migrationClient,
+          async (session) => {
             const fence = await db.collection("schema_migrations").updateOne(held(), [{ $set: { lease_until: { $add: ["$$NOW", LEASE_MS] } } }], { session, maxTimeMS: COMMAND_MS });
             if (fence.matchedCount !== 1) throw new Error("Migration lease lost");
             await db.collection("users").updateMany({ privacy_state: { $exists: false } }, { $set: { privacy_state: "active" } }, { session, bypassDocumentValidation: true, maxTimeMS: COMMAND_MS });
             for await (const tombstone of db.collection("privacy_tombstones").find({}, { session, maxTimeMS: COMMAND_MS })) {
               await db.collection("users").updateOne({ _id: tombstone.user_id, privacy_state: { $ne: "erased" } }, { $set: { privacy_state: tombstone.state === "erased" ? "erased" : "erasing", status: "disabled" } }, { session, bypassDocumentValidation: true, maxTimeMS: COMMAND_MS });
             }
-          }, { readConcern: { level: "snapshot" }, writeConcern: WRITE_CONCERN, readPreference: "primary" });
-        } finally { await session.endSession(); }
+          },
+          { readConcern: { level: "snapshot" }, writeConcern: WRITE_CONCERN, readPreference: "primary" },
+        );
       },
       finalize: async (db, session) => {
         await db.collection<Document & { _id: string }>("operational_state").updateOne({ _id: "environment" }, { $setOnInsert: { environment_id: null, mode: "unregistered", revision: 0, access_fence: 0, restore_id: null, maintenance_token: null, owner: null, updated_at: new Date() } }, { upsert: true, session, maxTimeMS: COMMAND_MS });
       },
     });
+    await migrateVersion(uri, { version: 8, checksum: TEACHING_V8_CHECKSUM, schemas: TEACHING_V8_SCHEMAS, assert: assertSchemaVersion8, seedRoles: ROLE_CAPABILITIES,
+      prepare: async (db, _client, renew) => {
+        await renew();
+        assertLearningImpactSafe(await inspectCurrent(db));
+      },
+    });
+    if (targetVersion === 9) await migrateVersion(uri, { version: 9, checksum: ADMINISTRATION_V9_CHECKSUM, schemas: ADMINISTRATION_V9_SCHEMAS, assert: assertLegacySchema, seedRoles: false,
+      prepare: async (db, migrationClient, renew, held) => {
+        await renew();
+        const impact = await inspectVersion9(db, Object.keys(CURRENT_SCHEMAS));
+        if (impact.invalid_grants || impact.invalid_roles !== impact.old_reviewer_roles ||
+            impact.unbound_grants || impact.unfinished_operations || impact.unknown_collections.length)
+          throw new Error("v9 migration preflight found invalid grants, invalid roles, unfinished operations or unknown collections");
+        await runInTxn(migrationClient, async session => {
+          const fence = await db.collection("schema_migrations").updateOne(held(), [{ $set: { lease_until: { $add: ["$$NOW", LEASE_MS] } } }], { session, maxTimeMS: COMMAND_MS });
+          if (fence.matchedCount !== 1) throw new Error("Migration lease lost");
+          await db.collection("member_capability_grants").updateMany(
+            { status: { $exists: false } },
+            [{ $set: { status: "active", revision: 1, valid_from: new Date(0), valid_to: null,
+              operation_id: null, authority: "legacy", created_at: "$$NOW", updated_at: "$$NOW" } }],
+            { session, bypassDocumentValidation: true, maxTimeMS: COMMAND_MS });
+          await db.collection("member_roles").updateMany(
+            { role_id: "content_reviewer", authority: { $exists: false } },
+            { $set: { status: "active", valid_from: new Date(0), valid_to: null, operation_id: null,
+              approval_id: null, authority: "legacy" } },
+            { session, bypassDocumentValidation: true, maxTimeMS: COMMAND_MS });
+        }, { readConcern: { level: "snapshot" }, writeConcern: WRITE_CONCERN, readPreference: "primary" });
+        await renew();
+        const after = await inspectVersion9(db, Object.keys(CURRENT_SCHEMAS));
+        if (after.old_grants || after.old_reviewer_roles || after.invalid_grants || after.invalid_roles || after.unbound_grants)
+          throw new Error("Legacy grant or reviewer role conversion incomplete");
+      },
+      finalize: async (db, session) => {
+        await db.collection<AdministrationGuard>("administration_guard").updateOne({ _id: "administration" },
+          { $setOnInsert: { _id: "administration", revision: 1, state: "idle", operation_id: null, recovery_token: null,
+            blocked_targets: { user_ids: [], member_ids: [], org_ids: [], global: false }, affected_orgs: [], updated_at: new Date() } },
+          { upsert: true, session, maxTimeMS: COMMAND_MS });
+      },
+    });
   } finally { try { await writer?.release(); } finally { await client.close(); } }
+}
+
+export async function assertSchema(db: Db): Promise<void> {
+ requireLearningAiDependencies();
+ if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:16,status:"completed",checksum:AI_LEARNING_CHECKSUM}))throw Error("AI learning v16 migration incomplete");
+ if(process.env.KL_TRAINING_PHASE2_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:15,status:"completed",checksum:TRAINING_PHASE2_CHECKSUM}))throw Error("Training phase2 v15 migration incomplete");
+ if(process.env.KL_TRAINING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:14,status:"completed",checksum:TRAINING_REPORT_CHECKSUM}))throw Error("Training reports v14 migration incomplete"); const enabled = process.env.KL_TRAINING_ENABLED === 'true';
+ await assertObjectIdSchema(db, enabled ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM);
+ if (enabled && !await rawDatabase(db).collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM})) throw new Error('Training v11 migration incomplete');
+ if(process.env.KL_COURSEWORK_FILES_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) throw new Error('Coursework files v12 migration incomplete');
+ if(process.env.KL_AI_POLICY_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) throw new Error('AI policy v13 migration incomplete');
+ }
+export async function inspectMigration(uri: string) {
+ const client = new MongoClient(uri, { serverSelectionTimeoutMS: 15000 });
+ try { await client.connect(); const db = client.db(); await assertTopology(db, loadConfig());
+ const collections = await db.listCollections({}, {nameOnly:true}).toArray();
+ const markers = collections.some(c=>c.name==="schema_migrations") ? await db.collection("schema_migrations").find({}, {projection:{_id:0,version:1,status:1,checksum:1,completed_at:1}}).toArray() : [];
+ return { target_version:process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : 10, mode:collections.length ? "existing" : "empty", collections:collections.map(c=>c.name), markers, requires_legacy_migration:markers.some(m=>m.version<10), checksum:process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? AI_LEARNING_CHECKSUM : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? TRAINING_PHASE2_CHECKSUM : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? TRAINING_REPORT_CHECKSUM : process.env.KL_AI_POLICY_ENABLED === "true" ? AI_POLICY_CHECKSUM : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? COURSEWORK_FILES_CHECKSUM : TRAINING_CHECKSUM) : OBJECT_ID_CHECKSUM };
+ } finally { await client.close(); }
 }

@@ -19,7 +19,14 @@ export class SafeErrors implements ExceptionFilter {
       code: "DEPENDENCY_UNAVAILABLE",
       message: "服务暂不可用，请稍后重试",
     };
-    if (error instanceof HttpException) {
+    if (
+      error instanceof Error && "code" in error && error.code === "ADMINISTRATION_NEEDS_RECOVERY" &&
+      "status" in error && error.status === 503 && "operation_id" in error &&
+      typeof error.operation_id === "string" &&
+      /^[0-9a-f]{24}$/.test(error.operation_id)
+    ) {
+      body = { code: "ADMINISTRATION_NEEDS_RECOVERY", message: "管理结果尚未确认，目标已隔离；请保留原幂等键并按操作编号人工核对恢复", operation_id: error.operation_id };
+    } else if (error instanceof HttpException) {
       status = error.getStatus();
       const value = error.getResponse();
       if (typeof value === "object" && "code" in value)

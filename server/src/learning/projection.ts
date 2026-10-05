@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { randomUUID } from 'node:crypto';
 import { DAY_MS, type EvidenceRow, type MasteryRow, type MistakeRow, type ReportRow } from './contracts';
 
@@ -30,7 +31,7 @@ export function calculateProjection(rows: EvidenceRow[], asOf: Date) {
     }
   }
   if (points.size > 500) throw new Error('INPUT_LIMIT_EXCEEDED');
-  const base = (row:EvidenceRow) => ({ _id:randomUUID(), org_id:row.org_id, member_id:row.member_id, subject_id:row.subject_id, generation:row.generation, created_at:asOf, updated_at:asOf });
+  const base = (row:EvidenceRow) => ({ _id:newId(), org_id:row.org_id, member_id:row.member_id, subject_id:row.subject_id, generation:row.generation, created_at:asOf, updated_at:asOf });
   const mastery:MasteryRow[] = [...points].sort(([a],[b]) => a.localeCompare(b)).map(([id, point]) => {
     const enough = point.questions.size >= 5 && point.denominator > 0n;
     return { ...base(point.row), knowledge_point_id:id, independent_question_count:point.questions.size, numerator:String(point.numerator), denominator:String(point.denominator), mastery:enough ? percentage(point.numerator, point.denominator) : null,

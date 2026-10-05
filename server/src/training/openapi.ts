@@ -1,0 +1,461 @@
+import type {
+  OpenAPIObject,
+  SchemaObject,
+} from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
+const id: SchemaObject = { type: "string", pattern: "^[a-f0-9]{24}$" },
+  text: SchemaObject = { type: "string", maxLength: 200 },
+  body: SchemaObject = { type: "string", maxLength: 16000 },
+  revision: SchemaObject = { type: "integer", minimum: 1 },
+  bool: SchemaObject = { type: "boolean" };
+const object = (
+  properties: Record<string, SchemaObject>,
+  required = Object.keys(properties),
+): SchemaObject => ({
+  type: "object",
+  additionalProperties: false,
+  properties,
+  required,
+});
+const lesson = object({
+  key: { type: "string", pattern: "^[a-z0-9_-]{1,64}$" },
+  title: text,
+  kind: { type: "string", enum: ["text", "pdf", "video", "audio"] },
+  required: bool,
+  body,
+  file_id: { ...id, nullable: true },
+  owner_version_id: { ...id, nullable: true },
+});
+const rubric: SchemaObject = {
+  type: "array",
+  minItems: 1,
+  maxItems: 20,
+  items: object({
+    key: text,
+    title: text,
+    weight: { type: "integer", minimum: 0, maximum: 100 },
+  }),
+};
+const requestSchemas: Record<string, SchemaObject> = {
+  reports: object(
+    {
+      class_id: id,
+      subject_id: id,
+      task_id: { ...id, nullable: true },
+      title: text,
+      body: { type: "string", maxLength: 12000 },
+    },
+    ["class_id", "subject_id", "title", "body"],
+  ),
+  "reports/{id}/actions": object(
+    {
+      action: {
+        type: "string",
+        enum: [
+          "edit",
+          "refresh-facts",
+          "request-review",
+          "reject",
+          "publish",
+          "retire",
+        ],
+      },
+      expected_revision: revision,
+      title: text,
+      body,
+      note: body,
+    },
+    ["action", "expected_revision"],
+  ),
+  "receipts/query": object({
+    key: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" },
+  }),
+  courses: object({
+    code: text,
+    title: text,
+    subject_id: id,
+    version_no: revision,
+    lessons: { type: "array", minItems: 1, maxItems: 100, items: lesson },
+  }),
+  "courses/{id}/actions": object(
+    {
+      expected_revision: revision,
+      action: {
+        type: "string",
+        enum: ["edit", "request-review", "publish", "reject", "retire"],
+      },
+      title: text,
+      lessons: { type: "array", maxItems: 100, items: lesson },
+      note: body,
+    },
+    ["expected_revision", "action"],
+  ),
+  "courses/{id}/assign": object({ class_id: id }),
+  "courses/{id}/progress": object({
+    lesson_key: text,
+    position: { type: "integer", minimum: 0, maximum: 86400 },
+    complete: bool,
+  }),
+  tasks: object({
+    class_id: id,
+    subject_id: id,
+    title: text,
+    target_type: { type: "string", enum: ["course", "coursework", "quiz"] },
+    target_id: { ...id, nullable: true },
+    due_at: { type: "string", format: "date-time" },
+    body,
+    rubric,
+  }),
+  "tasks/{id}/actions": object({
+    expected_revision: revision,
+    action: { type: "string", enum: ["publish", "cancel"] },
+  }),
+  "tasks/{id}/coursework": object(
+    {
+      expected_revision: { type: "integer", minimum: 0 },
+      action: { type: "string", enum: ["save", "submit"] },
+      body,
+      file_ids: { type: "array", items: id, maxItems: 5, uniqueItems: true },
+    },
+    ["expected_revision", "action", "body"],
+  ),
+  "tasks/{id}/files": object({
+    expected_revision: revision,
+    display_name: text,
+    size: { type: "integer", minimum: 1, maximum: 10485760 },
+    mime: {
+      type: "string",
+      enum: [
+        "application/pdf",
+        "image/png",
+        "image/jpeg",
+        "text/plain",
+        "video/mp4",
+        "audio/mpeg",
+      ],
+    },
+    checksum: { type: "string", pattern: "^[a-f0-9]{64}$" },
+  }),
+  "tasks/{id}/feedback": object({
+    head_revision: revision,
+    submission_id: id,
+    comments: { type: "string", maxLength: 8000 },
+    scores: {
+      type: "array",
+      maxItems: 20,
+      items: object({
+        key: text,
+        score: { type: "integer", minimum: 0, maximum: 100 },
+      }),
+    },
+    publish: bool,
+  }),
+  "ai/config": object({
+    enabled: bool,
+    daily_limit: { type: "integer", minimum: 0, maximum: 10000 },
+    expected_revision: { type: "integer", minimum: 0 },
+  }),
+  "ai/jobs": object({
+    kind: {
+      type: "string",
+      enum: ["assist", "prepare", "questions", "report", "learning-report"],
+    },
+    context_id: id,
+    prompt: { type: "string", maxLength: 4000 },
+  }),
+  "ai/jobs/{id}/dispatch": object({ expected_revision: revision }),
+  "ai/jobs/{id}/cancel": object({ expected_revision: revision }),
+  "ai/jobs/{id}/recover": object({ expected_revision: revision }),
+  "ai/jobs/{id}/accept-report": object({expected_revision:revision}),
+  "ai/jobs/{id}/accept": object({
+    course_id: id,
+    expected_revision: revision,
+    lesson_key: text,
+    title: text,
+    body,
+  }),
+};
+if (process.env.KL_AI_POLICY_ENABLED === "true")
+  requestSchemas["ai/config"] = object(
+    {
+      enabled: bool,
+      daily_limit: { type: "integer", minimum: 0, maximum: 10000 },
+      expected_revision: { type: "integer", minimum: 0 },
+      enabled_kinds: {
+        type: "array",
+        maxItems: 4,
+        uniqueItems: true,
+        items: {
+          type: "string",
+          enum: ["assist", "prepare", "questions", "report"],
+        },
+      },
+      currency: { type: "string", pattern: "^[A-Z]{3}$" },
+      daily_budget_micro: {
+        type: "integer",
+        minimum: 0,
+        maximum: 1000000000000,
+      },
+      max_request_micro: { type: "integer", minimum: 0, maximum: 1000000000 },
+    },
+    ["enabled", "daily_limit", "expected_revision"],
+  );
+requestSchemas["ai/jobs/{id}/accept-question"] = object({
+  question: object(
+    {
+      title: text,
+      subject_id: id,
+      question_type: {
+        type: "string",
+        enum: ["single", "multiple", "numeric"],
+      },
+      prompt: { type: "string", maxLength: 20000 },
+      answer: { type: "string", maxLength: 2000 },
+      explanation: { type: "string", maxLength: 20000 },
+      difficulty: { type: "string", enum: ["基础", "提升", "挑战"] },
+      options: {
+        type: "array",
+        maxItems: 12,
+        items: object({
+          id: { type: "string", pattern: "^[A-Za-z0-9_-]{1,32}$" },
+          text: { type: "string", maxLength: 2000 },
+        }),
+      },
+      knowledge_point_ids: { type: "array", maxItems: 100, items: id },
+    },
+    ["title", "subject_id", "question_type", "prompt", "difficulty"],
+  ),
+});
+const job = object({
+  id,
+  kind: { type: "string", enum: ["assist", "prepare", "questions", "report"] },
+  context_id: id,
+  status: {
+    type: "string",
+    enum: ["queued", "running", "succeeded", "failed", "unknown", "cancelled"],
+  },
+  revision,
+  output: { type: "string", maxLength: 12000 },
+  citations: { type: "array", items: object({ key: text, title: text }) },
+  error_code: text,
+  created_at: { type: "string", format: "date-time" },
+});
+const recoveryJob = object({
+  id,
+  kind: job.properties!.kind as SchemaObject,
+  status: job.properties!.status as SchemaObject,
+  revision,
+  created_at: { type: "string", format: "date-time" },
+  dispatch_started_at: { type: "string", format: "date-time", nullable: true },
+});
+const report = object({
+  _id: id,
+  org_id: id,
+  revision,
+  created_at: { type: "string", format: "date-time" },
+  updated_at: { type: "string", format: "date-time" },
+  class_id: id,
+  subject_id: id,
+  task_id: { ...id, nullable: true },
+  author_id: id,
+  contributors: { type: "array", maxItems: 100, uniqueItems: true, items: id },
+  title: text,
+  body: { type: "string", maxLength: 12000 },
+  facts_json: { type: "string", maxLength: 16000 },
+  source_watermark: { type: "string", pattern: "^[a-f0-9]{64}$" },
+  facts_at: { type: "string", format: "date-time" },
+  valid_until: { type: "string", format: "date-time" },
+  status: { type: "string", enum: ["draft", "review", "published", "retired"] },
+  reviewer_id: { ...id, nullable: true },
+  review_note: body,
+  published_version_id: { ...id, nullable: true },
+});
+export function trainingOpenApi(document: OpenAPIObject) {
+  const envelope = (data: SchemaObject) =>
+    object({ data, request_id: { type: "string", format: "uuid" } });
+  const error = object({
+    error: object({ code: text, message: text }),
+    request_id: { type: "string", format: "uuid" },
+  });
+  document.components ??= {};
+  document.components.schemas ??= {};
+  document.components.schemas.TrainingAiJob = job;
+  document.components.schemas.TrainingLesson = lesson;
+  for (const [path, item] of Object.entries(document.paths)) {
+    if (
+      !path.startsWith("/api/v1/training/") &&
+      !path.startsWith("/api/v1/site/")
+    )
+      continue;
+    for (const method of ["get", "post", "put"] as const) {
+      const op = item[method];
+      if (!op) continue;
+      const training = path.startsWith("/api/v1/training/"),
+        publicSite =
+          path.includes("/site/pages/") || path.includes("/site/consultations");
+      if (!publicSite) {
+        op.security = [{ session: [] }];
+        op.parameters = [
+          ...(op.parameters ?? []).filter((p: any) => p.name !== "X-Org-Id"),
+          { name: "X-Org-Id", in: "header", required: true, schema: id },
+        ];
+      } else op.security = [];
+      if ((method === "post" || method === "put") && !publicSite) {
+        op.parameters = [
+          ...(op.parameters ?? []),
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: !path.endsWith("/receipts/query"),
+            schema: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" },
+          },
+          {
+            name: "X-CSRF-Token",
+            in: "header",
+            required: true,
+            schema: { type: "string" },
+          },
+        ];
+      }
+      const key = path.replace("/api/v1/training/", "");
+      if (method === "put") {
+        op.requestBody = {
+          required: true,
+          content: {
+            "application/octet-stream": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        };
+        op.parameters = [
+          ...(op.parameters ?? []),
+          {
+            in: "header",
+            name: "X-Owner-Revision",
+            required: true,
+            schema: revision,
+          },
+        ];
+      }
+      if (method === "post" && training && requestSchemas[key])
+        op.requestBody = {
+          required: true,
+          content: { "application/json": { schema: requestSchemas[key]! } },
+        };
+      if (method === "post" && path === "/api/v1/site/drafts")
+        op.requestBody = {
+          required: true,
+          content: {
+            "application/json": {
+              schema: object({
+                page_key: {
+                  type: "string",
+                  enum: [
+                    "home",
+                    "features",
+                    "ai-teaching",
+                    "solutions",
+                    "help",
+                    "about",
+                    "contact",
+                  ],
+                },
+                title: text,
+                body: { type: "string", maxLength: 12000 },
+              }),
+            },
+          },
+        };
+      if (method === "post" && path.endsWith("/publish") && !training)
+        op.requestBody = {
+          required: true,
+          content: {
+            "application/json": {
+              schema: object({ expected_revision: revision }),
+            },
+          },
+        };
+      if (method === "post" && path === "/api/v1/site/consultations")
+        op.requestBody = {
+          required: true,
+          content: {
+            "application/json": {
+              schema: object({
+                receipt: { type: "string", pattern: "^[a-f0-9]{64}$" },
+                contact: text,
+                name: { type: "string", maxLength: 80 },
+                kind: {
+                  type: "string",
+                  enum: ["enterprise", "school", "other"],
+                },
+                consent: bool,
+              }),
+            },
+          },
+        };
+      if (method === "post" && path === "/api/v1/site/leads/{id}/status")
+        op.requestBody = {
+          required: true,
+          content: {
+            "application/json": {
+              schema: object({
+                expected_revision: revision,
+                status: { type: "string", enum: ["contacted", "closed"] },
+              }),
+            },
+          },
+        };
+      let result: SchemaObject = { type: "object", additionalProperties: true };
+      if (
+        (training && path.includes("/ai/jobs/")) ||
+        (training && path.endsWith("/ai/jobs") && method === "post")
+      )
+        result = job;
+      if (path.endsWith("/accept-report") || path.endsWith("/accept") || path.endsWith("/accept-question"))
+        result = { type: "object", additionalProperties: true };
+      if (path === "/api/v1/training/ai/recovery")
+        result = object({
+          items: {
+            type: "array",
+            maxItems: 100,
+            items: object({ ...recoveryJob.properties, recoverable: bool }),
+          },
+          truncated: bool,
+        });
+      if (path === "/api/v1/training/ai/jobs/{id}/recover")
+        result = recoveryJob;
+      op.responses["200"] = {
+        description:
+          "服务端重新验证授权后的实际结果；列表最多200项（AI/网站最多100项），没有内存兜底",
+        content: { "application/json": { schema: envelope(result) } },
+      };
+      if (
+        method === "get" &&
+        path === "/api/v1/training/coursework-files/{id}/content"
+      ) {
+        op.responses["200"] = {
+          description: "授权后交付已扫描附件",
+          content: {
+            "application/octet-stream": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        };
+      }
+      for (const code of [401, 403, 404, 409, 422, 429, 503])
+        op.responses[code] = {
+          description: (
+            {
+              401: "会话失效",
+              403: "授权/CSRF/职责分离失败",
+              404: "资源不可访问",
+              409: "版本/状态/截止/幂等冲突",
+              422: "输入无效",
+              429: "频率或AI日预算限制",
+              503: "扩展/模型/数据库不可用",
+            } as Record<number, string>
+          )[code]!,
+          content: { "application/json": { schema: error } },
+        };
+    }
+  }
+}

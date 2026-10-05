@@ -1,7 +1,7 @@
 "use strict";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { randomUUID, randomBytes } = require("node:crypto");
+const { randomUUID, randomBytes, createHash } = require("node:crypto");
 const { mkdtemp, mkdir, rm, realpath } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
@@ -10,13 +10,43 @@ const { execFile } = require("node:child_process");
 const { MongoClient } = require("mongodb");
 const { fixture, guardedUri } = require("./helpers.cjs");
 const { assessmentFixture, good, practice } = require("./assessment-helpers.cjs");
+const { newId, rawDatabase, objectIdDatabase } = require("../dist/database/object-id");
 const privacy = require("../dist/privacy/execution.js");
 const { PRIVACY_POLICY_REVISION } = require("../dist/privacy/schema.js");
 const { registerEnvironment, quarantineRestore, enterMaintenance, leaveMaintenance } = require("../dist/operations/control.js");
 const { readSafetyLedger, reserveSafetyIntent, reconcileSafetyIntent, safetyOperationId } = require("../dist/operations/ledger.js");
 const { V3_DEFAULTS } = require("../dist/migrations/content-v3.js");
+const { executeAdministrationOperation } = require("../dist/administration/operations.js");
 const exec = promisify(execFile);
 const operator = { actor: "privacy-integration", reason: "本地隐私生命周期真实副本集验收" };
+async function grantAccountManagement(f, memberId, orgId) {
+  const member = await f.db.collection("organization_members").findOne({ _id: memberId, org_id: orgId, status: "active" });
+  assert.ok(member);
+  const scope = { kind: "organization_ids", organization_ids: [orgId] }, grantId = newId();
+  const receipt = await executeAdministrationOperation({
+    client: f.client, db: f.db, actor: f.context.actor, reason: "Explicit local account management authorization",
+    action: "capability.grant.account:manage", key: randomUUID(),
+    targets: { user_ids: [member.user_id], member_ids: [memberId], org_ids: [orgId] },
+    before: {}, payload: { grant_id: grantId, member_id: memberId, capability: "account:manage", scope },
+    audit: { org_id: orgId, resource_id: grantId },
+    apply: async ({ session, operation_id, now }) => {
+      const role = await f.db.collection("member_roles").findOne({ member_id: memberId, org_id: orgId, role_id: "org_admin" }, { session });
+      assert.ok(role, "Account management requires a real org_admin role");
+      await f.db.collection("administrative_grants").insertOne({
+        _id: grantId, subject_member_id: memberId, actor_org_id: orgId, capability: "account:manage",
+        scope, scope_key: createHash("sha256").update(JSON.stringify(scope)).digest("hex"),
+        delegate_capabilities: [], status: "active", revision: 1, valid_from: now, valid_to: null,
+        operation_id, authority: "cli", approval_id: null, created_at: now, updated_at: now,
+      }, { session });
+      await f.db.collection("organization_members").updateOne({ _id: memberId, status: "active" },
+        { $inc: { authorization_revision: 1 }, $set: { updated_at: now } }, { session });
+      await f.db.collection("users").updateOne({ _id: member.user_id, status: "active", privacy_state: "active" },
+        { $inc: { identity_revision: 1 }, $set: { updated_at: now } }, { session });
+      return { grant_id: grantId };
+    },
+  });
+  return { grantId, operationId: receipt.operation_id };
+}
 
 // Isolated real control MongoDB and encrypted mirrored ledger, never a success mock.
 // Like the other integration fixtures, run with --test-concurrency=1 (process.env).
@@ -82,7 +112,7 @@ async function setup(t, assessment = false) {
 }
 async function deletionRequest(f, userId) {
   const now = new Date();
-  const row = { _id: randomUUID(), user_id: userId, scope: "account", policy_revision: PRIVACY_POLICY_REVISION,
+  const row = { _id: newId(), user_id: userId, scope: "account", policy_revision: PRIVACY_POLICY_REVISION,
     status: "requested", revision: 0, plan_hash: null, actor: null, reason_code: null,
     deleted_categories: [], retained_categories: [], retention_basis: null, remaining_actions: [],
     created_at: now, updated_at: now, lease_token: null, lease_until: null, ledger_sequence: null, completed_steps: [] };
@@ -100,11 +130,11 @@ async function capture(db, names) {
   const result = {};
   const collections = (await db.listCollections().toArray()).filter(row => !names || names.includes(row.name)).sort((a, b) => a.name.localeCompare(b.name));
   for (const { name, options } of collections) result[name] = { options,
-    indexes: await db.collection(name).listIndexes().toArray(), rows: await db.collection(name).find().sort({ _id: 1 }).toArray() };
+    indexes: await rawDatabase(db).collection(name).listIndexes().toArray(), rows: await rawDatabase(db).collection(name).find().sort({ _id: 1 }).toArray() };
   return result;
 }
 async function learningRow(f, actor = f.student) {
-  const row = { _id: randomUUID(), org_id: actor.org, member_id: actor.memberId, chapter_id: f.chapterId,
+  const row = { _id: newId(), org_id: actor.org, member_id: actor.memberId, chapter_id: f.chapterId,
     edition_id: f.book.id, edition_revision: f.book.revision, position: { kind: "text_offset", offset_utf16: 0 },
     completed: false, revision: 1, updated_at: new Date(), cleared_at: null };
   await f.db.collection("reading_progress").insertOne(row);
@@ -177,8 +207,8 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     await privacy.approvePrivacyRequest(f.client, f.db, input);
     await assert.rejects(privacy.rejectPrivacyRequest(f.client, f.db, { requestId: row._id, expectedRevision: 0, ...operator }), /PRIVACY_REVISION_CONFLICT/);
     const now = new Date();
-    await f.db.collection("content_idempotency").insertOne({ _id: randomUUID(), org_id: randomUUID(), user_id: user.user_id,
-      operation: "privacy-stale-plan-fixture", resource_id: randomUUID(), key: randomUUID(), request_hash: "a".repeat(64), result: {}, created_at: now });
+    await f.db.collection("content_idempotency").insertOne({ _id: newId(), org_id: newId(), user_id: user.user_id,
+      operation: "privacy-stale-plan-fixture", resource_id: newId(), key: randomUUID(), request_hash: "a".repeat(64), result: {}, created_at: now });
     await assert.rejects(execute(f, row), /PRIVACY_PLAN_STALE/);
     assert.equal(await f.db.collection("privacy_tombstones").countDocuments({ user_id: user.user_id }), 0);
     assert.equal((await f.db.collection("users").findOne({ _id: user.user_id })).privacy_state, "active");
@@ -200,9 +230,46 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     const second = await f.ops.setMembership(f.context, { user_id: userId, org_id: org.organization_id, roles: ["student"] });
     await learningRow(f);
     await learningRow(f, { org: org.organization_id, memberId: second.member_id });
-    const survivor = await f.actor();
+    const survivor = await f.actor(["student", "org_admin"]);
     const survivorProgress = await learningRow(f, survivor);
     await assessed(f);
+    const targetMember = await f.db.collection("organization_members").findOne({ _id: f.student.memberId });
+    const survivorMember = await f.db.collection("organization_members").findOne({ _id: survivor.memberId });
+    const adminOrg = await f.ops.createOrganization(f.context, { name: "待删除用户独立管理组织", kind: "school" });
+    const targetAdmin = await f.ops.setMembership(f.context, { user_id: userId, org_id: adminOrg.organization_id, roles: ["org_admin"] });
+    const targetGrant = await grantAccountManagement(f, targetAdmin.member_id, adminOrg.organization_id);
+    const survivorGrant = await grantAccountManagement(f, survivorMember._id, survivor.org);
+    const appliedOpId = targetGrant.operationId;
+    const targetIdentity = await f.db.collection("users").findOne({ _id: userId });
+    const requesterMember = await f.db.collection("organization_members").findOne({ _id: survivorMember._id });
+    const requesterIdentity = await f.db.collection("users").findOne({ _id: survivor.user.user_id });
+    const at = new Date();
+    const voidOpId = newId(), voidBefore = { display_name: "erasure-sensitive-before" };
+    const voidDesired = { display_name: "erasure-sensitive-after" };
+    await f.db.collection("administration_operations").insertOne({
+      _id: voidOpId, actor_id: survivor.user.user_id, action: "user.update", reason: "erasure-sensitive-reason",
+      targets: { user_ids: [userId], member_ids: [targetMember._id], org_ids: [f.org], global: false },
+      payload_hash: createHash("sha256").update(JSON.stringify({ before: voidBefore, desired: voidDesired })).digest("hex"),
+      before: voidBefore, desired: voidDesired, key: randomUUID(), mode: "replicaSet",
+      status: "void", step: "voided", revision: 2, audit_id: null, created_at: at, updated_at: at,
+    });
+    const pendingId = newId(), requested = {
+      user_id: userId, org_id: f.org, member_id: targetMember._id, roles: ["student", "content_reviewer"],
+      status: "active", expected_revision: targetMember.authorization_revision,
+      valid_to: new Date(Date.now() + 7 * 86400000).toISOString(),
+    };
+    await f.db.collection("authorization_requests").insertOne({
+      _id: pendingId, requester_user_id: survivor.user.user_id, requester_member_id: survivor.memberId,
+      beneficiary_user_id: userId, subject_member_id: targetMember._id, action: "member.update",
+      payload: requested, payload_hash: createHash("sha256").update(JSON.stringify(requested)).digest("hex"),
+      expected_grant_revision: targetMember.authorization_revision,
+      requester_permission_revision: requesterMember.authorization_revision,
+      requester_credential_version: requesterIdentity.credential_version,
+      target_credential_version: targetIdentity.credential_version,
+      target_identity_revision: targetIdentity.identity_revision,
+      reason: "敏感内容审核角色须独立审批", status: "pending", revision: 1,
+      approver_user_id: null, approver_credential_version: null, approved_at: null, operation_id: null, created_at: at, updated_at: at,
+    });
     const row = await deletionRequest(f, userId);
     await f.register();
     const shared = await capture(f.db, ["questions", "question_versions", "textbooks", "textbook_editions", "file_resources"]);
@@ -211,6 +278,8 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     const plan = await approve(f, row);
     assert.equal(plan.categories.reading_progress, 2);
     assert.ok(plan.categories.grading_results > 0);
+    assert.equal(plan.categories.authorization_requests, 1);
+    assert.equal(plan.categories.administrative_grants, 1);
     assert.equal((await execute(f, row)).status, "completed_with_retention");
     await assertFrozen(f, userId, "erased");
     const erased = await f.db.collection("users").findOne({ _id: userId });
@@ -219,6 +288,23 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     assert.notEqual(erased.password_hash, oldUser.password_hash);
     const after = await privacy.inspectPrivacyRequest(f.db, row._id);
     assert.ok(Object.values(after.categories).every(count => count === 0));
+    assert.equal(await f.db.collection("authorization_requests").countDocuments({ _id: pendingId }), 0);
+    assert.equal(await f.db.collection("administrative_grants").countDocuments({ subject_member_id: targetAdmin.member_id }), 0);
+    assert.equal(await f.db.collection("administrative_grants").countDocuments({ _id: survivorGrant.grantId, status: "active", operation_id: survivorGrant.operationId }), 1);
+    const provenance = await f.db.collection("administration_operations").findOne({ _id: appliedOpId });
+    assert.equal(provenance.status, "applied");
+    assert.equal(provenance.reason, "[redacted]");
+    assert.deepEqual(provenance.before, {});
+    assert.deepEqual(provenance.desired, {});
+    assert.equal(provenance.key, null);
+    const voidProvenance = await f.db.collection("administration_operations").findOne({ _id: voidOpId });
+    assert.equal(voidProvenance.status, "void");
+    assert.equal(voidProvenance.reason, "[redacted]");
+    assert.deepEqual(voidProvenance.before, {});
+    assert.deepEqual(voidProvenance.desired, {});
+    assert.equal(voidProvenance.key, null);
+    const { effectiveAdministrativeGrants } = require("../dist/administration/authorization.js");
+    assert.ok((await effectiveAdministrativeGrants(f.db, survivorMember._id)).some(grant => grant._id === survivorGrant.grantId));
     assert.deepEqual(await capture(f.db, Object.keys(shared)), shared);
     assert.deepEqual(await f.db.collection("users").findOne({ _id: other._id }), other);
     assert.deepEqual(await f.db.collection("reading_progress").findOne({ _id: survivorProgress._id }), survivorProgress);
@@ -261,7 +347,7 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     const control = new MongoClient(process.env.KL_CONTROL_MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
     try {
       await control.connect();
-      const head = await control.db().collection("safety_ledger_heads").findOne({ _id: f.environmentId });
+      const head = await control.db().collection("safety_ledger_heads").findOne({ ledger_key: f.environmentId });
       assert.ok(head);
       assert.equal(head.lock, null, "owned child退出后external ledger锁必须释放");
     } finally { await control.close(); }
@@ -285,8 +371,8 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     assert.equal(failed.lease_token, null);
     assert.equal(await f.db.collection("privacy_tombstones").countDocuments({ user_id: user.user_id }), 0);
     assert.equal((await f.db.collection("users").findOne({ _id: user.user_id })).privacy_state, "active");
-    await f.db.collection("content_idempotency").insertOne({ _id: randomUUID(), org_id: randomUUID(), user_id: user.user_id,
-      operation: "privacy-failed-plan-fixture", resource_id: randomUUID(), key: randomUUID(), request_hash: "b".repeat(64), result: {}, created_at: new Date() });
+    await f.db.collection("content_idempotency").insertOne({ _id: newId(), org_id: newId(), user_id: user.user_id,
+      operation: "privacy-failed-plan-fixture", resource_id: newId(), key: randomUUID(), request_hash: "b".repeat(64), result: {}, created_at: new Date() });
     await assert.rejects(execute(f, row), /PRIVACY_PLAN_STALE/);
     assert.equal((await readSafetyLedger(f.environmentId, 0)).entries.length, 0);
     await approve(f, row);
@@ -305,8 +391,8 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     // Real durable reservation, then a real source mutation; no timing-dependent race or mocked success.
     const reservation = await reserveSafetyIntent(f.db, firstIntent);
     assert.deepEqual(await reserveSafetyIntent(f.db, firstIntent), reservation, "pending reservation重试必须稳定");
-    await f.db.collection("content_idempotency").insertOne({ _id: randomUUID(), org_id: randomUUID(), user_id: user.user_id,
-      operation: "privacy-pending-plan-fixture", resource_id: randomUUID(), key: randomUUID(), request_hash: "c".repeat(64), result: {}, created_at: new Date() });
+    await f.db.collection("content_idempotency").insertOne({ _id: newId(), org_id: newId(), user_id: user.user_id,
+      operation: "privacy-pending-plan-fixture", resource_id: newId(), key: randomUUID(), request_hash: "c".repeat(64), result: {}, created_at: new Date() });
     await f.db.collection("users").updateOne({ _id: user.user_id }, { $inc: { identity_revision: 1 }, $set: { updated_at: new Date() } });
     await assert.rejects(execute(f, row), /PRIVACY_PLAN_STALE/);
     assert.equal(await f.db.collection("privacy_tombstones").countDocuments({ user_id: user.user_id }), 0);
@@ -349,7 +435,7 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     const session = await assessed(f);
     await learningRow(f);
     const item = await f.db.collection("session_items").findOne({ session_id: session.id });
-    const now = new Date(), fileId = randomUUID();
+    const now = new Date(), fileId = newId();
     // Historical pending resource: no fake scan result or file-delivery success.
     const file = { _id: fileId, org_id: f.org, created_at: now, updated_at: now, ...V3_DEFAULTS.file_resources,
       owner_type: "question", owner_version_id: item.snapshot.question_version_id, created_by: f.editor.user.user_id,
@@ -359,7 +445,7 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
       [hold]: hold === "legal_hold" ? true : new Date(now.getTime() + 86400000) };
     await f.db.collection("file_resources").insertOne(file);
     await f.db.collection("session_items").updateOne({ _id: item._id }, { $addToSet: { "snapshot.resource_ids": fileId } });
-    await f.db.collection("assessment_resource_references").insertOne({ _id: randomUUID(), org_id: f.org, created_at: now, updated_at: now,
+    await f.db.collection("assessment_resource_references").insertOne({ _id: newId(), org_id: f.org, created_at: now, updated_at: now,
       reference_type: "session_item", reference_id: item._id, file_id: fileId, owner_type: "question", owner_version_id: item.snapshot.question_version_id });
     const row = await deletionRequest(f, userId);
     await f.register();
@@ -451,15 +537,15 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     });
     await restoreClient.connect();
     connected = true;
-    const target = restoreClient.db(targetName);
+    const target = objectIdDatabase(restoreClient.db(targetName));
     const { initializeRestoreSchema } = require("../dist/migrations/schema.js");
     await initializeRestoreSchema(target);
-    await quarantineRestore(target, { environmentId: f.environmentId, restoreId: randomUUID() });
+    await quarantineRestore(target, { environmentId: f.environmentId, restoreId: newId() });
     const isolatedState = await target.collection("operational_state").findOne({ _id: "environment" });
     // This test restores logical Mongo snapshots; encrypted archive I/O is covered separately.
     for (const [name, saved] of Object.entries(archive)) {
-      if (["operational_state", "operational_writers", "backup_restore_runs"].includes(name)) continue;
-      if (saved.rows.length) await target.collection(name).insertMany(saved.rows);
+      if (["operational_state", "operational_writers", "backup_restore_runs", "administration_guard", "administration_operations", "administrative_grants", "authorization_requests", "member_roles", "member_capability_grants"].includes(name)) continue;
+      if (saved.rows.length) await rawDatabase(target).collection(name).insertMany(saved.rows);
     }
     assert.deepEqual(await target.collection("operational_state").findOne({ _id: "environment" }), isolatedState);
     assert.equal(isolatedState.mode, "restore_quarantined");
@@ -496,7 +582,7 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     await assessed(f);
     const row = await deletionRequest(f, userId);
     await f.register();
-    await f.db.collection("operational_state").updateOne({ _id: "environment" }, { $set: { mode: "restore_quarantined", restore_id: randomUUID() } });
+    await f.db.collection("operational_state").updateOne({ _id: "environment" }, { $set: { mode: "restore_quarantined", restore_id: newId() } });
     const graph = await capture(f.db, graphNames);
     const ledger = await readSafetyLedger(f.environmentId, 0);
     await assert.rejects(privacy.suppressRestoredSubject(f.db, userId, row._id, 0), /PRIVACY_RETENTION_BASIS_REQUIRED/);
@@ -520,7 +606,7 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     assert.deepEqual(await capture(f.db), original);
     // Deliberately simulate a restored future/historical policy absent from current validator.
     await f.db.collection("privacy_deletion_requests").updateOne({ _id: row._id }, { $set: { policy_revision: "unknown_historical_policy" } }, { bypassDocumentValidation: true });
-    await f.db.collection("operational_state").updateOne({ _id: "environment" }, { $set: { mode: "restore_quarantined", restore_id: randomUUID() } });
+    await f.db.collection("operational_state").updateOne({ _id: "environment" }, { $set: { mode: "restore_quarantined", restore_id: newId() } });
     const graph = await capture(f.db, graphNames);
     const ledger = await readSafetyLedger(f.environmentId, 0);
     await assert.rejects(privacy.suppressRestoredSubject(f.db, userId, row._id, 0), /PRIVACY_POLICY_UNKNOWN/);

@@ -1,3 +1,14 @@
+import {phase2OpenApi} from './training/phase2-openapi';
+import {TrainingPhase2PublicController} from './training/phase2-public.controller';
+import {TrainingPhase2Service} from './training/phase2.service';
+import {TrainingReportService} from './training/report.service';
+import {CourseworkFilesService} from './training/coursework-files.service';
+import { trainingOpenApi } from './training/openapi';
+import { SiteService } from './training/site.service';
+import { SiteController } from './training/site.controller';
+import { TrainingService } from './training/training.service';
+import { TrainingAiService } from './training/ai.service';
+import { TrainingController } from './training/training.controller';
 import "reflect-metadata";
 import { Module, ValidationPipe, HttpException } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
@@ -20,6 +31,7 @@ import { ContentService } from "./content/content.service";
 import { ContentController } from "./content/content.controller";
 import { contentOpenApi } from "./content/content-openapi";
 import { FilesService } from "./files/files.service";
+import { fileScanEnabled } from "./files/config";
 import { FilesController, filesOpenApi } from "./files/files.controller";
 import { AssessmentAccess } from "./assessment/access";
 import { AssessmentService } from "./assessment/assessment.service";
@@ -37,8 +49,20 @@ import { learningOpenApi } from "./learning/learning-openapi";
 import { PrivacyService } from "./privacy/privacy.service";
 import { PrivacyController } from "./privacy/privacy.controller";
 import { privacyOpenApi } from "./privacy/privacy-openapi";
+import { TeachingAccess } from "./teaching/access";
+import { TeachingService } from "./teaching/teaching.service";
+import { TeachingController } from "./teaching/teaching.controller";
+import { teachingOpenApi } from "./teaching/teaching-openapi";
+import { AdministrationService } from "./administration/administration.service";
+import { AdministrationController } from "./administration/administration.controller";
+import { extendAdministrationOpenApi } from "./administration/administration-openapi";
+import { PlatformBusinessAccess } from "./administration/platform-access";
+import { PlatformReportService } from "./administration/report.service";
+import { PlatformBusinessController } from "./administration/business.controller";
+import { extendPlatformBusinessOpenApi } from "./administration/business-openapi";
 
 export async function createApp() {
+  fileScanEnabled();
   const config = loadConfig();
   @Module({
     imports: [
@@ -53,8 +77,8 @@ export async function createApp() {
         retryAttempts: 0,
       }),
     ],
-    controllers: [ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController],
-    providers: [Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService],
+    controllers: [TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
+    providers: [TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
   })
   class AppModule {}
   const app = await NestFactory.create(AppModule, {
@@ -84,7 +108,7 @@ export async function createApp() {
     const behaviorJson = json({ limit: "2kb", strict: true });
     app.use((req: ApiRequest, res: Response, next: NextFunction) => {
       if (req.method === "POST" && /^\/api\/v1\/(?:behavior-events|privacy\/deletion-requests)\/?$/i.test(req.path)) return behaviorJson(req, res, next);
-      const contentPath = /^\/api\/v1\/admin\/(?:textbook-editions|question-versions)(?:\/|$)/.test(req.path);
+      const contentPath = /^\/api\/v1\/(?:admin|console\/business\/content\/admin)\/(?:textbook-editions|question-versions)(?:\/|$)/.test(req.path);
       return (contentPath ? contentJson : ordinaryJson)(req, res, next);
     });
     app.use(cookieParser());
@@ -126,6 +150,11 @@ export async function createApp() {
       assessmentOpenApi(document);
       learningOpenApi(document);
       privacyOpenApi(document);
+      teachingOpenApi(document);
+      extendAdministrationOpenApi(document);
+      extendPlatformBusinessOpenApi(document);
+      trainingOpenApi(document);
+  phase2OpenApi(document);
       SwaggerModule.setup("api/docs", app, document, {
         jsonDocumentUrl: "api/openapi.json",
         swaggerOptions: { supportedSubmitMethods: [] },

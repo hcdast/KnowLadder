@@ -1,3 +1,4 @@
+const {newId}=require("../dist/database/object-id");
 "use strict";
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
@@ -12,7 +13,7 @@ async function submit(f, count = 3) {
   const receipt = await good(f.student, `/sessions/${session.id}/submissions`, { method: 'POST', body: { expected_revision: session.revision, answers: [] } }, 202);
   return grade(f, receipt.submission_id);
 }
-async function project(f) { for (let n = 0; n < 40; n++) if (!await learnOne(f.db)) { await processDue(f.db); return; } assert.fail('真实学情worker未收敛'); }
+async function project(f) { for (let n = 0; n < 40; n++) if (!await learnOne(f.db)) { await processDue(f.db);  return; } assert.fail('真实学情worker未收敛'); }
 const mastery = f => `/me/mastery?subject_id=${f.subject}`;
 const mistakes = f => `/me/mistakes?subject_id=${f.subject}`;
 const report = f => `/me/reports?subject_id=${f.subject}&period=7d`;
@@ -88,7 +89,7 @@ test('S4-03 HTTP跨组织、精确四能力冲突、撤销成员与输入白名�
   status(await request(f.student, mastery(f) + `&member_id=${other.memberId}`), 422);
   status(await request(f.student, '/me/mastery'), 422);
   status(await request(f.student, `/me/reports?subject_id=${f.subject}&period=90d`), 422);
-  status(await request(f.student, `/me/mastery?subject_id=${randomUUID()}`), 404);
+  status(await request(f.student, `/me/mastery?subject_id=${newId()}`), 404);
   const member = await f.db.collection('organization_members').findOne({ _id: f.student.memberId });
   await f.ops.setMembership(f.context, { user_id: f.student.user.user_id, org_id: f.org, roles: ['student'], status: 'disabled', expected_revision: member.authorization_revision });
   status(await request(f.student, mastery(f)), 403);
@@ -117,12 +118,12 @@ test('S4-03 错题重练选择当前published版本，修正依据撤销不交�
 });
 
 test('S4-03 空知识筛选、mastery分页与单题详情只登记实际贡献题反馈', { timeout: 180000 }, async t => {
-  const f = await assessmentFixture(t), now = new Date(), secondPoint = randomUUID(), emptyPoint = randomUUID();
+  const f = await assessmentFixture(t), now = new Date(), secondPoint = newId(), emptyPoint = newId();
   await f.db.collection('knowledge_points').insertMany([secondPoint, emptyPoint].map(key => ({ _id: key, subject_id: f.subject, code: key, name: '反馈范围验收', created_at: now, updated_at: now })));
   const secondQuestion = await createQuestion(f, { knowledge_point_ids: [secondPoint], knowledge_weights: [{ knowledge_point_id: secondPoint, weight_bps: 10000 }] });
   // Include both points in the real practice scope rather than manufacturing evidence rows.
   const draft = await good(f.editor, '/admin/textbook-editions', { method: 'POST', body: { title: '反馈范围教材', textbook: { title: '反馈范围教材', stage_id: f.stage, subject_id: f.subject, source: '自主编写' }, edition_code: randomUUID(), license: { source: '原创测试教材', granted: true, expires_at: null } } });
-  await good(f.editor, `/admin/textbook-editions/${draft.id}/chapters`, { method: 'PUT', body: { expected_revision: draft.revision, chapters: [{ id: randomUUID(), parent_id: null, position: 0, title: '混合知识', body: '原创正文', knowledge_point_ids: [f.knowledge, secondPoint], resource_ids: [] }] } });
+  await good(f.editor, `/admin/textbook-editions/${draft.id}/chapters`, { method: 'PUT', body: { expected_revision: draft.revision, chapters: [{ client_key: randomUUID(), parent_id: null, position: 0, title: '混合知识', body: '原创正文', knowledge_point_ids: [f.knowledge, secondPoint], resource_ids: [] }] } });
   const edited = await good(f.editor, `/admin/textbook-editions/${draft.id}`);
   await good(f.editor, `/admin/textbook-editions/${draft.id}/submit-review`, { method: 'POST', body: { expected_revision: edited.revision } });
   const reviewed = await good(f.contentReviewer, `/admin/textbook-editions/${draft.id}`);
@@ -155,11 +156,11 @@ test('S4-03 501个隐藏pending提交不改变外部空学情状态或水位', {
   // Real persisted pending inputs; no completed result or derived projection is fabricated.
   const sessions = [], submissions = [], runs = [], items = [];
   for (let index = 0; index < 500; index++) {
-    const sid = randomUUID(), submissionId = randomUUID();
+    const sid = newId(), submissionId = newId();
     sessions.push({ ...originalSession, _id: sid, submission_id: submissionId });
     submissions.push({ ...originalSubmission, _id: submissionId, session_id: sid });
-    runs.push({ ...originalRun, _id: randomUUID(), submission_id: submissionId });
-    items.push(...originalItems.map(item => ({ ...item, _id: randomUUID(), session_id: sid })));
+    runs.push({ ...originalRun, _id: newId(), submission_id: submissionId });
+    items.push(...originalItems.map(item => ({ ...item, _id: newId(), session_id: sid })));
   }
   await f.db.collection('sessions').insertMany(sessions); await f.db.collection('submissions').insertMany(submissions);
   await f.db.collection('grading_runs').insertMany(runs); await f.db.collection('session_items').insertMany(items);

@@ -43,7 +43,6 @@ test("v3安全升级、只读统计及独立能力", { concurrency: false, timeo
     // A partially completed upgrade may already have a single upload key, but not its history array.
     await f.db.collection("file_resources").updateOne({ _id: fileId }, { $set: { upload_storage_key: uploadKey } }, { bypassDocumentValidation: true });
     const markers = await f.db.collection("schema_migrations").find().sort({ version: 1 }).toArray();
-    const roles = await f.db.collection("roles").find().sort({ _id: 1 }).toArray();
     const report = await inspectMigration(f.uri);
     assert.equal(report.collections.question_versions.needs_defaults, 1);
     assert.equal(report.incomplete_questions, 1);
@@ -65,7 +64,6 @@ test("v3安全升级、只读统计及独立能力", { concurrency: false, timeo
     await f.migrate(f.uri);
     assert.deepEqual(await f.db.collection("question_versions").findOne({ _id: question._id }), revoked);
     assert.deepEqual(await f.db.collection("schema_migrations").find({ version: { $in: [1, 2] } }).sort({ version: 1 }).toArray(), markers);
-    assert.deepEqual(await f.db.collection("roles").find().sort({ _id: 1 }).toArray(), roles);
     assert.equal(await f.db.collection("member_capability_grants").countDocuments(), 0);
     await assert.rejects(f.db.collection("question_versions").updateOne({ _id: question._id }, { $set: { access_revision: -1 } }), error => error.code === 121);
     await assertSchema(f.db);
@@ -117,7 +115,7 @@ test("v3安全升级、只读统计及独立能力", { concurrency: false, timeo
     const org = await createOrganization(ctx, { name: "原创能力组织", kind: "school" });
     const user = await createUser(ctx, { login_name: "capability_test", display_name: "测试人" });
     const member = await setMembership(ctx, { user_id: user.user_id, org_id: org.organization_id, roles: ["content_editor"] });
-    const input = { member_id: member.member_id, org_id: org.organization_id, capability: "content:revoke", granted: true, expected_revision: member.authorization_revision };
+    const input = { member_id: member.member_id, org_id: org.organization_id, capability: "content:revoke", granted: true, valid_to: new Date(Date.now() + 3600000), expected_revision: member.authorization_revision };
     const granted = await setCapability(ctx, input);
     assert.equal(await f.db.collection("member_capability_grants").countDocuments(), 1);
     await assert.rejects(setCapability(ctx, input), error => error.code === "REVISION_CONFLICT");
@@ -125,6 +123,7 @@ test("v3安全升级、只读统计及独立能力", { concurrency: false, timeo
     assert.equal(event.access_revision_before, input.expected_revision);
     assert.equal(event.access_revision_after, granted.authorization_revision);
     await setMembership(ctx, { user_id: user.user_id, org_id: org.organization_id, roles: ["content_editor"], expected_revision: granted.authorization_revision });
-    assert.equal(await f.db.collection("member_capability_grants").countDocuments(), 0);
+    assert.equal(await f.db.collection("member_capability_grants").countDocuments({ member_id: member.member_id, status: "active" }), 0);
+    assert.equal(await f.db.collection("member_capability_grants").countDocuments({ member_id: member.member_id, status: "revoked" }), 1);
   });
 });

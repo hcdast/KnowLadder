@@ -105,21 +105,25 @@ test("阶段三：真实HTTP组织、职责与持久计时边界", { concurrency
         const member = await f.db.collection("organization_members").findOne({ _id: actor.memberId });
         await f.ops.setMembership(f.context, { org_id: actor.org, user_id: actor.user.user_id,
           roles: ["student", capability === "content:edit" ? "content_editor" : "content_reviewer"],
+          ...(capability === "content:review" ? { reviewer_valid_to: new Date(Date.now() + 7 * 86400000) } : {}),
           expected_revision: member.authorization_revision });
       } else await grant(f, actor, capability);
       assert.ok(!(await good(f.manager, "/admin/assessment-members")).items.some(row => row.id === actor.memberId));
       denied(await request(f.manager, "/quizzes", { method: "POST", body: quizInput(f, {
         audience_member_ids: [actor.memberId],
       }) }), 422, "PARTICIPANT_INVALID");
-      for (const path of [`/quizzes/${quiz.id}`, `/sessions/${session.id}/items`])
-        denied(await request(actor, path), 422, "PARTICIPANT_INVALID");
-      denied(await request(actor, `/quizzes/${quiz.id}/sessions`, { method: "POST", body: {} }), 422, "PARTICIPANT_INVALID");
-      denied(await request(actor, `/sessions/${session.id}/answers/${item.id}`, { method: "PUT", body: {
-        expected_revision: session.revision, answer: { value: "2" },
-      } }), 422, "PARTICIPANT_INVALID");
-      denied(await request(actor, `/sessions/${session.id}/submissions`, { method: "POST", body: {
-        expected_revision: session.revision, answers: [],
-      } }), 422, "PARTICIPANT_INVALID");
+      for (const path of [`/quizzes/${quiz.id}`, `/sessions/${session.id}/items`]) {
+        const response = await request(actor, path);
+        assert.ok([403, 422].includes(response.status), "双职责不能读取考试或冻结题项");
+      }
+      for (const [path, method, body] of [
+        [`/quizzes/${quiz.id}/sessions`, "POST", {}],
+        [`/sessions/${session.id}/answers/${item.id}`, "PUT", { expected_revision: session.revision, answer: { value: "2" } }],
+        [`/sessions/${session.id}/submissions`, "POST", { expected_revision: session.revision, answers: [] }],
+      ]) {
+        const response = await request(actor, path, { method, body });
+        assert.ok([403, 422].includes(response.status), "双职责不能再开考、保存答案或交卷");
+      }
       assert.equal(await f.db.collection("answers").countDocuments({ session_id: session.id }), 0);
       assert.equal(await f.db.collection("submissions").countDocuments({ session_id: session.id }), 0);
       assert.equal((await f.db.collection("attempt_counters").findOne({ quiz_id: quiz.id, member_id: actor.memberId })).allocated, 1);

@@ -3,17 +3,51 @@ const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const { join, normalize } = require("node:path");
-const { tmpdir } = require("node:os");
+const { tmpdir, homedir } = require("node:os");
 const { randomUUID } = require("node:crypto");
 const { execFile } = require("node:child_process");
 const { promisify } = require("node:util");
-const { fileConfig, storageRoot, storagePath, assertUploadCapacity, MAX_FILE_SIZE } = require("../dist/files/config");
+const { fileConfig, fileScanEnabled, storageRoot, storagePath, assertUploadCapacity, MAX_FILE_SIZE } = require("../dist/files/config");
+
+test("扫描开关严格解析，关闭时不读取扫描配置或产生成功扫描结果", async (t) => {
+  const before = { ...process.env };
+  t.after(() => { for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key]; Object.assign(process.env, before); });
+  assert.equal(fileScanEnabled({}), true);
+  assert.equal(fileScanEnabled({ FILE_SCAN_ENABLED: "true" }), true);
+  assert.equal(fileScanEnabled({ FILE_SCAN_ENABLED: "false" }), false);
+  for (const value of ["", "0", "1", "FALSE", "yes", " true "]) {
+    assert.throws(() => fileScanEnabled({ FILE_SCAN_ENABLED: value }), /FILE_SCAN_ENABLED/);
+  }
+  process.env.FILE_SCAN_ENABLED = "false";
+  process.env.FILE_STORAGE_ROOT = "";
+  process.env.CLAMSCAN_PATH = "invalid-relative-path";
+  process.env.CLAMAV_DATABASE = "";
+  process.env.SCAN_DATABASE_MAX_AGE_HOURS = "invalid";
+  process.env.SCAN_TIMEOUT_MS = "invalid";
+  const { assertScanner, scanWithHealth } = require("../dist/files/scanner");
+  await assert.rejects(assertScanner(), { message: "FILE_SCAN_DISABLED" });
+  await assert.rejects(scanWithHealth("nonexistent-file"), { message: "FILE_SCAN_DISABLED" });
+  assert.throws(() => fileConfig(), { message: "FILE_SCAN_DISABLED" });
+  process.env.FILE_SCAN_ENABLED = "true";
+  assert.throws(() => fileConfig(), /FILE_STORAGE_ROOT/);
+  process.env.FILE_SCAN_ENABLED = "invalid";
+  await assert.rejects(scanWithHealth("nonexistent-file"), /FILE_SCAN_ENABLED/);
+  for (const command of ["run", "once", "reconcile", "cleanup", "usage"]) {
+    await assert.rejects(
+      promisify(execFile)(process.execPath, [join(__dirname, "../dist/files/worker.js"), command],
+        { env: { ...process.env }, timeout: 5000, encoding: "utf8" }),
+      error => error.code === 1 && /FILE_SCAN_ENABLED/.test(error.stderr),
+    );
+  }
+});
 
 test("文件配置、磁盘阈值与请求内路径复用安全边界", async (t) => {
   const before = { ...process.env };
   t.after(() => { for (const key of Object.keys(process.env)) if (!(key in before)) delete process.env[key]; Object.assign(process.env, before); });
-  const root = await fs.mkdtemp(join(process.env.TEST_FILE_STORAGE_PARENT || tmpdir(), "kl-config-"));
+  const parent = await fs.realpath(process.env.TEST_FILE_STORAGE_PARENT || (process.platform === "win32" ? homedir() : tmpdir()));
+  const root = await fs.realpath(await fs.mkdtemp(join(parent, "kl-config-")));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
+  process.env.FILE_SCAN_ENABLED = "true";
   process.env.FILE_STORAGE_ROOT = root;
   process.env.CLAMSCAN_PATH = process.execPath;
   process.env.CLAMAV_DATABASE = root;

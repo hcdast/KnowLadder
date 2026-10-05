@@ -1,4 +1,5 @@
 "use strict";
+const {newId}=require("../dist/database/object-id");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID, createHash } = require("node:crypto");
@@ -56,7 +57,7 @@ test("A04b 开考窗口CAS后跨越关场仍以CAS数据库时间计时且计次
   let fenced, crossedClose = false;
   Collection.prototype.findOneAndUpdate = async function (...args) {
     const result = await original.apply(this, args);
-    if (this.namespace === `${f.db.databaseName}.quizzes` && args[0]._id === f.quizId &&
+    if (this.namespace === `${f.db.databaseName}.quizzes` && String(args[0]._id) === f.quizId &&
         args[0].$expr && args[2]?.session && result && !fenced) {
       assert.equal(args[2].session.inTransaction(), true);
       fenced = result;
@@ -434,7 +435,7 @@ test("阶段三：真实HTTP练习、考试和结果事务", { concurrency: fals
     const submission = await f.db.collection("submissions").findOne({ _id: accepted.submission_id });
     const run = await f.db.collection("grading_runs").findOne({ submission_id: submission._id });
     const original = await f.db.collection("outbox_events").findOne({ aggregate_id: submission._id, event_type: "SubmissionAccepted" });
-    const invalid = { ...original, _id: randomUUID(), aggregate_id: randomUUID(), available_at: new Date(0) };
+    const invalid = { ...original, _id: newId(), aggregate_id: newId(), available_at: new Date(0) };
     await f.db.collection("outbox_events").insertOne(invalid);
     const { processOne } = require("../dist/assessment/worker.js");
     assert.equal(await processOne(f.db), true);

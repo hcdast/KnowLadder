@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { HttpException, Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Document } from 'mongodb';
@@ -103,10 +104,10 @@ export class RecommendationsService {
           if(candidates.length!==5&&!chapter)continue;
           const practice=candidates.length===5;
           const deadline=await this.assessment.sources.nextCheckAt(ctx,practice?candidates.map(s=>s.question_version_id):[],editionId,null,now);
-          const row:RecommendationRow={_id:randomUUID(),org_id:ctx.orgId,created_at:now,updated_at:now,user_id:ctx.userId,member_id:ctx.memberId,subject_id:source.subject_id,textbook_edition_id:editionId,request_key:requestKey,rank:cards.length+1,generation,edition_revision:edition.revision,catalog_revision:catalog,rule_version:RULE_VERSION,expires_at:new Date(Math.min(expires.getTime(),deadline?.getTime()??Infinity)),kind:practice?'practice':'reading',knowledge_point_ids:[point],chapter_id:practice?null:chapter!.id,difficulty:practice?level:null,count:practice?5:0,reason_code:practice?(evidence?.classification==='weak'?'WEAK_KNOWLEDGE':evidence?.classification==='developing'?'CONSOLIDATION':'DIAGNOSTIC'):'RELATED_READING',independent_question_count:evidence?.independent_question_count??0,mastery:evidence?.mastery??null,signature:practice?signature:null,accepted_at:null,created_session_id:null};
+          const row:RecommendationRow={_id:newId(),org_id:ctx.orgId,created_at:now,updated_at:now,user_id:ctx.userId,member_id:ctx.memberId,subject_id:source.subject_id,textbook_edition_id:editionId,request_key:requestKey,rank:cards.length+1,generation,edition_revision:edition.revision,catalog_revision:catalog,rule_version:RULE_VERSION,expires_at:new Date(Math.min(expires.getTime(),deadline?.getTime()??Infinity)),kind:practice?'practice':'reading',knowledge_point_ids:[point],chapter_id:practice?null:chapter!.id,difficulty:practice?level:null,count:practice?5:0,reason_code:practice?(evidence?.classification==='weak'?'WEAK_KNOWLEDGE':evidence?.classification==='developing'?'CONSOLIDATION':'DIAGNOSTIC'):'RELATED_READING',independent_question_count:evidence?.independent_question_count??0,mastery:evidence?.mastery??null,signature:practice?signature:null,accepted_at:null,created_session_id:null};
           await collection.insertOne(row,{session:ctx.session});cards.push(row);
           if(practice&&chapter&&evidence?.classification==='weak'&&cards.length<3){
-            const reading:RecommendationRow={...row,_id:randomUUID(),rank:cards.length+1,kind:'reading',chapter_id:chapter.id,difficulty:null,count:0,reason_code:'RELATED_READING',signature:null};
+            const reading:RecommendationRow={...row,_id:newId(),rank:cards.length+1,kind:'reading',chapter_id:chapter.id,difficulty:null,count:0,reason_code:'RELATED_READING',signature:null};
             await collection.insertOne(reading,{session:ctx.session});cards.push(reading);
           }
         }

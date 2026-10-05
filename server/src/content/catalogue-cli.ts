@@ -1,3 +1,5 @@
+import { objectIdDatabase } from "../database/object-id";
+import { newId } from "../database/object-id";
 import { MongoClient } from 'mongodb';
 import { open } from 'node:fs/promises';
 import { constants } from 'node:fs';
@@ -7,6 +9,7 @@ import { loadConfig } from '../config';
 import { assertSchema } from '../migrations/schema';
 import { object, text, id } from './dto';
 import { acquireWriter, assertOperationalAccess, type WriterRegistration } from '../operations/control';
+import { runInTxn } from '../database/txn';
 export async function runCatalogue(argv=process.argv.slice(2)) {
   const flags:Record<string,string>={};
   for(let index=0;index<argv.length;index+=2){const flag=argv[index];if(!['--file','--actor','--reason'].includes(flag)||flags[flag]!==undefined||!argv[index+1])throw Error('用法: catalogue-cli --file 绝对JSON路径 --actor 操作者 --reason 导入原因');flags[flag]=argv[index+1];}
@@ -21,29 +24,26 @@ export async function runCatalogue(argv=process.argv.slice(2)) {
   let writer: WriterRegistration | undefined;
   try {
     await client.connect();
-    const db=client.db();
+    const db=objectIdDatabase(client.db());
     await assertSchema(db);
     writer=await acquireWriter(db,'catalogue');
-    const session=client.startSession();
-    try {
-      await session.withTransaction(async()=>{
-        await assertOperationalAccess(db);
-        for(const [name,items] of Object.entries(groups)) {
-          for(const item of items) {
-            if(name==='knowledge_points'&&!await db.collection('subjects').findOne({_id:item.subject_id} as never,{session}))throw Error('知识点学科不存在');
-            const existing=await db.collection(name).findOne({_id:item._id} as never,{session});
-            if(existing) {
-              if(existing.code!==item.code||existing.name!==item.name||(name==='knowledge_points'&&existing.subject_id!==item.subject_id))throw Error('目录id已存在且内容不同；目录导入不可变');
-              continue;
-            }
-            const now=new Date();
-            await db.collection(name).insertOne({...item,created_at:now,updated_at:now},{session});
-            await db.collection('audit_events').insertOne({_id:randomUUID(),actor_id:actor,org_id:null,action:`catalogue.${name}.create`,resource_id:item._id,reason,request_id:randomUUID(),created_at:now} as never,{session});
+    await runInTxn(client, async (session) => {
+      await assertOperationalAccess(db);
+      for(const [name,items] of Object.entries(groups)) {
+        for(const item of items) {
+          if(name==='knowledge_points'&&!await db.collection('subjects').findOne({_id:item.subject_id} as never,{session}))throw Error('知识点学科不存在');
+          const existing=await db.collection(name).findOne({_id:item._id} as never,{session});
+          if(existing) {
+            if(existing.code!==item.code||existing.name!==item.name||(name==='knowledge_points'&&existing.subject_id!==item.subject_id))throw Error('目录id已存在且内容不同；目录导入不可变');
+            continue;
           }
+          const now=new Date();
+          await db.collection(name).insertOne({...item,created_at:now,updated_at:now},{session});
+          await db.collection('audit_events').insertOne({_id:newId(),actor_id:actor,org_id:null,action:`catalogue.${name}.create`,resource_id:item._id,reason,request_id:randomUUID(),created_at:now} as never,{session});
         }
-      },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});
-      process.stdout.write(JSON.stringify({imported:Object.fromEntries(Object.entries(groups).map(([key,values])=>[key,values.length]))})+'\n');
-    } finally { await session.endSession(); }
+      }
+    },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'}});
+    process.stdout.write(JSON.stringify({imported:Object.fromEntries(Object.entries(groups).map(([key,values])=>[key,values.length]))})+'\n');
   } finally {
     try { await writer?.release(); }
     finally { await client.close(); }

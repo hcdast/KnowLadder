@@ -1,4 +1,5 @@
 "use strict";
+const { newId } = require("../dist/database/object-id");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID, createHash } = require("node:crypto");
@@ -37,17 +38,27 @@ Set-Acl -LiteralPath $env:KL_TEST_PRIVATE_ROOT -AclObject $acl`;
   // Install the production operational validators/indexes and explicit unregistered state.
   // The deliberately partial domain fixture still exercises malformed references and real I/O.
   await bootstrapOperations(f.db);
+  const { ADMINISTRATION_V9_SCHEMAS } = require("../dist/migrations/administration-v9.js");
+  await f.db.createCollection("administration_guard", {
+    validator: ADMINISTRATION_V9_SCHEMAS.administration_guard.validator,
+    validationLevel: "strict", validationAction: "error",
+  });
+  await f.db.collection("administration_guard").insertOne({
+    _id: "administration", revision: 1, state: "idle", operation_id: null, recovery_token: null,
+    blocked_targets: { user_ids: [], member_ids: [], org_ids: [], global: false },
+    affected_orgs: [], updated_at: new Date(),
+  });
   for (const name of ["file_resources", "textbook_editions", "textbooks", "education_stages", "subjects", "learning_scope_states", "question_versions", "chapters", "audit_events"]) await f.db.createCollection(name);
   await f.db.collection("learning_scope_states").createIndex({ org_id: 1, subject_id: 1 }, { unique: true });
   await storageRoot();
   f.root = root;
   f.files = f.db.collection("file_resources");
-  const now = new Date(), author = randomUUID(), org = randomUUID();
-  const stage = randomUUID(), subject = randomUUID(), textbook = randomUUID();
+  const now = new Date(), author = newId(), org = newId();
+  const stage = newId(), subject = newId(), textbook = newId();
   await f.db.collection("education_stages").insertOne({ _id: stage, code: "file-worker-stage", name: "文件验收学段", created_at: now, updated_at: now });
   await f.db.collection("subjects").insertOne({ _id: subject, code: "file-worker-subject", name: "文件验收学科", created_at: now, updated_at: now });
   await f.db.collection("textbooks").insertOne({ _id: textbook, org_id: org, title: "文件清理原创教材", stage_id: stage, subject_id: subject, source: "worker行为测试自有材料", created_at: now, updated_at: now });
-  f.owner = { _id: randomUUID(), org_id: org, textbook_id: textbook, edition_code: "cleanup-test", title: "文件清理原创版本", revision: 4, access_revision: 0, status: "draft", resource_ids: [], access_revoked_at: null,
+  f.owner = { _id: newId(), org_id: org, textbook_id: textbook, edition_code: "cleanup-test", title: "文件清理原创版本", revision: 4, access_revision: 0, status: "draft", resource_ids: [], access_revoked_at: null,
     access_revoked_by: null, access_revoked_reason: null, retired_at: null, retired_by: null, retired_reason: null,
     created_by: author, contributors: [author], created_at: now, updated_at: now, submitted_by: null, submitted_at: null,
     published_by: null, published_at: null, source_version_id: null, notes: "",
@@ -56,12 +67,12 @@ Set-Acl -LiteralPath $env:KL_TEST_PRIVATE_ROOT -AclObject $acl`;
   f.file = async (changes = {}) => {
     const past = new Date(Date.now() - 60000);
     const bytes = Buffer.from("实际清理测试文件\n");
-    const row = { _id: randomUUID(), org_id: f.owner.org_id, owner_type: "textbook", owner_version_id: f.owner._id,
-      created_by: randomUUID(), display_name: "worker.txt", storage_key: randomUUID(), declared_size: bytes.length, declared_mime: "text/plain",
+    const row = { _id: newId(), org_id: f.owner.org_id, owner_type: "textbook", owner_version_id: f.owner._id,
+      created_by: newId(), display_name: "worker.txt", storage_key: randomUUID(), declared_size: bytes.length, declared_mime: "text/plain",
       declared_checksum: createHash("sha256").update(bytes).digest("hex"), size: bytes.length, mime: "text/plain", checksum: createHash("sha256").update(bytes).digest("hex"),
       status: "pending", scan_status: "awaiting_upload", scan_attempt: 0, lease_token: null, lease_until: null,
       available_at: past, uploaded_at: null, error_code: null, created_at: past, updated_at: past,
-      retention_until: past, legal_hold: false, deletion_requested_at: past, deletion_requested_by: randomUUID(), deletion_requested_reason: "清理测试自有文件",
+      retention_until: past, legal_hold: false, deletion_requested_at: past, deletion_requested_by: newId(), deletion_requested_reason: "清理测试自有文件",
       deleted_at: null, deletion_lease_token: null, deletion_lease_until: null, deletion_attempt: 0,
       upload_key: null, upload_lease_token: null, upload_lease_until: null, upload_storage_key: null, upload_storage_keys: [], upload_owner_revision: null, upload_result_revision: null,
       scan_engine_version: null, scan_database_version: null, scan_database_updated_at: null, scanned_at: null, ...changes };
@@ -137,7 +148,7 @@ test("文件worker：删除租约、墓碑、保全与孤儿保护", { concurren
     const f = await setup(t);
     for (const collection of ["textbook_editions", "question_versions", "chapters"]) {
       const row = await f.file();
-      await f.db.collection(collection).insertOne({ _id: randomUUID(), org_id: randomUUID(), status: "retired", resource_ids: [row._id] });
+      await f.db.collection(collection).insertOne({ _id: newId(), org_id: newId(), status: "retired", resource_ids: [row._id] });
     }
     assert.equal(await processDeletion(f.db), false);
     assert.equal(await f.files.countDocuments({ status: "deleting" }), 0);

@@ -1,3 +1,4 @@
+import { objectIdDatabase, objectIdPattern } from "../database/object-id";
 import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, mkdir, open, realpath, readdir } from 'node:fs/promises';
@@ -24,17 +25,18 @@ const digest = (value: string | Buffer) => createHash('sha256').update(value).di
 export function safetyOperationId(value: string): string { if (!value || value.length > 8192) deny(); const hex = digest(value); return `${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`; }
 function deny(): never { throw new Error('SAFETY_LEDGER_UNAVAILABLE'); }
 function id(value: unknown): asserts value is string { if (typeof value !== 'string' || !uuid.test(value)) deny(); }
+function requireResourceId(value: unknown): asserts value is string { if(typeof value!=="string" || !objectIdPattern.test(value))deny(); }
 function integer(value: unknown): asserts value is number { if (!Number.isSafeInteger(value) || (value as number) < 0) deny(); }
 function normalize(intent: SafetyIntent): StoredIntent {
   if (!intent || Object.keys(intent).some(k => !['operationId','action','subjectId','resourceId','resourceType','revision','retentionUntil','hold','privacyRequestId','privacyPolicyRevision','privacyRetentionBasis'].includes(k))) deny();
   id(intent.operationId); const result: StoredIntent = { operationId: intent.operationId, action: intent.action };
-  if (intent.action === 'subject.erase') { id(intent.subjectId); result.subjectId = intent.subjectId; if (intent.resourceId !== undefined || intent.resourceType !== undefined) deny(); }
-  else { id(intent.resourceId); result.resourceId = intent.resourceId; if (intent.subjectId !== undefined) deny();
+  if (intent.action === 'subject.erase') { requireResourceId(intent.subjectId); result.subjectId = intent.subjectId; if (intent.resourceId !== undefined || intent.resourceType !== undefined) deny(); }
+  else { requireResourceId(intent.resourceId); result.resourceId = intent.resourceId; if (intent.subjectId !== undefined) deny();
     if (intent.action === 'content.revoke') { if (!['textbook','question'].includes(intent.resourceType ?? '')) deny(); }
     else if (!['file.hold','file.retention','file.deleted'].includes(intent.action) || intent.resourceType !== 'file') deny(); result.resourceType = intent.resourceType;
   }
   if (intent.privacyRequestId !== undefined || intent.privacyPolicyRevision !== undefined || intent.privacyRetentionBasis !== undefined) {
-    id(intent.privacyRequestId);
+    requireResourceId(intent.privacyRequestId);
     if (intent.action !== 'subject.erase' || intent.privacyPolicyRevision !== 'local_privacy_v1' || !['local_minimal_provenance','local_hold_and_provenance'].includes(intent.privacyRetentionBasis ?? '')) deny();
     result.privacyRequestId = intent.privacyRequestId; result.privacyPolicyRevision = intent.privacyPolicyRevision; result.privacyRetentionBasis = intent.privacyRetentionBasis;
   }
@@ -65,7 +67,7 @@ async function configuration(createRoots: boolean): Promise<LedgerConfiguration>
   return { environmentId, roots, key: Buffer.from(rawKey, 'hex'), uri };
 }
 const safeDomainErrors: Record<string, true> = {
-  OPERATIONS_PENDING_LEDGER:true, OPERATIONS_LEDGER_NOT_CURRENT:true, OPERATIONS_RESTORE_NOT_VALIDATED:true,
+  OPERATIONS_PRIVACY_DISPOSITION_PENDING:true, OPERATIONS_PENDING_LEDGER:true, OPERATIONS_LEDGER_NOT_CURRENT:true, OPERATIONS_RESTORE_NOT_VALIDATED:true,
   OPERATIONS_WRITERS_RUNNING:true, OPERATIONS_REVISION_CONFLICT:true, OPERATIONS_MAINTENANCE_REQUIRED:true,
   OPERATIONS_LOCAL_ONLY:true, OPERATIONS_LOOPBACK_REQUIRED:true, OPERATIONS_ENVIRONMENT_MISMATCH:true,
   OPERATIONS_INVALID_ID:true, OPERATIONS_ACTOR_REASON_REQUIRED:true, OPERATIONS_STATE_MISSING:true,
@@ -73,7 +75,7 @@ const safeDomainErrors: Record<string, true> = {
 };
 async function authority<T>(work: (db: Db, config: LedgerConfiguration) => Promise<T>, createRoots = false): Promise<T> {
   let client: MongoClient | undefined;
-  try { const config = await configuration(createRoots); client = new MongoClient(config.uri, { appName:process.env.KL_OPERATION_LAUNCH_TOKEN ? 'knowladder-ledger-managed' : 'knowladder-ledger-control', serverSelectionTimeoutMS: 5000, readConcern: { level: 'majority' }, writeConcern: { w: 'majority', j: true } }); await client.connect(); const hello = await client.db('admin').command({ hello: 1 }); if (!hello.setName) deny(); return await work(client.db(), config); }
+  try { const config = await configuration(createRoots); client = new MongoClient(config.uri, { appName:process.env.KL_OPERATION_LAUNCH_TOKEN ? 'knowladder-ledger-managed' : 'knowladder-ledger-control', serverSelectionTimeoutMS: 5000, readConcern: { level: 'majority' }, writeConcern: { w: 'majority', j: true } }); await client.connect(); const hello = await client.db('admin').command({ hello: 1 }); if (!hello.setName) deny(); return await work(objectIdDatabase(client.db()), config); }
   catch (error) {
     // Forward only fixed public machine codes, never driver/FS messages, causes or metadata.
     if (error instanceof Error && Object.hasOwn(safeDomainErrors,error.message)) throw new Error(error.message);
@@ -84,9 +86,9 @@ const uuidSchema = { bsonType:'string', pattern:uuid.source };
 const counterSchema = { bsonType:['int','long','double'], minimum:0, maximum:Number.MAX_SAFE_INTEGER, multipleOf:1 };
 const headSchema = {
   $jsonSchema: { bsonType:'object', additionalProperties:false,
-    required:['_id','source','sourceCluster','roots','fileRoot','generation','sequence','hash','lock','ownerLaunchToken','acceptedDatabases'],
+    required:['_id','ledger_key','source','sourceCluster','roots','fileRoot','generation','sequence','hash','lock','ownerLaunchToken','acceptedDatabases'],
     properties: {
-      _id:uuidSchema, source:{bsonType:'string',pattern:'^kl_test_[a-zA-Z0-9_-]+$',maxLength:63}, sourceCluster:{bsonType:'string',pattern:'^[0-9a-f]{64}$'},
+      _id:{bsonType:"objectId"},ledger_key:uuidSchema, source:{bsonType:'string',pattern:'^kl_test_[a-zA-Z0-9_-]+$',maxLength:63}, sourceCluster:{bsonType:'string',pattern:'^[0-9a-f]{64}$'},
       roots:{bsonType:'array',minItems:2,maxItems:2,uniqueItems:true,items:{bsonType:'string',minLength:1,maxLength:4096}}, fileRoot:{bsonType:['string','null'],minLength:1,maxLength:4096},
       generation:counterSchema, sequence:counterSchema, hash:{bsonType:'string',pattern:'^[0-9a-f]{64}$'},
       lock:{bsonType:['string','null'],pattern:uuid.source}, ownerLaunchToken:{bsonType:['string','null'],pattern:uuid.source},
@@ -97,7 +99,7 @@ const headSchema = {
 };
 async function initialize(control: Db) {
   try { await control.createCollection('safety_ledger_heads', { validator: headSchema, validationLevel: 'strict', validationAction: 'error' }); } catch (error) { if ((error as { code?: number }).code !== 48) throw error; }
-  const info = await control.listCollections({ name: 'safety_ledger_heads' }, { nameOnly:false }).next(); if (!info || !('options' in info) || JSON.stringify(info.options?.validator) !== JSON.stringify(headSchema) || info.options?.validationLevel !== 'strict' || info.options?.validationAction !== 'error') deny(); await control.collection('safety_ledger_heads').createIndex({ source: 1 }, { unique: true });
+  const info = await control.listCollections({ name: 'safety_ledger_heads' }, { nameOnly:false }).next(); if (!info || !('options' in info) || JSON.stringify(info.options?.validator) !== JSON.stringify(headSchema) || info.options?.validationLevel !== 'strict' || info.options?.validationAction !== 'error') deny(); await control.collection('safety_ledger_heads').createIndex({ source: 1 }, { unique: true }); await control.collection('safety_ledger_heads').createIndex({ledger_key:1},{unique:true});
 }
 async function store(event: Event, config: LedgerConfiguration) {
   const iv = randomBytes(12); const cipher = createCipheriv('aes-256-gcm', config.key, iv); cipher.setAAD(Buffer.from(`KL_SAFETY_LEDGER_V1:${config.environmentId}`));
@@ -187,11 +189,16 @@ async function commitAbortFence(db: Db, intent: SafetyIntent, sequence: number, 
       if (intent.action === 'subject.erase') { collection = 'users'; resourceId = intent.subjectId!; }
       else if (intent.action === 'content.revoke') { collection = intent.resourceType === 'textbook' ? 'textbook_editions' : 'question_versions'; resourceId = intent.resourceId!; }
       else {
-        const file = await db.collection<Row>('file_resources').findOne({_id:intent.resourceId},{session,projection:{owner_type:1,owner_version_id:1}});
-        if (!file || !['textbook','question'].includes(file.owner_type)) deny(); id(file.owner_version_id);
-        collection = file.owner_type === 'textbook' ? 'textbook_editions' : 'question_versions'; resourceId = file.owner_version_id;
+        const file = await db.collection<Row>('file_resources').findOne({_id:intent.resourceId},{session,projection:{owner_type:1,owner_version_id:1,org_id:1,created_by:1}});
+        if (!file || !['textbook','question','coursework'].includes(file.owner_type)) deny();
+        if(file.owner_type==='coursework') {
+          if(process.env.KL_COURSEWORK_FILES_ENABLED!=='true')deny();
+          const owner=await db.collection<Row>('coursework_heads').findOne({_id:file.owner_version_id,org_id:file.org_id,user_id:file.created_by},{session});
+          if(!owner || !Number.isSafeInteger(owner.revision))deny();
+        } requireResourceId(file.owner_version_id);
+        collection = file.owner_type === 'coursework' ? 'coursework_heads' : file.owner_type === 'textbook' ? 'textbook_editions' : 'question_versions'; resourceId = file.owner_version_id;
       }
-      const increment = intent.action === 'subject.erase' ? {identity_revision:1} : {access_revision:1};
+      const increment = intent.action === 'subject.erase' ? {identity_revision:1} : collection === 'coursework_heads' ? {revision:1} : {access_revision:1};
       if ((await db.collection<Row>(collection).updateOne({_id:resourceId},{$inc:increment},{session})).modifiedCount !== 1) deny();
       if (await applied(db,intent,sequence,session) || fingerprint(await sourceState(db,intent,session),intent) !== baseline) deny();
     },{readConcern:{level:'snapshot'},writeConcern:{w:'majority',j:true},readPreference:'primary'});
@@ -292,9 +299,9 @@ export async function applySafetyLedger(db: Db, ledger: SafetyLedger): Promise<o
   const authoritative = await readSafetyLedger(ledger.environmentId,ledger.sequence); if (JSON.stringify(authoritative) !== JSON.stringify(ledger)) deny(); let appliedCount = 0;
   const entries = ledger.entries.filter(entry => entry.state !== 'aborted');
   for (const entry of [...entries.filter(row => row.action === 'file.hold' || row.action === 'file.retention'), ...entries.filter(row => row.action !== 'file.hold' && row.action !== 'file.retention')]) {
-    if (entry.action === 'subject.erase') { await suppressRestoredSubject(db,entry.subjectId!,entry.privacyRequestId ?? entry.operationId,entry.sequence); }
+    if (entry.action === 'subject.erase') { await suppressRestoredSubject(db,entry.subjectId!,entry.privacyRequestId ?? null,entry.sequence); }
     else if (entry.action === 'content.revoke') { await db.collection<Row>(entry.resourceType === 'textbook' ? 'textbook_editions' : 'question_versions').updateOne({ _id:entry.resourceId, access_revoked_at:null },{ $set:{ access_revoked_at:new Date(), access_revoked_reason:'safety-ledger restore suppression', updated_at:new Date() }, $inc:{ access_revision:1 } }); }
-    else if (entry.action === 'file.hold') { if (entry.hold) await db.collection<Row>('file_resources').updateOne({ _id:entry.resourceId },{ $set:{ legal_hold:true, updated_at:new Date() } }); }
+    else if (entry.action === 'file.hold') { const file=await db.collection<Row>('file_resources').findOne({_id:entry.resourceId}); const erasedCoursework=file?.owner_type==='coursework' && entries.some(e=>e.action==='subject.erase'&&e.subjectId===file.created_by&&e.state==='committed'); if (entry.hold || (erasedCoursework && entry.state==='committed')) await db.collection<Row>('file_resources').updateOne({ _id:entry.resourceId },{ $set:{ legal_hold:entry.hold!, updated_at:new Date() } }); }
     else if (entry.action === 'file.retention') { await db.collection<Row>('file_resources').updateOne({ _id:entry.resourceId },{ $max:{ retention_until:entry.retentionUntil! }, $set:{ updated_at:new Date() } }); }
     else {
       await db.collection<Row>('file_resources').updateOne({ _id:entry.resourceId },[{ $set:{ status:'deleting', deletion_requested_at:{ $ifNull:['$deletion_requested_at',{ $ifNull:['$deleted_at','$$NOW'] }] }, updated_at:'$$NOW' } }]);
@@ -313,9 +320,9 @@ export type LatestCompletedBackup = {status:'not_recorded'} | {
   status:'recorded'; backupId:string; environmentId:string; manifestHash:string; createdAt:Date; completedAt:Date; dbBytes:number; fileCount:number; ledgerSequence:number;
 };
 const completedBackupSchema = {$jsonSchema:{bsonType:'object',additionalProperties:false,
-  required:['_id','environmentId','databaseName','cluster','manifestHash','createdAt','completedAt','dbBytes','fileCount','ledgerSequence'],
+  required:['_id','ledger_key','environmentId','databaseName','cluster','manifestHash','createdAt','completedAt','dbBytes','fileCount','ledgerSequence'],
   properties:{
-    _id:uuidSchema,environmentId:uuidSchema,databaseName:{bsonType:'string',pattern:'^kl_(test|restore)_[a-zA-Z0-9_-]+$',maxLength:63},
+    _id:{bsonType:"objectId"},ledger_key:uuidSchema,environmentId:uuidSchema,databaseName:{bsonType:'string',pattern:'^kl_(test|restore)_[a-zA-Z0-9_-]+$',maxLength:63},
     cluster:{bsonType:'string',pattern:'^[0-9a-f]{64}$'},manifestHash:{bsonType:'string',pattern:'^[0-9a-f]{64}$'},
     createdAt:{bsonType:'date'},completedAt:{bsonType:'date'},dbBytes:counterSchema,fileCount:counterSchema,ledgerSequence:counterSchema,
   },
@@ -328,6 +335,7 @@ async function initializeCompletedBackups(control: Db) {
   try { await control.createCollection('completed_backups',{validator:completedBackupSchema,validationLevel:'strict',validationAction:'error'}); }
   catch (error) { if (!error || typeof error !== 'object' || !('code' in error) || error.code !== 48) throw error; }
   await assertCompletedBackupSchema(control);
+  await control.collection('completed_backups').createIndex({ledger_key:1},{unique:true});
   await control.collection('completed_backups').createIndex({environmentId:1,databaseName:1,cluster:1,completedAt:-1,_id:-1});
 }
 async function completedBackupDeadline(db: Db, maintenanceToken: string): Promise<number> {

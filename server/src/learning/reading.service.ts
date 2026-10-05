@@ -1,8 +1,9 @@
+import { newId } from "../database/object-id";
 import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { Database } from '../database/database';
 import { ApiRequest, fail } from '../errors';
-import { canonical, id, integer, object } from '../content/dto';
+import { canonical, id, uuid, integer, object } from '../content/dto';
 import { AssessmentSources } from '../content/assessment-sources';
 import type { AssessmentContext } from '../assessment/contracts';
 import type { ChapterRecord, TextbookVersion } from '../content/contracts';
@@ -16,7 +17,7 @@ function eventInput(raw: unknown): ReadingEventInput {
   if (value.event_type !== 'reading_progress_set' || typeof value.completed !== 'boolean') fail(422, 'VALIDATION_ERROR', '须明确提交阅读位置与完成标记');
   const position = object(value.position, ['kind', 'offset_utf16']);
   if (position.kind !== 'text_offset') fail(422, 'VALIDATION_ERROR', '仅支持正文UTF-16位置');
-  return { event_type: 'reading_progress_set', event_id: id(value.event_id, 'event_id'),
+  return { event_type: 'reading_progress_set', event_id: uuid(value.event_id, 'event_id'),
     textbook_edition_id: id(value.textbook_edition_id, 'textbook_edition_id'), chapter_id: id(value.chapter_id, 'chapter_id'),
     edition_revision: integer(value.edition_revision, 'edition_revision'), expected_revision: integer(value.expected_revision, 'expected_revision', 0),
     position: { kind: 'text_offset', offset_utf16: integer(position.offset_utf16, 'offset_utf16', 0) }, completed: value.completed };
@@ -58,7 +59,7 @@ export class ReadingService {
   async record(req: ApiRequest, raw: unknown): Promise<ReadingResult> {
     const input = eventInput(raw);
     return this.access.run(req, true, async ctx => {
-      await requireEvidenceSubject(this.database.db, ctx.session, ctx.userId);
+      await requireEvidenceSubject(this.database.db, ctx.session, ctx.userId, ctx.orgId);
       const edition = await this.edition(ctx, input.textbook_edition_id);
       if (edition.revision !== input.edition_revision) fail(409, 'READING_CONTENT_CHANGED', '教材修订已变化');
       const chapter = await this.database.db.collection<ChapterRecord>('chapters').findOne({ _id: input.chapter_id, org_id: ctx.orgId, textbook_edition_id: edition._id }, { session: ctx.session });
@@ -78,8 +79,8 @@ export class ReadingService {
         if (previous) {
           const updated = await progress.updateOne({ ...filter, revision: input.expected_revision }, { $set: fields }, { session: ctx.session });
           if (updated.matchedCount !== 1) fail(409, 'READING_REVISION_CONFLICT', '阅读进度已变化');
-        } else await progress.insertOne({ _id: randomUUID(), ...filter, ...fields }, { session: ctx.session });
-        await this.database.db.collection<ReadingEvent>('behavior_events').insertOne({ _id: randomUUID(), ...filter,
+        } else await progress.insertOne({ _id: newId(), ...filter, ...fields }, { session: ctx.session });
+        await this.database.db.collection<ReadingEvent>('behavior_events').insertOne({ _id: newId(), ...filter,
           event_id: input.event_id, event_type: input.event_type, request_hash: createHash('sha256').update(canonical(input)).digest('hex'),
           edition_id: edition._id, edition_revision: edition.revision, expected_revision: input.expected_revision,
           position: input.position, completed: input.completed, server_received_at: now, progress_revision: revision,

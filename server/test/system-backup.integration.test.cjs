@@ -1,4 +1,5 @@
 "use strict";
+const {newId,objectIdDatabase,rawDatabase}=require("../dist/database/object-id");
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
@@ -16,7 +17,7 @@ async function protectPrivateRoot(root) {
   await fs.chmod(root, 0o700);
   if (process.platform === 'win32') {
     const script = "$ErrorActionPreference='Stop';$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User;$acl=New-Object Security.AccessControl.DirectorySecurity;$acl.SetOwner($sid);$acl.SetAccessRuleProtection($true,$false);$rule=New-Object Security.AccessControl.FileSystemAccessRule($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow');$acl.AddAccessRule($rule);Set-Acl -LiteralPath $env:KL_TEST_PRIVATE_ROOT -AclObject $acl";
-    await promisify(execFile)(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe'), ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')], { env: { ...process.env, KL_TEST_PRIVATE_ROOT: root } });
+    await promisify(execFile)(path.join(process.env.SystemRoot || 'C:\\Windows', 'System32/WindowsPowerShell/v1.0/powershell.exe'), ['-NoProfile','-NonInteractive','-EncodedCommand',Buffer.from(script,'utf16le').toString('base64')], { windowsHide:true, env: { ...process.env, KL_TEST_PRIVATE_ROOT: root } });
   }
 }
 async function privateRoot(t) {
@@ -99,7 +100,7 @@ test('全业务加密备份：真实DB与文件、双遍认证、隔离恢复及
   await assert.rejects(inspectCli(file, randomBytes(32)), error => error.stdout === '');
   await assert.rejects(inspectCli(path.join(root, 'truncated.klb')), error => error.stdout === '');
   await assert.rejects(inspectCli(file, key, ['--restore-id', randomUUID()]), error => /INVALID_COMMAND_OPTIONS/.test(error.stderr));
-  const restoredName = 'kl_restore_' + randomUUID().replaceAll('-', ''); const db = f.client.db(restoredName);
+  const restoredName = 'kl_restore_' + randomUUID().replaceAll('-', ''); const db = objectIdDatabase(f.client.db(restoredName));
   t.after(() => dropTestDatabase(f.uri, restoredName)); const target = await child(root, 'target');
   process.env.KL_ENVIRONMENT_ID = randomUUID();
   await assert.rejects(backupApi.restore({ client: f.client, db, file, key, root: target }), /ENVIRONMENT_MISMATCH/);
@@ -123,6 +124,7 @@ test('全业务加密备份：真实DB与文件、双遍认证、隔离恢复及
 test('完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节', async t => {
   const { Browser, status, PASSWORD } = require('./helpers.cjs');
   const { createHash } = require('node:crypto');
+  const { executeAdministrationOperation } = require('../dist/administration/operations.js');
   const previous = { ...process.env };
   t.after(() => { for (const key of Object.keys(process.env)) if (!(key in previous)) delete process.env[key]; Object.assign(process.env, previous); });
   const f = await fixture(t, { app: false });
@@ -133,7 +135,56 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   Object.assign(process.env, { KL_ENVIRONMENT_ID: environmentId, KL_CONTROL_MONGODB_URI: sourceUri.replace(/\/kl_test_[^?]+/, '/' + controlName), KL_SAFETY_LEDGER_ROOT: await child(root, 'clean-ledger'), KL_SAFETY_LEDGER_MIRROR_ROOT: await child(root, 'clean-mirror'), KL_SAFETY_LEDGER_KEY: randomBytes(32).toString('hex'), FILE_STORAGE_ROOT: source });
   const user = await f.user(); const org = (await f.ops.createOrganization(f.context, { name: '恢复隔离原创组织', kind: 'school' })).organization_id;
   await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles: ['content_editor'] });
-  const now = new Date(), stage = randomUUID(), subject = randomUUID(), textbook = randomUUID(), edition = randomUUID(), resource = randomUUID(), storageKey = randomUUID();
+  const administrator = await f.user();
+  await f.ops.setMembership(f.context, { user_id: administrator.user_id, org_id: org, roles: ['org_admin'] });
+  const editor = await f.db.collection('organization_members').findOne({ user_id: user.user_id, org_id: org });
+  await f.ops.setCapability(f.context, { member_id: editor._id, org_id: org, capability: 'content:retire',
+    granted: true, valid_to: new Date(Date.now() + 3600000), expected_revision: editor.authorization_revision });
+  const editorMember = await f.db.collection('organization_members').findOne({ _id: editor._id });
+  const memberGrant = await f.db.collection('member_capability_grants').findOne({ member_id: editor._id, capability: 'content:retire' });
+  const adminMember = await f.db.collection('organization_members').findOne({ user_id: administrator.user_id, org_id: org });
+  const adminScope = { kind: 'organization_ids', organization_ids: [org] };
+  const administrativeGrantId = newId(), pendingRequestId = newId();
+  await executeAdministrationOperation({
+    client: f.client, db: f.db, actor: f.context.actor, reason: 'Explicit local administrative grant for restore evidence',
+    action: 'capability.grant.account:manage',
+    targets: { user_ids: [administrator.user_id], member_ids: [adminMember._id], org_ids: [org] },
+    before: {}, payload: { grant_id: administrativeGrantId, member_id: adminMember._id, capability: 'account:manage', scope: adminScope },
+    audit: { org_id: org, resource_id: administrativeGrantId },
+    apply: async ({ session, operation_id, now }) => {
+      const role = await f.db.collection('member_roles').findOne({ member_id: adminMember._id, role_id: 'org_admin' }, { session });
+      assert.ok(role, 'Only an actual org_admin may receive account:manage');
+      await f.db.collection('administrative_grants').insertOne({
+        _id: administrativeGrantId, subject_member_id: adminMember._id, actor_org_id: org,
+        capability: 'account:manage', scope: adminScope,
+        scope_key: createHash('sha256').update(JSON.stringify(adminScope)).digest('hex'),
+        delegate_capabilities: [], status: 'active', revision: 1, valid_from: now,
+        valid_to: null, operation_id, authority: 'cli', approval_id: null, created_at: now, updated_at: now,
+      }, { session });
+      await f.db.collection('organization_members').updateOne({ _id: adminMember._id, status: 'active' },
+        { $inc: { authorization_revision: 1 }, $set: { updated_at: now } }, { session });
+      await f.db.collection('users').updateOne({ _id: administrator.user_id, status: 'active', privacy_state: 'active' },
+        { $inc: { identity_revision: 1 }, $set: { updated_at: now } }, { session });
+      return { grant_id: administrativeGrantId };
+    },
+  });
+  const requesterMember = await f.db.collection('organization_members').findOne({ _id: adminMember._id });
+  const requesterIdentity = await f.db.collection('users').findOne({ _id: administrator.user_id });
+  const editorIdentity = await f.db.collection('users').findOne({ _id: user.user_id });
+  const grantAt = new Date();
+  const pendingPayload = { user_id: user.user_id, member_id: editorMember._id, org_id: org,
+    roles: ['content_editor', 'content_reviewer'], status: 'active', expected_revision: editorMember.authorization_revision,
+    valid_to: new Date(Date.now() + 3600000).toISOString() };
+  await f.db.collection('authorization_requests').insertOne({
+    _id: pendingRequestId, requester_user_id: administrator.user_id, requester_member_id: adminMember._id,
+    beneficiary_user_id: user.user_id, subject_member_id: editorMember._id, action: 'member.update',
+    payload: pendingPayload, payload_hash: createHash('sha256').update(JSON.stringify(pendingPayload)).digest('hex'),
+    expected_grant_revision: editorMember.authorization_revision, requester_permission_revision: requesterMember.authorization_revision, requester_credential_version: requesterIdentity.credential_version,
+    target_credential_version: editorIdentity.credential_version, target_identity_revision: editorIdentity.identity_revision,
+    reason: 'Synthetic unapproved authorization must never replay after restore', status: 'pending', revision: 1,
+    approver_user_id: null, approver_credential_version: null, approved_at: null, operation_id: null, created_at: grantAt, updated_at: grantAt,
+  });
+  const now = new Date(), stage = newId(), subject = newId(), textbook = newId(), edition = newId(), resource = newId(), storageKey = randomUUID();
   await f.db.collection('education_stages').insertOne({ _id: stage, code: 'restore-stage', name: '恢复测试学段', created_at: now, updated_at: now });
   await f.db.collection('subjects').insertOne({ _id: subject, code: 'restore-subject', name: '恢复测试学科', created_at: now, updated_at: now });
   await f.db.collection('textbooks').insertOne({ _id: textbook, org_id: org, title: '原创恢复教材', stage_id: stage, subject_id: subject, source: '原创合成', created_at: now, updated_at: now });
@@ -141,7 +192,7 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   const bytes = Buffer.from('原创隔离恢复附件\n'.repeat(100)), checksum = createHash('sha256').update(bytes).digest('hex');
   await f.db.collection('file_resources').insertOne({ _id: resource, org_id: org, owner_type: 'textbook', owner_version_id: edition, created_by: user.user_id, display_name: 'original.txt', storage_key: storageKey, declared_size: bytes.length, declared_mime: 'text/plain', declared_checksum: checksum, size: bytes.length, mime: 'text/plain', checksum, status: 'ready', scan_status: 'clean', scan_attempt: 1, lease_token: null, lease_until: null, available_at: now, uploaded_at: now, error_code: null, created_at: now, updated_at: now, retention_until: null, legal_hold: false, deletion_requested_at: null, deletion_requested_by: null, deletion_requested_reason: null, deleted_at: null, deletion_lease_token: null, deletion_lease_until: null, deletion_attempt: 0, upload_key: null, upload_lease_token: null, upload_lease_until: null, upload_storage_key: null, upload_storage_keys: [], upload_owner_revision: null, upload_result_revision: null, scan_engine_version: 'synthetic-fixture-record', scan_database_version: 'synthetic-fixture-record', scan_database_updated_at: now, scanned_at: now });
   await fs.writeFile(path.join(source, 'ready', storageKey), bytes, { flag: 'wx', mode: 0o600 });
-  const laterDeletedResource = randomUUID(), laterDeletedKey = randomUUID();
+  const laterDeletedResource = newId(), laterDeletedKey = randomUUID();
   const originalFile = await f.db.collection('file_resources').findOne({ _id: resource });
   await f.db.collection('file_resources').insertOne({ ...originalFile, _id: laterDeletedResource, storage_key: laterDeletedKey });
   await f.db.collection('textbook_editions').updateOne({ _id: edition }, { $set: { resource_ids: [resource, laterDeletedResource] } });
@@ -157,16 +208,27 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   const archive = path.join(root, 'clean.klb'), key = randomBytes(32);
   await f.db.createCollection('unexpected_backup_collection');
   await assert.rejects(backupApi.backup({ client: f.client, db: f.db, file: archive, key, root: source, maintenanceToken: gate.token }), /UNKNOWN_COLLECTION/);
-  await f.db.collection('unexpected_backup_collection').drop();
+  await rawDatabase(f.db).collection('unexpected_backup_collection').drop();
   const result = await backupApi.backup({ client: f.client, db: f.db, file: archive, key, root: source, maintenanceToken: gate.token }); assert.equal(result.unresolved, 0);
+  const archivedAuthorization = await verifyFile(archive, key);
+  assert.equal(archivedAuthorization.manifest.counts.administrative_grants, 1);
+  assert.equal(archivedAuthorization.manifest.counts.authorization_requests, 1);
+  assert.equal(archivedAuthorization.manifest.counts.member_capability_grants, 1);
+  await f.db.collection('member_capability_grants').updateOne({ _id: memberGrant._id }, { $set: { status: 'revoked', updated_at: new Date() }, $inc: { revision: 1 } });
+  await f.db.collection('administrative_grants').updateOne({ _id: administrativeGrantId }, { $set: { status: 'revoked', updated_at: new Date() }, $inc: { revision: 1 } });
   const retainUntil = new Date(Date.now() + 86400000);
   const hold = await ledger.reserveSafetyIntent(f.db, { operationId: randomUUID(), action: 'file.hold', resourceType: 'file', resourceId: resource, hold: true });
   await f.db.collection('file_resources').updateOne({ _id: resource }, { $set: { legal_hold: true } }); await ledger.confirmSafetyIntent(f.db, hold);
   const retention = await ledger.reserveSafetyIntent(f.db, { operationId: randomUUID(), action: 'file.retention', resourceType: 'file', resourceId: resource, retentionUntil: retainUntil });
   await f.db.collection('file_resources').updateOne({ _id: resource }, { $set: { retention_until: retainUntil } }); await ledger.confirmSafetyIntent(f.db, retention);
-  const restoredName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = f.client.db(restoredName), target = await child(root, 'clean-target');
+  const restoredName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = objectIdDatabase(f.client.db(restoredName)), target = await child(root, 'clean-target');
   t.after(() => dropTestDatabase(sourceUri, restoredName));
   const restore = await backupApi.restore({ client: f.client, db, file: archive, key, root: target });
+  for (const name of ['member_capability_grants', 'administrative_grants', 'authorization_requests', 'administration_operations'])
+    assert.equal(await db.collection(name).countDocuments({}), 0, `${name} from archive must not regain effect`);
+  const restoreGuard = await db.collection('administration_guard').findOne({ _id: 'administration' });
+  assert.equal(restoreGuard.state, 'idle'); assert.equal(restoreGuard.recovery_token, null);
+  assert.deepEqual(restoreGuard.blocked_targets, { user_ids: [], member_ids: [], org_ids: [], global: false });
   const restoredResource = await db.collection('file_resources').findOne({ _id: resource });
   assert.equal(restoredResource.legal_hold, true); assert.equal(restoredResource.retention_until.getTime(), retainUntil.getTime());
   const input = { db, file: archive, key, root: target, restoreId: restore.restore_id, apply: true };
@@ -205,7 +267,7 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   await fs.unlink(path.join(source, 'ready', laterDeletedKey));
   await f.db.collection('file_resources').updateOne({ _id: laterDeletedResource }, { $set: { status: 'deleting', deletion_requested_at: past, deletion_requested_by: user.user_id, deletion_requested_reason: 'synthetic source lawful deletion', deleted_at: new Date(), updated_at: new Date() } });
   await ledger.confirmSafetyIntent(f.db, deletion);
-  const referencedName = 'kl_restore_' + randomUUID().replaceAll('-', ''), referencedDb = f.client.db(referencedName), referencedRoot = await child(root, 'old-referenced-target');
+  const referencedName = 'kl_restore_' + randomUUID().replaceAll('-', ''), referencedDb = objectIdDatabase(f.client.db(referencedName)), referencedRoot = await child(root, 'old-referenced-target');
   t.after(() => dropTestDatabase(sourceUri, referencedName));
   const referencedRestore = await backupApi.restore({ client: f.client, db: referencedDb, file: archive, key, root: referencedRoot });
   const blocked = await backupApi.verifyRestore({ db: referencedDb, file: archive, key, root: referencedRoot, restoreId: referencedRestore.restore_id, apply: true });
@@ -227,7 +289,7 @@ test('旧包无隐私申请：源真实审批执行后亡源，仅独立最新�
   const org = (await f.ops.createOrganization(f.context, { name: '亡源恢复合成组织', kind: 'school' })).organization_id;
   await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles: ['student'] });
   const member = await f.db.collection('organization_members').findOne({ user_id: user.user_id, org_id: org });
-  await f.db.collection('reading_progress').insertOne({ _id: randomUUID(), org_id: org, member_id: member._id, chapter_id: randomUUID(), edition_id: randomUUID(), edition_revision: 1, position: { kind: 'text_offset', offset_utf16: 0 }, completed: false, revision: 1, updated_at: new Date(), cleared_at: null });
+  await f.db.collection('reading_progress').insertOne({ _id: newId(), org_id: org, member_id: member._id, chapter_id: newId(), edition_id: newId(), edition_revision: 1, position: { kind: 'text_offset', offset_utf16: 0 }, completed: false, revision: 1, updated_at: new Date(), cleared_at: null });
   const root = await privateRoot(t), source = await child(root, 'erasure-source');
   for (const area of ['tmp','quarantine','ready']) await child(source, area);
   const controlName = 'kl_control_' + randomUUID().replaceAll('-', ''), environmentId = randomUUID();
@@ -241,7 +303,7 @@ test('旧包无隐私申请：源真实审批执行后亡源，仅独立最新�
   await backupApi.backup({ client: f.client, db: f.db, file, key, root: source, maintenanceToken: gate.token });
   const archived = await verifyFile(file, key); assert.equal(archived.manifest.counts.privacy_deletion_requests, 0);
   await control.leaveMaintenance(f.client, f.db, { token: gate.token, ...operator });
-  const now = new Date(), requestId = randomUUID();
+  const now = new Date(), requestId = newId();
   await f.db.collection('privacy_deletion_requests').insertOne({ _id: requestId, user_id: user.user_id, scope: 'account', policy_revision: PRIVACY_POLICY_REVISION, status: 'requested', revision: 0, plan_hash: null, actor: null, reason_code: null, deleted_categories: [], retained_categories: [], retention_basis: null, remaining_actions: [], created_at: now, updated_at: now, lease_token: null, lease_until: null, ledger_sequence: null, completed_steps: [] });
   const plan = await privacy.inspectPrivacyRequest(f.db, requestId);
   await privacy.approvePrivacyRequest(f.client, f.db, { requestId, expectedRevision: plan.revision, planHash: plan.plan_hash, retentionBasis: 'local_minimal_provenance', ...operator });
@@ -252,7 +314,7 @@ test('旧包无隐私申请：源真实审批执行后亡源，仅独立最新�
   assert.equal((await f.db.collection('users').findOne({ _id: user.user_id })).privacy_state, 'erased');
   await f.db.dropDatabase(); // Source requests/rows are genuinely unavailable, not mocked out.
   assert.equal((await f.db.listCollections().toArray()).length, 0);
-  const targetName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = f.client.db(targetName), target = await child(root, 'erasure-target');
+  const targetName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = objectIdDatabase(f.client.db(targetName)), target = await child(root, 'erasure-target');
   t.after(() => dropTestDatabase(f.uri, targetName));
   const restored = await backupApi.restore({ client: f.client, db, file, key, root: target });
   assert.equal(restored.pending, false);

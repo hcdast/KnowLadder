@@ -12,6 +12,7 @@ export class ContentController {
   constructor(readonly content:ContentService, readonly assessment:AssessmentService){}
   private async result(req:ApiRequest,work:Promise<unknown>){return {data:await work,request_id:req.requestId};}
   @Get('admin/content-options') options(@Req() req:ApiRequest){return this.result(req,this.content.options(req));}
+  @Get('admin/content-requests') contentReceipt(@Req() req:ApiRequest,@Query() query:unknown){return this.result(req,this.content.safetyReceipt(req,query));}
   @Get('admin/textbook-editions') textbooks(@Req() req:ApiRequest,@Query() query:unknown){return this.result(req,this.content.list(req,'textbook',query));}
   @Get('admin/textbook-editions/:id') textbook(@Req() req:ApiRequest,@Param('id') id:string){return this.result(req,this.content.detail(req,'textbook',id));}
   @Get('admin/textbook-editions/:id/chapters') adminChapters(@Req() req:ApiRequest,@Param('id') id:string,@Query() query:unknown){return this.result(req,this.content.chapterPage(req,id,query,false));}

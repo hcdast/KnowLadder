@@ -1,3 +1,4 @@
+import { newId, objectIdPattern } from "./database/object-id";
 import { Injectable } from "@nestjs/common";
 import {
   createHash,
@@ -20,9 +21,13 @@ import { loadConfig } from "./config";
 import { ApiRequest, fail } from "./errors";
 import { dummyHash, hashPassword, verifyPassword } from "./security/password";
 import { assertOperationalAccess } from "./operations/control";
+import { activeMemberGrants, activeMemberRoles, assertAdministrationAccess, scopedBusinessCapabilities } from "./administration/authorization";
 
 const privacyActive: Filter<User> = {
   $or: [{ privacy_state: "active" }, { privacy_state: { $exists: false } }],
+};
+const studentConflictCapabilities: Readonly<Record<string, true | undefined>> = {
+  "content:edit": true, "content:review": true, "assessment:manage": true, "assessment:review": true,
 };
 
 const alive = {
@@ -147,7 +152,7 @@ export class AuthService {
     transaction?: ClientSession,
   ) {
     await assertOperationalAccess(this.database.db);
-    const id = randomUUID();
+    const id = newId();
     await this.c.audit.updateOne(
       { _id: id },
       [
@@ -173,6 +178,7 @@ export class AuthService {
   ): Promise<{ token: string; session: AuthSession }> {
     await assertOperationalAccess(this.database.db);
     if (user) {
+      await assertAdministrationAccess(this.database.db, user._id, undefined, transaction);
       if (!transaction)
         return this.database.transaction((session) => this.createSession(kind, user, session));
       const fenced = await this.c.users.updateOne(
@@ -184,7 +190,7 @@ export class AuthService {
         fail(401, "SESSION_EXPIRED", "会话已失效，请重新登录");
     }
     const token = secret();
-    const id = randomUUID();
+    const id = newId();
     const duration =
       kind === "preauth" ? this.config.preauthMs : this.config.idleMs;
     const absolute = kind === "preauth" ? duration : this.config.absoluteMs;
@@ -265,7 +271,9 @@ export class AuthService {
       await this.audit("auth.login_failed", "anonymous", "authentication", req);
       fail(401, "INVALID_CREDENTIALS", "登录名或密码错误");
     }
+    await assertAdministrationAccess(this.database.db, user._id);
     const created = await this.database.transaction(async (transaction) => {
+      await assertAdministrationAccess(this.database.db, user._id, undefined, transaction);
       const fence = await this.c.users.updateOne(
         {
           _id: user._id,
@@ -329,6 +337,7 @@ export class AuthService {
       { session: transaction },
     );
     if (!user) fail(401, "SESSION_EXPIRED", "会话已失效，请重新登录");
+    await assertAdministrationAccess(this.database.db, user._id, undefined, transaction);
     if (touch) {
       await this.touch(session, false, transaction);
       user.identity_revision += 1;
@@ -435,7 +444,7 @@ export class AuthService {
     this.csrf(req, identity.session);
     await this.rate("password", identity.user._id, 5);
     if (!validPassword(next))
-      fail(422, "VALIDATION_ERROR", "新密码须为12至128字符且不超过512字节");
+      fail(422, "VALIDATION_ERROR", "新密码须为6至128字符且不超过512字节");
     if (!(await verifyPassword(identity.user.password_hash, current)))
       fail(401, "INVALID_CREDENTIALS", "当前密码错误");
     if (current === next)
@@ -489,6 +498,7 @@ export class AuthService {
   }
   async fenceUser(user: User, transaction: ClientSession) {
     await assertOperationalAccess(this.database.db);
+    await assertAdministrationAccess(this.database.db, user._id, undefined, transaction);
     const result = await this.c.users.updateOne(
       {
         _id: user._id,
@@ -512,6 +522,9 @@ export class AuthService {
   ): Promise<string[]> {
     if (identity.user.must_change_password)
       fail(403, "PASSWORD_CHANGE_REQUIRED", "请先修改临时密码");
+    if (!objectIdPattern.test(orgId))
+      fail(403, "FORBIDDEN", "无权访问该组织");
+    await assertAdministrationAccess(this.database.db, identity.user._id, orgId, transaction);
     const member = await this.c.members.findOne(
       { org_id: orgId, user_id: identity.user._id, status: "active" },
       { session: transaction },
@@ -521,17 +534,18 @@ export class AuthService {
       { session: transaction },
     );
     if (!member || !org) fail(403, "FORBIDDEN", "无权访问该组织");
-    const assignments = await this.c.memberRoles
-      .find({ org_id: orgId, member_id: member._id }, { session: transaction })
-      .toArray();
+    const assignments = await activeMemberRoles(
+      this.database.db, { org_id: orgId, member_id: member._id }, transaction,
+    );
     const roles = await this.c.roles
       .find(
         { _id: { $in: assignments.map((r) => r.role_id) } },
         { session: transaction },
       )
       .toArray();
-    const grants = await this.database.db.collection("member_capability_grants")
-      .find({ org_id: orgId, member_id: member._id }, { session: transaction }).toArray();
+    const grants = await activeMemberGrants(
+      this.database.db, { org_id: orgId, member_id: member._id }, transaction,
+    );
     const capabilities = [
       ...new Set([...roles.flatMap((r) => r.capabilities), ...grants.map(grant => grant.capability as string)]),
     ].sort();
@@ -587,16 +601,16 @@ export class AuthService {
         .toArray();
       const orgId = req.get("X-Org-Id");
       let context = null;
-      if (orgId)
+      if (orgId) {
+        const capabilities = await this.authorize(identity, orgId, "account:read", transaction);
+        const scoped = await scopedBusinessCapabilities(this.database.db, identity.user._id, orgId, transaction);
         context = {
           org_id: orgId,
-          capabilities: await this.authorize(
-            identity,
-            orgId,
-            "account:read",
-            transaction,
-          ),
+          capabilities,
+          student_conflict: capabilities.some(capability => studentConflictCapabilities[capability] === true) ||
+            scoped.some(capability => studentConflictCapabilities[capability] === true),
         };
+      }
       return {
         user,
         organizations: orgs.map((o) => ({

@@ -95,13 +95,15 @@ function error(response, expected) {
   assert.equal(typeof response.data?.error?.message, "string");
   assert.equal(typeof response.data?.request_id, "string");
 }
-async function fixture(t, { migrated = true, app = true, env = {} } = {}) {
+async function fixture(t, { migrated = true, app = true, env = {}, topology = "replicaSet" } = {}) {
   const uri = guardedUri(
-    process.env.TEST_MONGODB_URI,
+    topology === "standalone" ? process.env.TEST_STANDALONE_MONGODB_URI : process.env.TEST_MONGODB_URI,
     randomUUID().replaceAll("-", ""),
   );
   const restore = new Map();
   const settings = {
+    KL_MONGO_TOPOLOGY: topology,
+    KL_MONGO_ALLOW_STANDALONE: topology === "standalone" ? "true" : "false",
     NODE_ENV: "test",
     MONGODB_URI: uri,
     APP_ORIGIN: ORIGIN,
@@ -142,21 +144,24 @@ async function fixture(t, { migrated = true, app = true, env = {} } = {}) {
   await client.connect();
   connected = true;
   const hello = await client.db("admin").command({ hello: 1 });
-  assert.ok(hello.setName, "TEST_MONGODB_URI 必须指向真实 MongoDB 副本集");
+  if (topology === "standalone") assert.equal(hello.setName, undefined, "standalone 验收必须使用独立无副本集 MongoDB");
+  else assert.ok(hello.setName, "TEST_MONGODB_URI 必须指向真实 MongoDB 副本集");
   const { migrate } = require("../dist/migrations/schema.js");
   const { createApp } = require("../dist/app.js");
   const ops = require("../dist/cli/admin-operations.js");
   if (migrated) await migrate(uri);
+  const { objectIdDatabase } = require("../dist/database/object-id.js");
+  const applicationDb = migrated ? objectIdDatabase(client.db()) : client.db();
   const context = {
     client,
-    db: client.db(),
+    db: applicationDb,
     actor: "integration-test",
     reason: "阶段一真实Mongo集成验收",
   };
   const state = {
     uri,
     client,
-    db: client.db(),
+    db: applicationDb,
     ops,
     context,
     migrate,

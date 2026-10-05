@@ -1,3 +1,4 @@
+const {newId}=require("../dist/database/object-id");
 "use strict";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
@@ -71,9 +72,9 @@ test("阅读CAS、事务回滚及权限/教材许可重新检查", options, asyn
   status(await send(f, input(f), f.editor), 403);
   const editorMember = await f.db.collection("organization_members").findOne({ _id: f.editor.memberId });
   await f.ops.setMembership(f.context, { org_id: f.org, user_id: f.editor.user.user_id, roles: ["content_editor", "student"], expected_revision: editorMember.authorization_revision });
-  status(await send(f, input(f), f.editor), 200, "有learning:self的管理者只可写本人阅读");
+  status(await send(f, input(f), f.editor), 403, "双职责隔离继续阻止管理者调用学生业务");
   const stranger = await f.actor(); assert.equal((await read(f, stranger)).items[0].position, null);
-  status(await send(f, input(f, { chapter_id: randomUUID(), expected_revision: 1 })), 404);
+  status(await send(f, input(f, { chapter_id: newId(), expected_revision: 1 })), 404);
   const changedContent = await send(f, input(f, { edition_revision: f.book.revision + 1, expected_revision: 1 }));
   status(changedContent, 409); assert.equal(changedContent.data.error.code, "READING_CONTENT_CHANGED");
   const member = await f.db.collection("organization_members").findOne({ _id: f.student.memberId });
@@ -122,7 +123,7 @@ test("阅读留存：90天仅删raw、180天CAS墓碑、旧事件不能复活", 
 test("阅读分页绑定身份和教材revision，无记录章也明确返回null", options, async t => {
   const f = await assessmentFixture(t);
   const chapter = await f.db.collection("chapters").findOne({ _id: f.chapterId });
-  await f.db.collection("chapters").insertOne({ ...chapter, _id: randomUUID(), position: 1 });
+  await f.db.collection("chapters").insertOne({ ...chapter, _id: newId(), position: 1 });
   const page = await read(f, f.student, "&limit=1"); assert.ok(page.next_cursor); assert.equal(page.items.length, 1);
   const next = `&limit=1&cursor=${encodeURIComponent(page.next_cursor)}`;
   const page2 = await read(f, f.student, next); assert.equal(page2.items.length, 1); assert.notEqual(page2.items[0].chapter_id, page.items[0].chapter_id); assert.equal(page2.items[0].position, null);

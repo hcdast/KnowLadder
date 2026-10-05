@@ -1,9 +1,10 @@
+const traceUuid = { type: "string" as const, format: "uuid" };
 import type { OpenAPIObject, ParameterObject, ReferenceObject, SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 import { PRIVACY_POLICY_REVISION, PRIVACY_STATUSES } from './schema';
 
 type Schema = SchemaObject | ReferenceObject;
 const text: SchemaObject = { type: 'string' };
-const uuid: SchemaObject = { type: 'string', format: 'uuid' };
+const resourceId: SchemaObject = { type: 'string', pattern: "^[0-9a-f]{24}$" };
 const choice = (...values: string[]): SchemaObject => ({ type: 'string', enum: values });
 const object = (properties: Record<string, Schema>): SchemaObject => ({ type: 'object', additionalProperties: false, properties, required: Object.keys(properties) });
 const ref = (name: string): ReferenceObject => ({ $ref: `#/components/schemas/${name}` });
@@ -15,7 +16,7 @@ export function privacyOpenApi(document: OpenAPIObject): void {
   Object.assign(document.components.schemas, {
     PrivacyDeletionInput: object({ scope: choice('account'), policy_revision: choice(PRIVACY_POLICY_REVISION), current_password: { type: 'string', minLength: 1, maxLength: 1024, writeOnly: true, format: 'password' } }),
     PrivacyRequestView: object({
-      id: uuid, scope: choice('account'), policy_revision: choice(PRIVACY_POLICY_REVISION), status: choice(...PRIVACY_STATUSES),
+      id: resourceId, scope: choice('account'), policy_revision: choice(PRIVACY_POLICY_REVISION), status: choice(...PRIVACY_STATUSES),
       revision: { type: 'integer', minimum: 1 }, created_at: { type: 'string', format: 'date-time' }, updated_at: { type: 'string', format: 'date-time' },
       deleted_categories: strings, retained_categories: strings, retention_basis: { type: 'string', nullable: true, enum: ['local_minimal_provenance', 'local_hold_and_provenance', null] },
       remaining_actions: { type: 'array', uniqueItems: true, items: choice('resume_erasure', 'review_policy', 'review_retention') },
@@ -37,11 +38,11 @@ export function privacyOpenApi(document: OpenAPIObject): void {
     if (route.method === 'post') {
       for (const name of ['Origin', 'X-CSRF-Token', 'Idempotency-Key']) parameters.push({ in: 'header', name, required: true, schema: name === 'Idempotency-Key' ? { type: 'string', minLength: 8, maxLength: 128, pattern: '^[A-Za-z0-9_-]+$' } : text });
       operation.requestBody = { required: true, content: { 'application/json': { schema: ref('PrivacyDeletionInput') } } };
-    } else if (route.path.endsWith('{id}')) parameters.push({ in: 'path', name: 'id', required: true, schema: uuid });
+    } else if (route.path.endsWith('{id}')) parameters.push({ in: 'path', name: 'id', required: true, schema: resourceId });
     else parameters.push({ in: 'query', name: 'limit', schema: { type: 'integer', minimum: 1, maximum: 50, default: 20 } }, { in: 'query', name: 'cursor', schema: { type: 'string', maxLength: 2000 } });
     operation.parameters = parameters;
     operation.responses = {
-      [route.status]: { description: route.summary, headers: { 'Cache-Control': { schema: choice('private, no-store') }, 'X-Request-Id': { schema: uuid } }, content: { 'application/json': { schema: object({ data: ref(route.schema), request_id: uuid }) } } },
+      [route.status]: { description: route.summary, headers: { 'Cache-Control': { schema: choice('private, no-store') }, 'X-Request-Id': { schema: traceUuid } }, content: { 'application/json': { schema: object({ data: ref(route.schema), request_id: traceUuid }) } } },
     };
     const errors = {
       '401': 'SESSION_EXPIRED / INVALID_CREDENTIALS',

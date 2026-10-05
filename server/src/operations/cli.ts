@@ -1,3 +1,9 @@
+import {scheduleCourseworkCleanup} from '../files/coursework-cleanup';
+import {reprocessErasedCoursework} from '../privacy/execution';
+import { extendCourseworkFileRetention } from '../files/coursework-retention';
+import { requireObjectId } from "../operations/contracts";
+import { objectIdDatabase } from "../database/object-id";
+import { newId } from "../database/object-id";
 import { randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
 import { constants } from "node:fs";
@@ -62,7 +68,8 @@ export async function launchControlledWriter(db:Db,kind:string):Promise<{exit_co
 export async function runOperations(argv=process.argv.slice(2)):Promise<void> {
   const [command,...args]=argv;
   const accepted:Record<string,string[]>= {
-    register:["environment-id","actor","reason","file-root"],inspect:[],drain:["actor","reason","expected-revision"],maintenance:["actor","reason","expected-revision","token-file"],resume:["actor","reason","token-file"],"ledger-reconcile":["actor","reason","token-file","operation-id","decision"],"release-local":["actor","reason","expected-revision","restore-id","manifest-hash","ledger-sequence"],wait:["timeout-ms"],launch:["kind","actor","reason"],"file-hold":["actor","reason","file-id","hold"],
+    "coursework-cleanup":["actor","reason","file-id","expected-revision","token-file"],"coursework-reprocess":["actor","reason","request-id","release-file-id","basis","token-file"],
+    register:["environment-id","actor","reason","file-root"],inspect:[],drain:["actor","reason","expected-revision"],maintenance:["actor","reason","expected-revision","token-file"],resume:["actor","reason","token-file"],"ledger-reconcile":["actor","reason","token-file","operation-id","decision"],"release-local":["actor","reason","expected-revision","restore-id","manifest-hash","ledger-sequence"],wait:["timeout-ms"],launch:["kind","actor","reason"],"file-hold":["actor","reason","file-id","hold"],"coursework-retention":["actor","reason","file-id","retention-until"],
     "privacy-execute":["request-id","actor","reason"],"backup-run":["operation","file","restore-id","actor","reason"],
     health:["scanner"],
   };
@@ -75,8 +82,10 @@ export async function runOperations(argv=process.argv.slice(2)):Promise<void> {
   const uri=process.env.MONGODB_URI; if(!uri) throw new Error("OPERATIONS_DATABASE_REQUIRED");
   const client=new MongoClient(uri,{serverSelectionTimeoutMS:5000});
   try {
-    await client.connect();const db=client.db();assertLocalEnvironment(db);let result:unknown;
+    await client.connect();const db=objectIdDatabase(client.db());assertLocalEnvironment(db);let result:unknown;
     switch(command) {
+      case "coursework-cleanup":result=await scheduleCourseworkCleanup(client,db,{...actorInput(),fileId:required('file-id'),expectedRevision:integer('expected-revision'),maintenanceToken:await readToken(required('token-file'))});break;
+      case "coursework-reprocess":result=await reprocessErasedCoursework(client,db,{...actorInput(),requestId:required('request-id'),releaseFileId:flags['release-file-id'],basis:required('basis'),maintenanceToken:await readToken(required('token-file'))});break;
       case "inspect": result=await inspectOperations(db);break;
       case "health": {
         if(flags.scanner!==undefined&&!['true','false'].includes(flags.scanner)) throw new Error("OPERATIONS_ARGUMENT_INVALID");
@@ -104,21 +113,26 @@ export async function runOperations(argv=process.argv.slice(2)):Promise<void> {
       case "launch": {
         const input=actorInput(),kind=required("kind");if(!launches[kind]) throw new Error("OPERATIONS_LAUNCH_KIND_INVALID");
         const writer=await acquireWriter(db,"admin");
-        try {await db.collection<Document & {_id:string}>("audit_events").insertOne({_id:randomUUID(),actor_id:input.actor,org_id:null,action:"operations.launch",resource_id:kind,reason:input.reason,request_id:randomUUID(),created_at:new Date()});}
+        try {await db.collection<Document & {_id:string}>("audit_events").insertOne({_id:newId(),actor_id:input.actor,org_id:null,action:"operations.launch",resource_id:kind,reason:input.reason,request_id:randomUUID(),created_at:new Date()});}
         finally {await writer.release();}
         result=await launchControlledWriter(db,kind);break;
       }
       case "privacy-execute": {
-        const input=actorInput(),requestId=required("request-id");requireUuid(requestId);requireUuid(process.env.KL_ENVIRONMENT_ID??"");
+        const input=actorInput(),requestId=required("request-id");requireObjectId(requestId);requireUuid(process.env.KL_ENVIRONMENT_ID??"");
         result=await launchControlledCommand(db,{path:"../privacy/cli.js",args:["execute","--request-id",requestId,"--actor",input.actor,"--reason",input.reason]},true);break;
       }
       case "backup-run": {
         const input=actorInput(),operation=required("operation"),file=required("file");requireUuid(process.env.KL_ENVIRONMENT_ID??"");
         if(!["backup","restore","inspect","verify","release"].includes(operation)||!isAbsolute(file)) throw new Error("OPERATIONS_ARGUMENT_INVALID");
-        if(["verify","release"].includes(operation)) requireUuid(required("restore-id"));
+        if(["verify","release"].includes(operation)) requireObjectId(required("restore-id"));
         else if(flags["restore-id"]) throw new Error("OPERATIONS_ARGUMENT_INVALID");
         const childArgs=[operation,"--file",file,...(flags["restore-id"]?["--restore-id",flags["restore-id"]]:[]),...(operation==="release"?["--actor",input.actor,"--reason",input.reason]:[])];
         result=await launchControlledCommand(db,{path:"../../../ops/system-backup.cjs",args:childArgs},true);break;
+      }
+      case "coursework-retention": {
+        const writer=await acquireWriter(db,"admin");
+        try {result=await extendCourseworkFileRetention(client,db,{...actorInput(),fileId:required("file-id"),retentionUntil:required("retention-until")});}
+        finally {await writer.release();}break;
       }
       case "file-hold": {
         const hold=required("hold");if(!["true","false"].includes(hold)) throw new Error("OPERATIONS_ARGUMENT_INVALID");

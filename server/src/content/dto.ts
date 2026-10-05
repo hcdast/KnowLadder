@@ -1,5 +1,5 @@
 import { fail } from '../errors';
-import { uuidPattern } from './access';
+import { resourceIdPattern } from './access';
 import type { License, ScoringRule, KnowledgeWeight, QuestionVersion, BaseVersion, ChapterRecord } from './contracts';
 export type Input = Record<string,unknown>;
 export function object(value:unknown,keys:readonly string[]):Input {
@@ -10,7 +10,7 @@ export function text(value:unknown,name:string,max=200,empty=false):string {
   if(typeof value!=='string'||value.length>max||(!empty&&!value.trim())||value.includes('\u0000')) fail(422,'VALIDATION_ERROR',`${name}无效`);
   return value;
 }
-export function id(value:unknown,name='id'):string { const result=text(value,name,36);if(!uuidPattern.test(result))fail(422,'VALIDATION_ERROR',`${name}须为UUID`);return result.toLowerCase(); }
+export function id(value:unknown,name='id'):string { const result=text(value,name,24);if(!resourceIdPattern.test(result))fail(422,'VALIDATION_ERROR',`${name}须为24位ObjectId`);return result.toLowerCase(); }
 export function integer(value:unknown,name:string,min=1,max=Number.MAX_SAFE_INTEGER):number {if(typeof value!=='number'||!Number.isSafeInteger(value)||value<min||value>max)fail(422,'VALIDATION_ERROR',`${name}无效`);return value;}
 export function ids(value:unknown,name:string,max=20):string[] {if(!Array.isArray(value)||value.length>max)fail(422,'VALIDATION_ERROR',`${name}数量无效`);const result=value.map(v=>id(v,name));if(new Set(result).size!==result.length)fail(422,'VALIDATION_ERROR',`${name}不能重复`);return result;}
 export function license(value:unknown):License { const v=object(value,['source','granted','expires_at']); const source=text(v.source,'授权来源',1000,true); if(typeof v.granted!=='boolean')fail(422,'VALIDATION_ERROR','授权确认无效');if(v.expires_at!==null&&(typeof v.expires_at!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(v.expires_at)||!Number.isFinite(Date.parse(v.expires_at))))fail(422,'VALIDATION_ERROR','授权截止时间无效');return {source,granted:v.granted,expires_at:v.expires_at===null?null:new Date(v.expires_at as string).toISOString()}; }
@@ -56,3 +56,5 @@ export function safeVersion(version:BaseVersion):Record<string,unknown> {
   const identity=version.textbook_id!==undefined?{textbook_id:version.textbook_id,edition_code:version.edition_code}:{question_id:version.question_id,version_no:version.version_no};
   return {id:version._id,title:version.title,...identity,status:version.status,revision:version.revision,access_revision:version.access_revision,access_revoked_at:version.access_revoked_at,access_revoked_by:version.access_revoked_by,access_revoked_reason:version.access_revoked_reason,retired_at:version.retired_at,retired_by:version.retired_by,retired_reason:version.retired_reason,created_at:version.created_at,updated_at:version.updated_at};
 }
+
+export function uuid(value:unknown,name="token"):string { const result=text(value,name,36); if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(result))fail(422,"VALIDATION_ERROR",`${name}须为UUID`);return result; }

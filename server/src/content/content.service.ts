@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Document } from 'mongodb';
@@ -14,10 +15,14 @@ export class ContentService {
   constructor(readonly database:Database,readonly access:ContentAccess){}
   private collection(kind:ContentKind){return this.database.db.collection<BaseVersion>(CONTENT_COLLECTIONS[kind]);}
   private async audit(ctx:ContentContext,kind:ContentKind,resource:string,action:string,reason='',before?:BaseVersion){
+    const proofCapability = action === 'retire' ? 'content:retire' : action === 'revoke-access' ? 'content:revoke'
+      : action === 'return' || action === 'publish' ? 'content:review' : 'content:edit';
+    const proof = ctx.platform?.grants.find(grant => grant.capability === proofCapability);
+    if(ctx.platform && !proof) fail(403,'FORBIDDEN','操作授权依据无效');
     const after=await this.collection(kind).findOne({_id:resource,org_id:ctx.orgId},{session:ctx.session});
     if(after)await touchContentLearningScope(this.database.db,ctx,kind,after,true);
     if(before&&kind==='question'&&before.subject_id!==after?.subject_id)await touchContentLearningScope(this.database.db,ctx,kind,before,true);
-    await this.database.db.collection('audit_events').insertOne({_id:randomUUID(),actor_id:ctx.userId,org_id:ctx.orgId,action:`content.${kind}.${action}`,resource_type:kind,resource_id:resource,owner_type:kind,owner_version_id:resource,revision_before:before?.revision??null,revision_after:after?.revision??null,access_revision_before:before?.access_revision??null,access_revision_after:after?.access_revision??null,reason:reason.trim()||`内容操作：${action}`,request_id:ctx.requestId,created_at:new Date()} as never,{session:ctx.session});
+    await this.database.db.collection('audit_events').insertOne({_id:newId(),actor_id:ctx.userId,org_id:ctx.orgId,...(ctx.platform?{actor_org_id:ctx.platform.actorOrgId,target_org_id:ctx.orgId,grant_id:proof!.id,grant_ids:ctx.platform.grantIds,grant_revision:proof!.revision}:{}),action:`content.${kind}.${action}`,resource_type:kind,resource_id:resource,owner_type:kind,owner_version_id:resource,revision_before:before?.revision??null,revision_after:after?.revision??null,access_revision_before:before?.access_revision??null,access_revision_after:after?.access_revision??null,reason:reason.trim()||`内容操作：${action}`,request_id:ctx.requestId,created_at:new Date()} as never,{session:ctx.session});
   }
   private async catalogue(ctx:ContentContext,collection:string,key:string){const value=await this.database.db.collection<Document & {_id:string}>(collection).findOne({_id:key},{session:ctx.session});if(!value)fail(422,'CATALOGUE_INVALID','目录项不存在');return value;}
   private async knowledge(ctx:ContentContext,values:string[],subject:string){
@@ -25,7 +30,7 @@ export class ContentService {
     if(points.length!==values.length)fail(422,'CATALOGUE_INVALID','知识点不存在');
     if(points.some(point=>point.subject_id!==subject))fail(422,'SUBJECT_MISMATCH','知识点不属于当前学科');
   }
-  private base(ctx:ContentContext,title:string,source:string|null):BaseVersion {const now=new Date();return {_id:randomUUID(),org_id:ctx.orgId,title,status:'draft',revision:1,access_revision:0,access_revoked_at:null,access_revoked_by:null,access_revoked_reason:null,retired_at:null,retired_by:null,retired_reason:null,created_by:ctx.userId,contributors:[ctx.userId],created_at:now,updated_at:now,submitted_by:null,submitted_at:null,published_by:null,published_at:null,source_version_id:source,license:{source:'',granted:false,expires_at:null},resource_ids:[],notes:''};}
+  private base(ctx:ContentContext,title:string,source:string|null):BaseVersion {const now=new Date();return {_id:newId(),org_id:ctx.orgId,title,status:'draft',revision:1,access_revision:0,access_revoked_at:null,access_revoked_by:null,access_revoked_reason:null,retired_at:null,retired_by:null,retired_reason:null,created_by:ctx.userId,contributors:[ctx.userId],created_at:now,updated_at:now,submitted_by:null,submitted_at:null,published_by:null,published_at:null,source_version_id:source,license:{source:'',granted:false,expires_at:null},resource_ids:[],notes:''};}
   private async resources(ctx:ContentContext,kind:ContentKind,owner:string,values:string[],ready=false){
     const unique=[...new Set(values)];
     const files=await this.database.db.collection<FileResource>('file_resources').find({_id:{$in:unique},org_id:ctx.orgId,owner_type:kind,owner_version_id:owner},{session:ctx.session}).toArray();
@@ -62,7 +67,10 @@ export class ContentService {
     await this.resources(ctx,kind,version._id,resourceIds,true);
   }
   async options(req:ApiRequest){return this.access.run(req,false,async ctx=>{this.access.require(ctx,'manage');const result:Record<string,unknown>={};for(const name of ['education_stages','subjects','knowledge_points'])result[name]=(await this.database.db.collection(name).find({},{session:ctx.session}).sort({code:1}).limit(10000).toArray()).map(v=>dto(v));return result;});}
-  async create(req:ApiRequest,kind:ContentKind,raw:unknown){const body=object(raw,kind==='textbook'?['title','textbook','textbook_id','edition_code','license','resource_ids','source_edition_id']: [...questionKeys,'question_id','source_version_id']);return this.access.run(req,true,async ctx=>{this.access.require(ctx,'edit');return this.access.idempotent(ctx,req,`${kind}.create`,'new',body,async()=>{
+  async create(req:ApiRequest,kind:ContentKind,raw:unknown){const body=object(raw,kind==='textbook'?['title','textbook','textbook_id','edition_code','license','resource_ids','source_edition_id']: [...questionKeys,'question_id','source_version_id']);return this.access.run(req,true,async ctx=>{this.access.require(ctx,'edit');return this.access.idempotent(ctx,req,`${kind}.create`,'new',body,async()=>this.createInside(ctx,kind,body));});}
+  /** Internal atomic draft creation; caller must already hold the authenticated transaction. */
+  async createQuestionDraft(ctx:ContentContext,raw:unknown){this.access.require(ctx,'edit');if(!ctx.session.inTransaction())fail(503,'TRANSACTION_REQUIRED','题目采纳需要事务');return this.createInside(ctx,'question',object(raw,questionKeys));}
+  private async createInside(ctx:ContentContext,kind:ContentKind,body:Input){
     const sourceKey=kind==='textbook'?body.source_edition_id:body.source_version_id;
     const source=sourceKey!==undefined?await this.access.owner(ctx,kind,id(sourceKey),'manage'):null;
     if(source){if(source.status!=='published'||!licensed(source))fail(409,'SOURCE_NOT_PUBLISHED','只能从当前合法已发布版本派生');await this.access.fenceOwner(ctx,kind,source._id);}
@@ -73,20 +81,20 @@ export class ContentService {
       else if(body.textbook_id!==undefined){
         if(body.textbook!==undefined)fail(422,'VALIDATION_ERROR','textbook与textbook_id二选一');textbookId=id(body.textbook_id);
         const root=await this.database.db.collection<Document & {_id:string}>('textbooks').findOne({_id:textbookId,org_id:ctx.orgId},{session:ctx.session});if(!root)fail(404,'NOT_FOUND','教材不存在');
-      }else {const root=object(body.textbook,['title','stage_id','subject_id','source']);const stage=id(root.stage_id);const subject=id(root.subject_id);await this.catalogue(ctx,'education_stages',stage);await this.catalogue(ctx,'subjects',subject);textbookId=randomUUID();const now=new Date();await this.database.db.collection('textbooks').insertOne({_id:textbookId,org_id:ctx.orgId,title:text(root.title,'教材名'),stage_id:stage,subject_id:subject,source:text(root.source,'来源',1000,true),created_at:now,updated_at:now} as never,{session:ctx.session});}
+      }else {const root=object(body.textbook,['title','stage_id','subject_id','source']);const stage=id(root.stage_id);const subject=id(root.subject_id);await this.catalogue(ctx,'education_stages',stage);await this.catalogue(ctx,'subjects',subject);textbookId=newId();const now=new Date();await this.database.db.collection('textbooks').insertOne({_id:textbookId,org_id:ctx.orgId,title:text(root.title,'教材名'),stage_id:stage,subject_id:subject,source:text(root.source,'来源',1000,true),created_at:now,updated_at:now} as never,{session:ctx.session});}
       version={...this.base(ctx,text(body.title??source?.title,'标题'),source?._id??null),textbook_id:textbookId,edition_code:text(body.edition_code,'版本号',64),license:body.license===undefined?(source?.license??{source:'',granted:false,expires_at:null}):license(body.license)};
-      if(source){const chapters=await this.database.db.collection<ChapterRecord>('chapters').find({org_id:ctx.orgId,textbook_edition_id:source._id},{session:ctx.session}).toArray();const mapping=new Map(chapters.map(ch=>[ch._id,randomUUID()]));if(chapters.length)await this.database.db.collection<ChapterRecord>('chapters').insertMany(chapters.map(ch=>({...ch,_id:mapping.get(ch._id)!,textbook_edition_id:version._id,parent_id:ch.parent_id?mapping.get(ch.parent_id)!:null,resource_ids:[]})),{session:ctx.session});}
+      if(source){const chapters=await this.database.db.collection<ChapterRecord>('chapters').find({org_id:ctx.orgId,textbook_edition_id:source._id},{session:ctx.session}).toArray();const mapping=new Map(chapters.map(ch=>[ch._id,newId()]));if(chapters.length)await this.database.db.collection<ChapterRecord>('chapters').insertMany(chapters.map(ch=>({...ch,_id:mapping.get(ch._id)!,textbook_edition_id:version._id,parent_id:ch.parent_id?mapping.get(ch.parent_id)!:null,resource_ids:[]})),{session:ctx.session});}
     }else{
       let questionId:string;let versionNo:number;
       if(source||body.question_id!==undefined){questionId=source?(source as QuestionVersion).question_id:id(body.question_id);if(source&&body.question_id!==undefined&&body.question_id!==questionId)fail(422,'SOURCE_MISMATCH','派生版本不能更换题目');const root=await this.database.db.collection<Document & {_id:string;next_version_no:number}>('questions').findOneAndUpdate({_id:questionId,org_id:ctx.orgId},{$inc:{next_version_no:1},$set:{updated_at:new Date()}},{session:ctx.session,returnDocument:'before'});if(!root)fail(404,'NOT_FOUND','题目身份不存在');versionNo=root.next_version_no;}
-      else{questionId=randomUUID();versionNo=1;const now=new Date();await this.database.db.collection('questions').insertOne({_id:questionId,org_id:ctx.orgId,next_version_no:2,created_at:now,updated_at:now} as never,{session:ctx.session});}
+      else{questionId=newId();versionNo=1;const now=new Date();await this.database.db.collection('questions').insertOne({_id:questionId,org_id:ctx.orgId,next_version_no:2,created_at:now,updated_at:now} as never,{session:ctx.session});}
       const fields=this.questionFields(body);const original=source as QuestionVersion|null;
       version={...this.base(ctx,text(body.title??original?.title,'标题'),source?._id??null),question_id:questionId,version_no:versionNo,subject_id:fields.subject_id??original?.subject_id,question_type:fields.question_type??original?.question_type,prompt:fields.prompt??original?.prompt??'',options:fields.options??original?.options??[],answer:fields.answer??original?.answer??'',explanation:fields.explanation??original?.explanation??'',knowledge_point_ids:fields.knowledge_point_ids??original?.knowledge_point_ids??[],difficulty:fields.difficulty??original?.difficulty,scoring_rule:'scoring_rule' in fields?fields.scoring_rule:original?.scoring_rule??null,knowledge_weights:fields.knowledge_weights??original?.knowledge_weights??[],difficulty_basis:fields.difficulty_basis??original?.difficulty_basis??'',license:fields.license??original?.license??{source:'',granted:false,expires_at:null}};
       if(!version.subject_id||!version.question_type||!version.difficulty)fail(422,'VALIDATION_ERROR','缺少学科、题型或难度');await this.catalogue(ctx,'subjects',version.subject_id);await this.knowledge(ctx,version.knowledge_point_ids,version.subject_id);
     }
     if(body.resource_ids!==undefined&&ids(body.resource_ids,'resource_ids').length)fail(422,'RESOURCE_OWNER_MISMATCH','新版本请先创建后上传附件');
     await this.collection(kind).insertOne(version,{session:ctx.session});await this.audit(ctx,kind,version._id,'create');const result=await this.detailInside(ctx,kind,version._id,'manage');if(source)result.copy_notice='已复制内容并清空全部附件；请在新版本重新上传授权附件';return result;
-  });});}
+  }
   private async detailInside(ctx:ContentContext,kind:ContentKind,key:string,mode:'manage'|'read'){
     const version=await this.access.owner(ctx,kind,key,mode);
     if(mode==='read')return studentEdition(version);
@@ -96,7 +104,15 @@ export class ContentService {
     if(kind==='textbook'){const root=await this.database.db.collection<Document & {_id:string}>('textbooks').findOne({_id:version.textbook_id,org_id:ctx.orgId},{session:ctx.session});result.textbook=root?dto(root):null;}
     return result;
   }
-  async detail(req:ApiRequest,kind:ContentKind,key:string){return this.access.run(req,false,ctx=>this.detailInside(ctx,kind,key,'manage'));}
+  async detail(req:ApiRequest,kind:ContentKind,key:string){return this.access.run(req,false,async ctx=>{
+    if(!ctx.capabilities.some(cap=>cap==='content:edit'||cap==='content:review')) {
+      const version=await this.access.owner(ctx,kind,key,'manage');
+      return safeVersion(version);
+    }
+    const result=await this.detailInside(ctx,kind,key,'manage');
+    if(ctx.platform && kind==='question') await this.access.platform.audit(ctx.platform,'content.question.read','question',key,['content:edit','content:review']);
+    return result;
+  });}
   async patch(req:ApiRequest,kind:ContentKind,key:string,raw:unknown){
     const body=object(raw,kind==='textbook'?['expected_revision','title','license','resource_ids']:['expected_revision',...questionKeys]);
     return this.access.run(req,true,ctx=>this.access.idempotent(ctx,req,`${kind}.patch`,key,body,async()=>{
@@ -115,7 +131,17 @@ export class ContentService {
       const before=await this.access.owner(ctx,'textbook',key,'edit');const version=await this.access.touchOwner(ctx,'textbook',key,integer(body.expected_revision,'expected_revision')) as TextbookVersion;
       if(!Array.isArray(body.chapters)||body.chapters.length>100)fail(422,'CHAPTER_LIMIT','章节最多100个');
       const root=await this.database.db.collection<Document & {_id:string}>('textbooks').findOne({_id:version.textbook_id,org_id:ctx.orgId},{session:ctx.session});if(!root)fail(404,'NOT_FOUND','教材不存在');
-      const chapters:ChapterRecord[]=body.chapters.map(rawChapter=>{const ch=object(rawChapter,['id','parent_id','position','title','body','knowledge_point_ids','resource_ids']);return {_id:id(ch.id),org_id:ctx.orgId,textbook_edition_id:key,parent_id:ch.parent_id===null?null:id(ch.parent_id),position:integer(ch.position,'position',0,99),title:text(ch.title,'章节名'),body:text(ch.body,'正文',20000,true),knowledge_point_ids:ids(ch.knowledge_point_ids,'knowledge_point_ids',100),resource_ids:ids(ch.resource_ids,'resource_ids')};});
+      const sourceChapters = body.chapters.map(rawChapter=>object(rawChapter,['id','client_key','parent_id','parent_client_key','position','title','body','knowledge_point_ids','resource_ids']));
+      const clientIds=new Map<string,string>();
+      for(const ch of sourceChapters){
+        if((ch.id!==undefined)===(ch.client_key!==undefined))fail(422,'CHAPTER_TREE_INVALID','已有章节须提供id，新章节须提供client_key');
+        if(ch.client_key!==undefined){const clientKey=text(ch.client_key,'client_key',64);if(clientIds.has(clientKey))fail(422,'CHAPTER_TREE_INVALID','client_key重复');clientIds.set(clientKey,newId());}
+        if(ch.parent_client_key!==undefined&&ch.parent_id!=null)fail(422,'CHAPTER_TREE_INVALID','父引用不可重复填写');
+      }
+      const existingIds=sourceChapters.filter(ch=>ch.id!==undefined).map(ch=>id(ch.id));
+      const owned=await this.database.db.collection<ChapterRecord>('chapters').countDocuments({org_id:ctx.orgId,textbook_edition_id:key,_id:{$in:existingIds}},{session:ctx.session});
+      if(owned!==new Set(existingIds).size)fail(422,'CHAPTER_ID_CONFLICT','已有章节不属于当前教材');
+      const chapters:ChapterRecord[]=sourceChapters.map(ch=>{const parent=ch.parent_client_key===undefined?(ch.parent_id==null?null:id(ch.parent_id)):clientIds.get(text(ch.parent_client_key,'parent_client_key',64));if(parent===undefined)fail(422,'CHAPTER_TREE_INVALID','父临时键不存在');return {_id:ch.id===undefined?clientIds.get(ch.client_key as string)!:id(ch.id),org_id:ctx.orgId,textbook_edition_id:key,parent_id:parent,position:integer(ch.position,'position',0,99),title:text(ch.title,'章节名'),body:text(ch.body,'正文',20000,true),knowledge_point_ids:ids(ch.knowledge_point_ids,'knowledge_point_ids',100),resource_ids:ids(ch.resource_ids,'resource_ids')};});
       const byId=new Map(chapters.map(ch=>[ch._id,ch]));if(byId.size!==chapters.length)fail(422,'CHAPTER_TREE_INVALID','章节id重复');const positions=new Set<string>();
       for(const ch of chapters){
         const seen=new Set([ch._id]);let parent=ch.parent_id;while(parent!==null){if(seen.has(parent)||!byId.has(parent))fail(422,'CHAPTER_TREE_INVALID','章节父节点缺失或成环');seen.add(parent);parent=byId.get(parent)!.parent_id;}
@@ -125,7 +151,7 @@ export class ContentService {
       const resourceIds=chapters.flatMap(ch=>ch.resource_ids);if(resourceIds.length&&!licensed(version))fail(422,'LICENSE_INVALID','绑定附件须有效授权');await this.resources(ctx,'textbook',key,resourceIds,true);
       const foreign=await this.database.db.collection<ChapterRecord>('chapters').findOne({_id:{$in:[...byId.keys()]},textbook_edition_id:{$ne:key}},{session:ctx.session});if(foreign)fail(422,'CHAPTER_ID_CONFLICT','章节id已被使用');
       await this.database.db.collection<ChapterRecord>('chapters').deleteMany({org_id:ctx.orgId,textbook_edition_id:key},{session:ctx.session});if(chapters.length)await this.database.db.collection<ChapterRecord>('chapters').insertMany(chapters,{session:ctx.session});
-      await this.audit(ctx,'textbook',key,'chapters','',before);return this.detailInside(ctx,'textbook',key,'manage');
+      await this.audit(ctx,'textbook',key,'chapters','',before);return {...await this.detailInside(ctx,'textbook',key,'manage'),chapter_id_map:[...clientIds].map(([client_key,id])=>({client_key,id}))};
     }));
   }
   async transition(req:ApiRequest,kind:ContentKind,key:string,action:'submit-review'|'return'|'publish',raw:unknown){
@@ -166,7 +192,13 @@ export class ContentService {
         fields.updated_at=now;
         const changed=await this.collection(kind).updateOne({_id:key,org_id:ctx.orgId,revision:version.revision,access_revision:version.access_revision,status:version.status},{$set:fields,$inc:revoke?{access_revision:1}:{revision:1,access_revision:1}},{session:ctx.session});
         if(changed.modifiedCount!==1)fail(409,'REVISION_CONFLICT','内容或授权已变化');
-        await this.audit(ctx,kind,key,action,reason,version);return this.detailInside(ctx,kind,key,'manage');
+        await this.audit(ctx,kind,key,action,reason,version);
+        if(ctx.platform || !ctx.capabilities.some(cap=>cap==='content:edit'||cap==='content:review')) {
+          const updated=await this.collection(kind).findOne({_id:key,org_id:ctx.orgId},{session:ctx.session});
+          if(!updated) fail(409,'REVISION_CONFLICT','内容已变化');
+          return safeVersion(updated);
+        }
+        return this.detailInside(ctx,kind,key,'manage');
       });
     });
     if(reservation)await confirmSafetyIntent(this.database.db,reservation);
@@ -181,7 +213,7 @@ export class ContentService {
     return {limit,status:q.status as string|undefined,textbookId,after,next:(after:string)=>Buffer.from(JSON.stringify({scope:hash,after})).toString('base64url')};
   }
   async list(req:ApiRequest,kind:ContentKind,query:unknown,student=false){return this.access.run(req,false,async ctx=>{
-    this.access.require(ctx,student?'read':'manage');const page=this.page(query,`${ctx.orgId}:${ctx.userId}:${kind}:${student}`);const filter:Document={org_id:ctx.orgId};
+    this.access.require(ctx,student?'read':'manage');const page=this.page(query,`${ctx.platform?`${ctx.platform.actorOrgId}:`:''}${ctx.orgId}:${ctx.userId}:${kind}:${student}`);const filter:Document={org_id:ctx.orgId};
     if(page.textbookId){if(kind!=='textbook')fail(422,'VALIDATION_ERROR','题目不支持教材筛选');filter.textbook_id=page.textbookId;}
     if(student){if(page.status&&page.status!=='published')fail(422,'VALIDATION_ERROR','学生仅可查询已发布版本');filter.status='published';filter.access_revoked_at=null;filter['license.granted']=true;filter['license.source']={$regex:'\\S'};filter.$or=[{'license.expires_at':null},{'license.expires_at':{$gt:new Date().toISOString()}}];}else if(page.status)filter.status=page.status;
     if(page.after)filter._id={$gt:page.after};const values=await this.collection(kind).find(filter,{session:ctx.session}).sort({_id:1}).limit(page.limit+1).toArray();
@@ -190,11 +222,13 @@ export class ContentService {
   async chapterPage(req:ApiRequest,key:string,query:unknown,student:boolean){
     const q=object(query,['cursor','limit','edition_revision']);const limit=q.limit===undefined?20:integer(Number(q.limit),'limit',1,50);
     return this.access.run(req,false,async ctx=>{
+      if(!student && !ctx.capabilities.some(cap=>cap==='content:edit'||cap==='content:review'))
+        fail(403,'FORBIDDEN','此授权不能读取教材正文');
       const edition=await this.access.owner(ctx,'textbook',key,student?'read':'manage');
       if(edition.access_revoked_at!==null)fail(404,'NOT_FOUND','内容不存在或未获授权');
       const revision=q.edition_revision===undefined?edition.revision:integer(Number(q.edition_revision),'edition_revision');
       if(revision!==edition.revision)fail(409,'REVISION_CONFLICT','章树版本已变化，请重新读取');
-      const scope=createHash('sha256').update(canonical({org:ctx.orgId,user:ctx.userId,key,student,revision,limit})).digest('hex');let after:string|undefined;
+      const scope=createHash('sha256').update(canonical({...(ctx.platform?{actorOrg:ctx.platform.actorOrgId}:{}),org:ctx.orgId,user:ctx.userId,key,student,revision,limit})).digest('hex');let after:string|undefined;
       if(q.cursor!==undefined){if(q.edition_revision===undefined)fail(422,'REVISION_REQUIRED','续页须携带edition_revision');try{const decoded=JSON.parse(Buffer.from(text(q.cursor,'cursor',1000),'base64url').toString('utf8'));if(decoded.scope!==scope)throw Error();after=id(decoded.after);}catch{fail(422,'CURSOR_INVALID','分页游标无效');}}
       const chapters=await this.database.db.collection<ChapterRecord>('chapters').find({org_id:ctx.orgId,textbook_edition_id:key},{session:ctx.session}).sort({parent_id:1,position:1,_id:1}).limit(101).toArray();
       if(chapters.length>100)fail(409,'CHAPTER_LIMIT','章树超出安全范围');
@@ -211,9 +245,37 @@ export class ContentService {
   async audits(req:ApiRequest,query:unknown){
     const q=object(query,['resource_type','resource_id','cursor','limit']);if(q.resource_type!=='textbook'&&q.resource_type!=='question')fail(422,'VALIDATION_ERROR','资源类型无效');const kind=q.resource_type;const key=id(q.resource_id);
     return this.access.run(req,false,async ctx=>{
-      await this.access.owner(ctx,kind,key,'manage');const page=this.page({...(q.cursor===undefined?{}:{cursor:q.cursor}),...(q.limit===undefined?{}:{limit:q.limit})},`${ctx.orgId}:${ctx.userId}:audit:${kind}:${key}`);
+      await this.access.owner(ctx,kind,key,'manage');const page=this.page({...(q.cursor===undefined?{}:{cursor:q.cursor}),...(q.limit===undefined?{}:{limit:q.limit})},`${ctx.platform?`${ctx.platform.actorOrgId}:`:''}${ctx.orgId}:${ctx.userId}:audit:${kind}:${key}`);
       const values=await this.database.db.collection<Document & {_id:string}>('audit_events').find({org_id:ctx.orgId,$or:[{owner_type:kind,owner_version_id:key},{resource_id:key,action:{$regex:`^content\\.${kind}\\.`}}],...(page.after?{_id:{$gt:page.after}}:{})},{session:ctx.session}).sort({_id:1}).limit(page.limit+1).toArray();
       return {items:values.slice(0,page.limit).map(v=>({id:v._id,action:v.action,resource_type:v.resource_type??null,resource_id:v.resource_id,owner_type:v.owner_type??null,owner_version_id:v.owner_version_id??null,revision_before:v.revision_before??null,revision_after:v.revision_after??null,access_revision_before:v.access_revision_before??null,access_revision_after:v.access_revision_after??null,actor_id:v.actor_id,reason:v.reason,request_id:v.request_id,created_at:v.created_at})),next_cursor:values.length>page.limit?page.next(values[page.limit-1]._id):null};
+    });
+  }
+  async safetyReceipt(req:ApiRequest,raw:unknown) {
+    const q=object(raw,['key']), key=text(q.key,'key',128);
+    if(!/^[A-Za-z0-9_-]{8,128}$/.test(key))fail(422,'VALIDATION_ERROR','幂等查询键无效');
+    return this.access.run(req,false,async ctx=>{
+      const operations:string[]=[];
+      if(ctx.capabilities.includes('content:retire'))operations.push('textbook.retire','question.retire');
+      if(ctx.capabilities.includes('content:revoke'))operations.push('textbook.revoke-access','question.revoke-access');
+      if(ctx.capabilities.includes('file:delete'))operations.push('file.schedule-deletion');
+      if(!operations.length)fail(403,'FORBIDDEN','缺少受控停止或清理能力');
+      const rows=await this.database.db.collection<Document & {_id:string}>('content_idempotency')
+        .find({org_id:ctx.orgId,user_id:ctx.userId,operation:{$in:operations},key},
+          {session:ctx.session,projection:{operation:1,resource_id:1,result:1}}).limit(2).toArray();
+      if(rows.length>1)fail(409,'IDEMPOTENCY_AMBIGUOUS','此key对应多个受控操作，请人工核查');
+      await this.database.db.collection('audit_events').insertOne({
+        _id:newId(),actor_id:ctx.userId,org_id:ctx.orgId,action:'content.safety.receipt.read',
+        resource_type:'business_receipt',resource_id:rows[0]?._id??ctx.orgId,owner_type:null,owner_version_id:null,
+        revision_before:null,revision_after:null,access_revision_before:null,access_revision_after:null,
+        reason:'读取受控操作幂等回执',request_id:ctx.requestId,created_at:new Date(),
+      } as never,{session:ctx.session});
+      if(!rows.length)return {status:'unknown' as const};
+      const result=rows[0].result as Record<string,unknown>;
+      return {status:'resolved' as const,result:{
+        id:typeof result.id==='string'?result.id:null,
+        revision:typeof result.revision==='number'?result.revision:typeof result.owner_revision==='number'?result.owner_revision:null,
+        status:typeof result.status==='string'?result.status:null,
+      }};
     });
   }
 }

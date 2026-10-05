@@ -1,8 +1,9 @@
+import { newId } from "../database/object-id";
 import { HttpException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Decimal128, type Document, type Filter } from 'mongodb';
 import { Database } from '../database/database';
-import { collections, type Member, type MemberCapabilityGrant, type User } from '../database/contracts';
+import { collections, type Member, type User } from '../database/contracts';
 import { ApiRequest, fail } from '../errors';
 import { AssessmentSources } from '../content/assessment-sources';
 import type { QuestionVersion } from '../content/contracts';
@@ -11,9 +12,13 @@ import type { AssessmentContext, Paper, PaperItem, QuestionSnapshot, Quiz, QuizA
 import { boundedSnapshots, canonical, difficulty, id, ids, integer, object, pageInput, quizDto, text } from './dto';
 import { scoreCents, scoreText } from './scoring';
 import { recordLearningFeedback } from '../learning/tracking';
+import { TeachingAccess } from '../teaching/access';
+import { CLASS_STUDENT_LIMIT, currentlyValid, type ClassMemberRecord, type ClassRecord } from '../teaching/contracts';
+
+import { activeMemberGrants, activeMemberRoles, scopedBusinessCapabilities } from '../administration/authorization';
 
 const conflictingCapabilities = ['content:edit', 'content:review', 'assessment:manage', 'assessment:review'];
-const quizKeys = ['title', 'subject_id', 'opens_at', 'closes_at', 'release_at', 'duration_seconds', 'max_attempts', 'items', 'audience_member_ids'];
+const quizKeys = ['title', 'subject_id', 'opens_at', 'closes_at', 'release_at', 'duration_seconds', 'max_attempts', 'items', 'audience_member_ids', 'source_class_ids'];
 function dateInput(value:unknown, name:string):Date {
   const raw = text(value, name, 40);
   if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?(?:Z|[+-]\d{2}:\d{2})$/.test(raw) || !Number.isFinite(Date.parse(raw))) fail(422, 'VALIDATION_ERROR', `${name}无效`);
@@ -26,7 +31,26 @@ function maxScore(value:unknown):Decimal128 {
   if (cents <= 0n || cents > 10000n) fail(422, 'SCORING_RULE_INVALID', '满分须大于0且不超过100');
   return Decimal128.fromString(scoreText(cents));
 }
-function quizInput(raw:unknown, patch:boolean) {
+interface QuizPaperItemInput {
+  question_version_id:string;
+  max_score:Decimal128 | null;
+}
+interface QuizInput {
+  fields:{
+    title:string;
+    subject_id:string;
+    opens_at:Date;
+    closes_at:Date;
+    release_at:Date;
+    duration_seconds:number;
+    max_attempts:number;
+  };
+  items:QuizPaperItemInput[];
+  audience:string[] | null;
+  source_class_ids:string[] | null;
+  expected:number | null;
+}
+function quizInput(raw:unknown, patch:boolean):QuizInput {
   const body = object(raw, [...quizKeys, ...(patch ? ['expected_revision'] : [])]);
   const opens_at = dateInput(body.opens_at, 'opens_at'), closes_at = dateInput(body.closes_at, 'closes_at'), release_at = dateInput(body.release_at, 'release_at');
   if (!(opens_at < closes_at && closes_at <= release_at)) fail(422, 'VALIDATION_ERROR', '须满足开场早于关场且出分不早于关场');
@@ -36,9 +60,14 @@ function quizInput(raw:unknown, patch:boolean) {
     return { question_version_id:id(item.question_version_id), max_score:item.max_score === undefined ? null : maxScore(item.max_score) };
   });
   if (new Set(items.map(item => item.question_version_id)).size !== items.length) fail(422, 'VALIDATION_ERROR', '题目版本不能重复');
-  const audience = ids(body.audience_member_ids, 'audience_member_ids', 200).sort();
-  if (!audience.length) fail(422, 'VALIDATION_ERROR', '受众不能为空');
-  return { fields:{title:text(body.title, 'title', 200), subject_id:id(body.subject_id), opens_at, closes_at, release_at, duration_seconds:integer(body.duration_seconds, 'duration_seconds', 60, 7200), max_attempts:body.max_attempts === undefined ? 1 : integer(body.max_attempts, 'max_attempts', 1, 3)}, items, audience, expected:patch ? integer(body.expected_revision, 'expected_revision') : null };
+  const hasAudience = body.audience_member_ids !== undefined;
+  const hasSource = body.source_class_ids !== undefined;
+  if (hasAudience === hasSource) fail(422, 'VALIDATION_ERROR', 'audience_member_ids与source_class_ids须互斥且必选其一');
+  const audience = hasAudience ? ids(body.audience_member_ids, 'audience_member_ids', CLASS_STUDENT_LIMIT).sort() : null;
+  if (audience && !audience.length) fail(422, 'VALIDATION_ERROR', '受众不能为空');
+  const source_class_ids = hasSource ? ids(body.source_class_ids, 'source_class_ids', 5).sort() : null;
+  if (source_class_ids && !source_class_ids.length) fail(422, 'VALIDATION_ERROR', 'source_class_ids不能为空');
+  return { fields:{title:text(body.title, 'title', 200), subject_id:id(body.subject_id), opens_at, closes_at, release_at, duration_seconds:integer(body.duration_seconds, 'duration_seconds', 60, 7200), max_attempts:body.max_attempts === undefined ? 1 : integer(body.max_attempts, 'max_attempts', 1, 3)}, items, audience, source_class_ids, expected:patch ? integer(body.expected_revision, 'expected_revision') : null };
 }
 function questionDto(q:QuestionSnapshot) {
   return {id:q.question_version_id, question_id:q.question_id, subject_id:q.subject_id, title:q.title, question_type:q.question_type, prompt:q.prompt, options:q.options, answer:q.answer, explanation:q.explanation, scoring_rule:q.scoring_rule, knowledge_point_ids:q.knowledge_point_ids, knowledge_weights:q.knowledge_weights, difficulty:q.difficulty, difficulty_basis:q.difficulty_basis, resource_ids:q.resource_ids, created_by:q.created_by, contributors:q.contributors, published_by:q.published_by};
@@ -46,7 +75,11 @@ function questionDto(q:QuestionSnapshot) {
 
 export class AssessmentManagement {
   private readonly sources:AssessmentSources;
-  constructor(private readonly database:Database, private readonly access:AssessmentAccess) { this.sources = new AssessmentSources(database.db); }
+  private readonly teaching:TeachingAccess;
+  constructor(private readonly database:Database, private readonly access:AssessmentAccess) {
+    this.sources = new AssessmentSources(database.db);
+    this.teaching = new TeachingAccess(access);
+  }
   private requireReader(ctx:AssessmentContext) {
     if (!ctx.capabilities.some(cap => cap === 'assessment:manage' || cap === 'assessment:review')) fail(403, 'FORBIDDEN', '无权管理评估');
   }
@@ -59,19 +92,26 @@ export class AssessmentManagement {
   private async participantRecords(ctx:AssessmentContext, memberIds:string[]) {
     const c = collections(this.database.db), options = {session:ctx.session};
     const members = await c.members.find({org_id:ctx.orgId, _id:{$in:memberIds}, status:'active'}, options).toArray();
-    const users = await c.users.find({_id:{$in:members.map(m => m.user_id)}, status:'active', must_change_password:false}, options).toArray();
-    const assignments = await c.memberRoles.find({org_id:ctx.orgId, member_id:{$in:memberIds}}, options).toArray();
+    const users = await c.users.find({_id:{$in:members.map(m => m.user_id)}, status:'active', must_change_password:false,
+      $or:[{privacy_state:'active'},{privacy_state:{$exists:false}}]}, options).toArray();
+    const assignments = await activeMemberRoles(this.database.db, {org_id:ctx.orgId, member_id:{$in:memberIds}}, ctx.session);
     const roles = await c.roles.find({_id:{$in:[...new Set(assignments.map(a => a.role_id))]}}, options).toArray();
-    const grants = await this.database.db.collection<MemberCapabilityGrant>('member_capability_grants').find({org_id:ctx.orgId, member_id:{$in:memberIds}}, options).toArray();
+    const grants = await activeMemberGrants(this.database.db, {org_id:ctx.orgId, member_id:{$in:memberIds}}, ctx.session);
     const userMap = new Map(users.map(user => [user._id, user]));
     const roleMap = new Map(roles.map(role => [role._id, role.capabilities]));
     const caps = new Map<string, string[]>();
     for (const assignment of assignments) caps.set(assignment.member_id, [...(caps.get(assignment.member_id) ?? []), ...(roleMap.get(assignment.role_id) ?? [])]);
     for (const grant of grants) caps.set(grant.member_id, [...(caps.get(grant.member_id) ?? []), grant.capability]);
-    return members.flatMap(member => {
+    const eligible = members.flatMap(member => {
       const user = userMap.get(member.user_id), capabilities = caps.get(member._id) ?? [];
       return user && capabilities.includes('learning:self') && capabilities.includes('account:read') && !capabilities.some(cap => conflictingCapabilities.includes(cap)) ? [{member, user}] : [];
     });
+    const available = [];
+    for (const participant of eligible) {
+      const scoped = await scopedBusinessCapabilities(this.database.db, participant.user._id, ctx.orgId, ctx.session);
+      if (!scoped.some(cap => conflictingCapabilities.includes(cap))) available.push(participant);
+    }
+    return available;
   }
   private async fenceParticipant(ctx:AssessmentContext, member:Member, user:User) {
     await this.access.auth.fenceUser(user, ctx.session);
@@ -97,19 +137,47 @@ export class AssessmentManagement {
     if (!items.length || items.length > 50) fail(409, 'PAPER_INVALID', '试卷题项数量无效');
     return {paper, items};
   }
-  private async replace(ctx:AssessmentContext, quiz:Quiz, input:ReturnType<typeof quizInput>, now:Date) {
+  private async authorizeClassExpand(ctx:AssessmentContext, classId:string, subjectId:string):Promise<ClassRecord> {
+    if (ctx.capabilities.includes('teaching:assign') || ctx.capabilities.includes('organization:admin') || ctx.platform && ctx.capabilities.includes('assessment:manage')) {
+      const clazz = await this.database.db.collection<ClassRecord>('classes').findOne({_id:id(classId), org_id:ctx.orgId}, {session:ctx.session});
+      if (!clazz || clazz.status === 'archived') fail(404, 'NOT_FOUND', '班级不存在');
+      return clazz;
+    }
+    const {clazz} = await this.teaching.requireAssignment(ctx, classId, subjectId);
+    return clazz;
+  }
+  private async expandFromClasses(ctx:AssessmentContext, classIds:string[], subjectId:string):Promise<string[]> {
+    const now = await this.access.now(ctx);
+    const members = new Set<string>();
+    for (const classId of classIds) {
+      await this.authorizeClassExpand(ctx, classId, subjectId);
+      const rows = await this.database.db.collection<ClassMemberRecord>('class_members').find({
+        org_id:ctx.orgId, class_id:classId, kind:'student', status:'active',
+      }, {session:ctx.session}).limit(CLASS_STUDENT_LIMIT + 1).toArray();
+      for (const row of rows) if (currentlyValid(row, now)) members.add(row.member_id);
+    }
+    const audience = [...members].sort();
+    if (!audience.length) fail(422, 'VALIDATION_ERROR', '展开后受众不能为空');
+    if (audience.length > CLASS_STUDENT_LIMIT) fail(422, 'CLASS_TOO_LARGE', '展开后受众超过200人');
+    return audience;
+  }
+  private async resolveAudience(ctx:AssessmentContext, input:QuizInput):Promise<string[]> {
+    if (input.audience) return input.audience;
+    return this.expandFromClasses(ctx, input.source_class_ids!, input.fields.subject_id);
+  }
+  private async replace(ctx:AssessmentContext, quiz:Quiz, input:QuizInput, audience:string[], now:Date) {
     const snapshots = new Map<string, QuestionSnapshot>();
     for (const item of [...input.items].sort((a,b) => a.question_version_id.localeCompare(b.question_version_id))) snapshots.set(item.question_version_id, await this.sources.question(ctx, item.question_version_id, true));
-    const paper:Paper = {_id:randomUUID(), org_id:ctx.orgId, quiz_id:quiz._id, revision:quiz.revision, status:'draft', created_at:now, updated_at:now};
-    const items:PaperItem[] = input.items.map((item, position) => ({_id:randomUUID(), org_id:ctx.orgId, paper_id:paper._id, position, snapshot:snapshots.get(item.question_version_id)!, max_score:item.max_score ?? maxScore(snapshots.get(item.question_version_id)!.scoring_rule.max_score), created_at:now, updated_at:now}));
+    const paper:Paper = {_id:newId(), org_id:ctx.orgId, quiz_id:quiz._id, revision:quiz.revision, status:'draft', created_at:now, updated_at:now};
+    const items:PaperItem[] = input.items.map((item, position) => ({_id:newId(), org_id:ctx.orgId, paper_id:paper._id, position, snapshot:snapshots.get(item.question_version_id)!, max_score:item.max_score ?? maxScore(snapshots.get(item.question_version_id)!.scoring_rule.max_score), created_at:now, updated_at:now}));
     if (new Set(items.map(item => item.snapshot.question_id)).size !== items.length || items.some(item => item.snapshot.subject_id !== quiz.subject_id)) fail(422, 'QUESTION_SCOPE_INVALID', '题目须同学科且题目身份不能重复');
     boundedSnapshots(items);
-    await this.validateParticipants(ctx, input.audience, quiz, items.map(item => item.snapshot));
+    await this.validateParticipants(ctx, audience, quiz, items.map(item => item.snapshot));
     await this.database.db.collection<Paper>('papers').insertOne(paper, {session:ctx.session});
     await this.database.db.collection<PaperItem>('paper_items').insertMany(items, {session:ctx.session});
     for (const item of [...items].sort((a,b) => a.snapshot.question_version_id.localeCompare(b.snapshot.question_version_id))) await this.sources.reference(ctx, item.snapshot, 'paper_item', item._id);
     await this.database.db.collection<QuizAudience>('quiz_audiences').deleteMany({org_id:ctx.orgId, quiz_id:quiz._id}, {session:ctx.session});
-    await this.database.db.collection<QuizAudience>('quiz_audiences').insertMany(input.audience.map(member_id => ({_id:randomUUID(), org_id:ctx.orgId, quiz_id:quiz._id, member_id, created_at:now, updated_at:now})), {session:ctx.session});
+    await this.database.db.collection<QuizAudience>('quiz_audiences').insertMany(audience.map(member_id => ({_id:newId(), org_id:ctx.orgId, quiz_id:quiz._id, member_id, created_at:now, updated_at:now})), {session:ctx.session});
     await recordLearningFeedback(this.database.db,ctx,items.map(item=>item.snapshot.question_id));
   }
   async createQuiz(req:ApiRequest, raw:unknown) {
@@ -118,10 +186,11 @@ export class AssessmentManagement {
       this.access.require(ctx, 'assessment:manage');
       return this.access.idempotent(ctx, req, 'quiz.create', 'new', raw, async () => {
         const now = await this.access.now(ctx);
-        const quiz:Quiz = {_id:randomUUID(), org_id:ctx.orgId, ...input.fields, status:'draft', revision:1, created_by:ctx.userId, contributors:[ctx.userId], published_by:null, published_at:null, published_paper_id:null, visibility_revision:0, created_at:now, updated_at:now};
+        const audience = await this.resolveAudience(ctx, input);
+        const quiz:Quiz = {_id:newId(), org_id:ctx.orgId, ...input.fields, status:'draft', revision:1, created_by:ctx.userId, contributors:[ctx.userId], published_by:null, published_at:null, published_paper_id:null, visibility_revision:0, created_at:now, updated_at:now, ...(input.source_class_ids ? {source_class_ids:input.source_class_ids} : {})};
         await this.database.db.collection<Quiz>('quizzes').insertOne(quiz, {session:ctx.session});
-        await this.replace(ctx, quiz, input, now);
-        await this.access.audit(ctx, 'quiz', quiz._id, 'assessment.quiz.create', '创建考试', {revision_after:1});
+        await this.replace(ctx, quiz, input, audience, now);
+        await this.access.audit(ctx, 'quiz', quiz._id, 'assessment.quiz.create', '创建考试', {revision_after:1, source_class_ids:input.source_class_ids});
         return quizDto(quiz);
       }, 200);
     });
@@ -135,10 +204,15 @@ export class AssessmentManagement {
       return this.access.idempotent(ctx, req, 'quiz.patch', before._id, raw, async () => {
         if (before.status !== 'draft' || before.revision !== input.expected) fail(409, 'REVISION_CONFLICT', '仅可编辑当前修订的本人草稿');
         const now = await this.access.now(ctx);
-        const updated = await this.database.db.collection<Quiz>('quizzes').findOneAndUpdate({_id:before._id, org_id:ctx.orgId, status:'draft', revision:input.expected!, created_by:ctx.userId}, {$set:{...input.fields, updated_at:now}, $inc:{revision:1}, $addToSet:{contributors:ctx.userId}}, {session:ctx.session, returnDocument:'after'});
+        const audience = await this.resolveAudience(ctx, input);
+        const $set: Record<string, unknown> = {...input.fields, updated_at:now};
+        const update: Document = {$set, $inc:{revision:1}, $addToSet:{contributors:ctx.userId}};
+        if (input.source_class_ids) $set.source_class_ids = input.source_class_ids;
+        else update.$unset = {source_class_ids:''};
+        const updated = await this.database.db.collection<Quiz>('quizzes').findOneAndUpdate({_id:before._id, org_id:ctx.orgId, status:'draft', revision:input.expected!, created_by:ctx.userId}, update, {session:ctx.session, returnDocument:'after'});
         if (!updated) fail(409, 'REVISION_CONFLICT', '考试已变化');
-        await this.replace(ctx, updated, input, now);
-        await this.access.audit(ctx, 'quiz', key, 'assessment.quiz.edit', '编辑考试', {revision_before:before.revision, revision_after:updated.revision});
+        await this.replace(ctx, updated, input, audience, now);
+        await this.access.audit(ctx, 'quiz', key, 'assessment.quiz.edit', '编辑考试', {revision_before:before.revision, revision_after:updated.revision, source_class_ids:input.source_class_ids});
         return quizDto(updated);
       });
     });
@@ -200,6 +274,7 @@ export class AssessmentManagement {
       const audience = await this.database.db.collection<QuizAudience>('quiz_audiences').find({org_id:ctx.orgId, quiz_id:quiz._id}, {session:ctx.session}).sort({member_id:1}).limit(201).toArray();
       if (audience.length > 200) fail(409, 'PARTICIPANT_INVALID', '受众数量超限');
       await recordLearningFeedback(this.database.db,ctx,items.map(item=>item.snapshot.question_id));
+      if (ctx.platform) await this.access.audit(ctx, 'quiz', quiz._id, 'assessment.quiz.read', '平台业务读取题目答案');
       return {...quizDto(quiz), created_by:quiz.created_by, contributors:quiz.contributors, published_by:quiz.published_by, published_at:quiz.published_at, items:items.map(item => ({id:item._id, position:item.position, question_version_id:item.snapshot.question_version_id, max_score:scoreText(scoreCents(item.max_score)), question:questionDto(item.snapshot)})), audience_member_ids:audience.map(row => row.member_id)};
     });
   }
@@ -246,7 +321,13 @@ export class AssessmentManagement {
     });
   }
   async assessmentQuestion(req:ApiRequest, key:string) {
-    return this.access.run(req, false, async ctx => { this.requireReader(ctx); const question=await this.sources.question(ctx,id(key),false);await recordLearningFeedback(this.database.db,ctx,[question.question_id]);return questionDto(question); });
+    return this.access.run(req, false, async ctx => {
+      this.requireReader(ctx);
+      const question = await this.sources.question(ctx,id(key),false);
+      await recordLearningFeedback(this.database.db,ctx,[question.question_id]);
+      if (ctx.platform) await this.access.audit(ctx, 'question', question.question_version_id, 'assessment.question.read', '平台业务读取题目答案');
+      return questionDto(question);
+    });
   }
   async audits(req:ApiRequest, query:unknown) {
     return this.access.run(req, false, async ctx => {

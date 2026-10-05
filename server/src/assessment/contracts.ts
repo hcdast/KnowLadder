@@ -1,7 +1,8 @@
 import type { ClientSession, Decimal128 } from "mongodb";
 import type { KnowledgeWeight, ScoringRule } from "../content/contracts";
+import type { PlatformBusinessContext } from '../administration/platform-access';
 
-export interface AssessmentContext { orgId:string; userId:string; memberId:string; capabilities:string[]; session:ClientSession; requestId:string; }
+export interface AssessmentContext { orgId:string; userId:string; memberId:string; capabilities:string[]; session:ClientSession; requestId:string; platform?:PlatformBusinessContext; studentConflict?:boolean; }
 export interface AssessmentRecord { _id:string; org_id:string; created_at:Date; updated_at:Date; }
 /** Internal frozen evidence. Never spread this object into student responses. */
 export interface QuestionSnapshot {
@@ -18,6 +19,7 @@ export interface Quiz extends AssessmentRecord {
   created_by:string; contributors:string[]; published_by:string|null; published_at:Date|null;
   opens_at:Date; closes_at:Date; release_at:Date; duration_seconds:number; max_attempts:number;
   published_paper_id:string|null; visibility_revision:number;
+  source_class_ids?:string[];
 }
 export interface Paper extends AssessmentRecord { quiz_id:string; revision:number; status:"draft"|"frozen"; }
 export interface PaperItem extends AssessmentRecord { paper_id:string; position:number; snapshot:QuestionSnapshot; max_score:Decimal128; }

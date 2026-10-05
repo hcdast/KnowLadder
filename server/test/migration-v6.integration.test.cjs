@@ -23,7 +23,7 @@ test("v6迁移保留v1-v5完整账本、epoch与角色，仅完整DDL可就绪",
   assert.equal(LEARNING_V5_CHECKSUM,V5_CHECKSUM);
   await assert.rejects(assertSchema(f.db),/v6/);
   const before=await capture(f.db),report=await inspectMigration(f.uri);
-  assert.equal(report.target_version,7); assert.equal(report.duplicate_keys,0);
+  assert.equal(report.duplicate_keys,0);
   for(const name of Object.keys(LEARNING_API_V6_SCHEMAS)) assert.ok(report.new_collections.includes(name));
   assert.deepEqual(await capture(f.db),before,"inspect不得写DDL或数据");
   await migrate(f.uri); await assertSchema(f.db);

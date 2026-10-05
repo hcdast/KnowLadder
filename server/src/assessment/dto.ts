@@ -10,7 +10,7 @@ export function difficulty(value:unknown):'基础'|'提升'|'挑战'|null {
   return value;
 }
 export function sessionDto(row:AssessmentSession,now:Date){return {id:row._id,mode:row.mode,status:row.status,revision:row.revision,server_time:now,started_at:row.started_at,deadline_at:row.deadline_at,submission_id:row.submission_id,item_count:row.item_count,quiz_id:row.quiz_id,textbook_edition_id:row.textbook_edition_id};}
-export function quizDto(row:Quiz){return {id:row._id,title:row.title,subject_id:row.subject_id,status:row.status,revision:row.revision,opens_at:row.opens_at,closes_at:row.closes_at,release_at:row.release_at,duration_seconds:row.duration_seconds,max_attempts:row.max_attempts};}
+export function quizDto(row:Quiz){return {id:row._id,title:row.title,subject_id:row.subject_id,status:row.status,revision:row.revision,opens_at:row.opens_at,closes_at:row.closes_at,release_at:row.release_at,duration_seconds:row.duration_seconds,max_attempts:row.max_attempts,...(row.source_class_ids?{source_class_ids:row.source_class_ids}:{})};}
 export function itemDto(row:SessionItem,answer:StudentAnswer){const q=row.snapshot;return {id:row._id,position:row.position,question_type:q.question_type,title:q.title,prompt:q.prompt,options:q.options,resource_ids:q.resource_ids,max_score:scoreText(scoreCents(row.max_score)),answer};}
 export function pageInput(raw:unknown,ctx:AssessmentContext,resource:string,keys:string[]=[],revision?:{name:string,value:number}) {
   const q=object(raw,['cursor','limit',...keys,...(revision?[revision.name]:[])]);

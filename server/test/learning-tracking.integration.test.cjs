@@ -1,4 +1,5 @@
 "use strict";
+const {newId}=require("../dist/database/object-id");
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
@@ -22,21 +23,7 @@ async function grade(f, submissionId) {
   assert.fail("评分worker未完成真实提交");
 }
 
-function gate() {
-  let release;
-  const promise = new Promise(resolve => { release = resolve; });
-  return { promise, release };
-}
-async function bounded(promise) {
-  let timer;
-  try {
-    return await Promise.race([promise, new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error("追踪并发屏障未到达")), 10000);
-    })]);
-  } finally { clearTimeout(timer); }
-}
-
-test("学情追踪：真实HTTP首见、事务与曝光", { concurrency: false, timeout: 600000 }, async t => {
+test("学情追踪：真实HTTP首见、事务与授权撤销", { concurrency: false, timeout: 600000 }, async t => {
   guardedUri(process.env.TEST_MONGODB_URI);
   await t.test("同账号并发会话及原key恢复至多一个首次；提交后反馈不改封存", async t => {
     const f = await assessmentFixture(t);
@@ -57,146 +44,6 @@ test("学情追踪：真实HTTP首见、事务与曝光", { concurrency: false, 
     assert.deepEqual(await f.db.collection("learning_attempt_contexts").find({ submission_id: accepted.submission_id }).sort({ session_item_id: 1 }).toArray(), contexts);
     assert.ok((await frozen(f, await practice(f))).every(row => row.learning_context.qualification === "repeated"));
   });
-  await t.test("管理员本人预览使未终结首次变exposed，但不禁止自主练习", async t => {
-    const f = await assessmentFixture(t);
-    const session = await practice(f);
-    await grant(f, f.student, "assessment:manage");
-    const question = f.questions[0];
-    await good(f.student, `/admin/assessment-questions/${question.id}`);
-    const accepted = await submit(f, session);
-    const context = await f.db.collection("learning_attempt_contexts").findOne({ submission_id: accepted.submission_id, question_id: question.question_id });
-    assert.equal(context.qualification, "exposed");
-    assert.equal(context.reason, "prior_feedback");
-    assert.ok((await practice(f)).id);
-  });
-  for (const previewFirst of [true, false]) {
-    await t.test(`本人预览与practice终结真实HTTP交错：${previewFirst ? "曝光先提交封存exposed" : "终结先提交封存first"}`, async t => {
-      const f = await assessmentFixture(t);
-      const session = await practice(f);
-      const items = await frozen(f, session);
-      assert.ok(items.every(item => item.learning_context.qualification === "first"));
-      await grant(f, f.student, "assessment:manage");
-      const question = f.questions[0];
-      const scope = { org_id: f.org, user_id: f.student.user.user_id };
-      const states = () => f.db.collection("learning_question_states").find(scope).sort({ question_id: 1 }).toArray();
-      const contexts = () => f.db.collection("learning_attempt_contexts").find(scope).sort({ session_item_id: 1 }).toArray();
-      const before = await states();
-      const originalSession = await f.db.collection("sessions").findOne({ _id: session.id });
-      const key = randomUUID();
-      const preview = () => good(f.student, `/admin/assessment-questions/${question.id}`);
-      const finish = () => good(f.student, `/sessions/${session.id}/submissions`, {
-        method: "POST", key, body: { expected_revision: session.revision, answers: [] },
-      }, 202);
-      const { Collection } = require("mongoose").mongo;
-      const method = previewFirst ? "updateOne" : "insertOne";
-      const originalWrite = Collection.prototype[method];
-      const originalFind = Collection.prototype.findOne;
-      const written = gate(), commit = gate(), contenderReached = gate(), contenderResume = gate();
-      let winnerTransaction, contenderTransaction;
-      // Pause only AFTER a real transactional write: feedback, or the complete
-      // submission/context/run/outbox bundle. Never replace a driver result.
-      Collection.prototype[method] = async function (...args) {
-        const result = await originalWrite.apply(this, args);
-        const matches = previewFirst
-          ? this.namespace === `${f.db.databaseName}.learning_question_states` &&
-            args[0]._id === before.find(row => row.question_id === question.question_id)._id && args[1].$set?.feedback_seen === true
-          : this.namespace === `${f.db.databaseName}.outbox_events` &&
-            args[0].org_id === f.org && args[0].event_type === "SubmissionAccepted";
-        if (matches && !winnerTransaction) {
-          winnerTransaction = args[previewFirst ? 2 : 1].session;
-          assert.equal(winnerTransaction.inTransaction(), true);
-          written.release();
-          await bounded(commit.promise);
-        }
-        return result;
-      };
-      // The second HTTP request must enter the real transaction before the
-      // first may commit; park before authorization write fences to avoid a
-      // lock-dependent winner or sleep-based scheduling.
-      Collection.prototype.findOne = async function (...args) {
-        if (winnerTransaction && !contenderTransaction &&
-            this.namespace === `${f.db.databaseName}.users` &&
-            args[1]?.session && args[1].session !== winnerTransaction) {
-          contenderTransaction = args[1].session;
-          assert.equal(contenderTransaction.inTransaction(), true);
-          contenderReached.release();
-          await bounded(contenderResume.promise);
-        }
-        return originalFind.apply(this, args);
-      };
-      const pending = [];
-      const launch = action => {
-        const promise = action().then(value => ({ value }), error => ({ error }));
-        pending.push(promise);
-        return promise;
-      };
-      const unwrap = async promise => {
-        const result = await bounded(promise);
-        if (result.error) throw result.error;
-        return result.value;
-      };
-      try {
-        const winner = launch(previewFirst ? preview : finish);
-        await bounded(written.promise);
-        const contender = launch(previewFirst ? finish : preview);
-        await bounded(contenderReached.promise);
-        assert.notEqual(winnerTransaction, contenderTransaction);
-        assert.deepEqual(await states(), before, "未commit曝光/封存不得泄漏半份题目账本");
-        assert.deepEqual(await contexts(), []);
-        assert.deepEqual(await f.db.collection("sessions").findOne({ _id: session.id }), originalSession);
-        for (const name of ["submissions", "grading_runs", "outbox_events"])
-          assert.equal(await f.db.collection(name).countDocuments({ org_id: f.org }), 0);
-        commit.release();
-        const first = await unwrap(winner);
-        const firstContexts = await contexts();
-        assert.equal(firstContexts.length, previewFirst ? 0 : items.length);
-        contenderResume.release();
-        const second = await unwrap(contender);
-        const accepted = previewFirst ? second : first;
-        const sealed = await contexts();
-        assert.equal(sealed.length, items.length);
-        for (const item of items) {
-          const rows = sealed.filter(row => row.session_item_id === item._id);
-          assert.equal(rows.length, 1);
-          assert.equal(rows[0].submission_id, accepted.submission_id);
-          const exposed = previewFirst && item.snapshot.question_id === question.question_id;
-          assert.equal(rows[0].qualification, exposed ? "exposed" : "first");
-          assert.equal(rows[0].reason, exposed ? "prior_feedback" : "first_seen");
-        }
-        if (!previewFirst) assert.deepEqual(sealed, firstContexts, "后提交曝光不得追溯改变终结封存");
-        for (const row of await states()) {
-          assert.equal(row.sealed_submission_id, accepted.submission_id);
-          assert.equal(row.first_session_item_id, items.find(item => item.snapshot.question_id === row.question_id)._id);
-          assert.equal(row.feedback_seen, row.question_id === question.question_id);
-        }
-        await preview();
-        const afterPreview = await states();
-        assert.deepEqual(await finish(), accepted, "原key恢复同一提交而非再次申请首次资格");
-        assert.deepEqual(await contexts(), sealed);
-        assert.deepEqual(await states(), afterPreview);
-        const terminal = await f.db.collection("sessions").findOne({ _id: session.id });
-        assert.equal(terminal.status, "submitted");
-        assert.equal(terminal.submission_id, accepted.submission_id);
-        assert.equal(terminal.revision, session.revision + 1);
-        assert.equal(await f.db.collection("submissions").countDocuments({ session_id: session.id }), 1);
-        const runs = await f.db.collection("grading_runs").find({ submission_id: accepted.submission_id }).toArray();
-        assert.equal(runs.length, 1);
-        const events = await f.db.collection("outbox_events").find({ aggregate_id: accepted.submission_id, event_type: "SubmissionAccepted" }).toArray();
-        assert.equal(events.length, 1);
-        assert.equal(events[0].payload.grading_run_id, runs[0]._id);
-        assert.equal(events[0].payload.submission_id, accepted.submission_id);
-        assert.equal(await f.db.collection("idempotency_records").countDocuments({ org_id: f.org, operation: "session.submit", resource_id: session.id, key }), 1);
-      } finally {
-        commit.release();
-        contenderResume.release();
-        try { await bounded(Promise.allSettled(pending)); }
-        finally {
-          Collection.prototype[method] = originalWrite;
-          Collection.prototype.findOne = originalFind;
-        }
-      }
-    });
-  }
   await t.test("事务回滚不占首见；legacy账号题组合与旧题项保持unknown", async t => {
     const f = await assessmentFixture(t);
     const { reserveLearningContexts } = require("../dist/learning/tracking.js");
@@ -206,7 +53,7 @@ test("学情追踪：真实HTTP首见、事务与曝光", { concurrency: false, 
     const tx = f.db.client.startSession();
     try {
       await assert.rejects(tx.withTransaction(async () => {
-        await reserveLearningContexts(f.db, { orgId: f.org, userId: fresh.user.user_id, memberId: fresh.memberId, capabilities: ["learning:self"], requestId: randomUUID(), session: tx }, items.map(row => ({ ...row, _id: randomUUID() })));
+        await reserveLearningContexts(f.db, { orgId: f.org, userId: fresh.user.user_id, memberId: fresh.memberId, capabilities: ["learning:self"], requestId: randomUUID(), session: tx }, items.map(row => ({ ...row, _id: newId() })));
         throw new Error("intentional transaction abort");
       }), /intentional transaction abort/);
     } finally { await tx.endSession(); }

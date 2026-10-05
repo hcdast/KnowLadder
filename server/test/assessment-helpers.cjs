@@ -1,4 +1,5 @@
 "use strict";
+const {newId}=require("../dist/database/object-id");
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const { fixture, Browser, status } = require("./helpers.cjs");
@@ -17,7 +18,7 @@ const license = () => ({ source: "阶段三原创隔离验收材料", granted: t
 async function grant(f, actor, capability) {
   const member = await f.db.collection("organization_members").findOne({ _id: actor.memberId });
   await f.ops.setCapability(f.context, { org_id: actor.org, member_id: actor.memberId,
-    capability, granted: true, expected_revision: member.authorization_revision });
+    capability, granted: true, valid_to: new Date(Date.now() + 3600000), expected_revision: member.authorization_revision });
 }
 async function publishContent(f, base, row) {
   await good(f.editor, `${base}/${row.id}/submit-review`, { method: "POST", body: { expected_revision: row.revision } });
@@ -37,11 +38,11 @@ async function createQuestion(f, changes = {}) {
 async function assessmentFixture(t, options = {}) {
   const { publishedQuiz = false, ...fixtureOptions } = options;
   const f = await fixture(t, fixtureOptions);
-  assert.equal((await f.db.collection("schema_migrations").findOne({ version: 4 })).status, "completed");
+  assert.equal((await f.db.collection("schema_migrations").findOne({ version: 10 })).status, "completed");
   const organization = await f.ops.createOrganization(f.context, { name: "评估隔离验收组织", kind: "school" });
   f.org = f.orgId = organization.organization_id;
   const now = new Date();
-  f.stage = randomUUID(); f.subject = randomUUID(); f.knowledge = randomUUID();
+  f.stage = newId(); f.subject = newId(); f.knowledge = newId();
   for (const [collection, row] of [
     ["education_stages", { _id: f.stage, code: "assessment-stage", name: "验收学段" }],
     ["subjects", { _id: f.subject, code: "assessment-subject", name: "验收学科" }],
@@ -50,7 +51,8 @@ async function assessmentFixture(t, options = {}) {
   f.actor = async (roles = ["student"], capabilities = [], org = f.org) => {
     const browser = new Browser(f.browser.base);
     const user = await f.authenticated(browser);
-    await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles });
+    await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles,
+      ...(roles.includes("content_reviewer") ? { reviewer_valid_to: new Date(Date.now() + 7 * 86400000) } : {}) });
     const member = await f.db.collection("organization_members").findOne({ org_id: org, user_id: user.user_id });
     const actor = { browser, user, org, memberId: member._id };
     for (const capability of capabilities) await grant(f, actor, capability);
@@ -65,13 +67,13 @@ async function assessmentFixture(t, options = {}) {
     title: "原创练测教材", textbook: { title: "原创练测教材", stage_id: f.stage, subject_id: f.subject, source: "自主编写" },
     edition_code: `assessment-${randomUUID()}`, license: license(),
   } });
-  f.chapterId = randomUUID();
+  const chapterKey = randomUUID();
   const withChapter = await good(f.editor, `/admin/textbook-editions/${draft.id}/chapters`, { method: "PUT", body: {
-    expected_revision: draft.revision, chapters: [{ id: f.chapterId, parent_id: null, position: 0, title: "整数", body: "原创整数正文",
+    expected_revision: draft.revision, chapters: [{ client_key: chapterKey, parent_id: null, position: 0, title: "整数", body: "原创整数正文",
       knowledge_point_ids: [f.knowledge], resource_ids: [] }],
   } });
   // Fetch metadata rather than depending on the chapter replacement response shape.
-  void withChapter;
+  f.chapterId = withChapter.chapter_id_map.find(row => row.client_key === chapterKey).id;
   await publishContent(f, "/admin/textbook-editions", await good(f.editor, `/admin/textbook-editions/${draft.id}`));
   f.book = await good(f.editor, `/admin/textbook-editions/${draft.id}`);
   f.questions = [await createQuestion(f), await createQuestion(f, { title: "原创多选验收", question_type: "multiple", answer: "A,B",

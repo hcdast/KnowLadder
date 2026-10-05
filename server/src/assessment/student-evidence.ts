@@ -8,6 +8,7 @@ import type { Answer, AssessmentContext, AssessmentSession, GradingResult, Gradi
 import { scoreAnswer, scoreCents } from './scoring';
 import { databaseNow, type VisibilityState } from './submission';
 import { requireEvidenceSubject } from './subject-access';
+import { isExplicitStandaloneWork } from '../database/txn';
 
 export interface StudentAssessmentEvidence {
   status: VisibilityState;
@@ -22,13 +23,21 @@ export interface StudentAssessmentEvidence {
 function invalid(): never { return fail(503, 'INVALID_STUDENT_EVIDENCE', '学生评分证据不完整'); }
 
 /** Internal frozen evidence only. Callers must never spread this result into a DTO. */
-export async function studentAssessmentEvidence(db: Db, ctx: AssessmentContext, submission: Submission, purpose: 'projection_check' | 'feedback_delivery', feedbackItemIds?: ReadonlySet<string>): Promise<StudentAssessmentEvidence> {
-  if (!ctx.session.inTransaction()) fail(503, 'ASSESSMENT_TRANSACTION_REQUIRED', '证据访问必须位于事务');
-  const internal = ctx.capabilities.length === 1 && (ctx.userId === 'system:learning' && ctx.capabilities[0] === 'learning:projection-worker' || ctx.userId === 'system:assessment' && ctx.capabilities[0] === 'assessment:worker');
-  if (submission.org_id !== ctx.orgId || submission.member_id !== ctx.memberId || (internal ? purpose !== 'projection_check' : ctx.userId.startsWith('system:') || ctx.capabilities.some(c => c === 'assessment:worker' || c === 'learning:projection-worker') || !ctx.capabilities.includes('learning:self') || submission.user_id !== ctx.userId)) fail(403, 'FORBIDDEN', '未获本人学生证据权限');
-  await requireEvidenceSubject(db, ctx.session, submission.user_id);
+export async function studentAssessmentEvidence(db: Db, ctx: AssessmentContext, submission: Submission, purpose: 'projection_check' | 'feedback_delivery', feedbackItemIds?: ReadonlySet<string>, reportTarget?: { memberId: string; userId: string }): Promise<StudentAssessmentEvidence> {
+  if (reportTarget) {
+    if (purpose !== 'projection_check' || ctx.platform?.principalKind !== 'platform_delegate' || !ctx.capabilities.includes('report:read') ||
+      submission.org_id !== ctx.orgId || submission.member_id !== reportTarget.memberId || submission.user_id !== reportTarget.userId)
+      fail(403, 'FORBIDDEN', '报告证据范围无效');
+    const subject = await db.collection<{ _id: string; privacy_state?: string }>('users').findOne({ _id: reportTarget.userId, status: 'active' }, { session: ctx.session });
+    if (!subject || subject.privacy_state && subject.privacy_state !== 'active') fail(410, 'SUBJECT_ERASED', '主体证据已不可用');
+  } else {
+    if (!ctx.session.inTransaction() && !isExplicitStandaloneWork(ctx.session)) fail(503, 'ASSESSMENT_TRANSACTION_REQUIRED', '证据访问需要真实事务或显式本地standalone工作上下文');
+    const internal = ctx.capabilities.length === 1 && (ctx.userId === 'system:learning' && ctx.capabilities[0] === 'learning:projection-worker' || ctx.userId === 'system:assessment' && ctx.capabilities[0] === 'assessment:worker');
+    if (submission.org_id !== ctx.orgId || submission.member_id !== ctx.memberId || (internal ? purpose !== 'projection_check' : ctx.userId.startsWith('system:') || ctx.capabilities.some(c => c === 'assessment:worker' || c === 'learning:projection-worker') || !ctx.capabilities.includes('learning:self') || submission.user_id !== ctx.userId)) fail(403, 'FORBIDDEN', '未获本人学生证据权限');
+    await requireEvidenceSubject(db, ctx.session, submission.user_id, ctx.orgId);
+  }
   const options = { session: ctx.session };
-  const current = await db.collection<Submission>('submissions').findOne({ _id: submission._id, org_id: ctx.orgId, user_id: submission.user_id, member_id: ctx.memberId }, options);
+  const current = await db.collection<Submission>('submissions').findOne({ _id: submission._id, org_id: ctx.orgId, user_id: submission.user_id, member_id: submission.member_id }, options);
   if (!current || current.revision !== submission.revision || current.requested_grading_revision !== submission.requested_grading_revision || current.effective_grading_revision !== submission.effective_grading_revision) invalid();
   submission = current;
   const session = await db.collection<AssessmentSession>('sessions').findOne({ _id: submission.session_id, org_id: ctx.orgId, user_id: submission.user_id, member_id: submission.member_id }, options);
@@ -43,7 +52,7 @@ export async function studentAssessmentEvidence(db: Db, ctx: AssessmentContext, 
   const now = await databaseNow(db, ctx);
   const versions = [...new Set([...items.map(item => item.snapshot.question_version_id), ...(run?.corrections.map(c => c.snapshot.question_version_id) ?? [])])].sort();
   const sources = new AssessmentSources(db);
-  output.nextCheckAt = await sources.nextCheckAt(ctx, versions, session.textbook_edition_id, submission.quiz_id, now);
+  output.nextCheckAt = await sources.nextCheckAt(ctx, versions, session.textbook_edition_id, submission.quiz_id, now, !!reportTarget);
   const member = await db.collection('organization_members').findOne({ _id: submission.member_id as never, org_id: ctx.orgId, user_id: submission.user_id, status: 'active' }, options);
   const user = await db.collection('users').findOne({ _id: submission.user_id as never, status: 'active' }, options);
   if (!member || !user) return { ...output, status: 'withheld_access' };
@@ -80,17 +89,17 @@ export async function studentAssessmentEvidence(db: Db, ctx: AssessmentContext, 
     }
     if (submission.total_score === null || total !== scoreCents(submission.total_score) || maximum !== scoreCents(submission.max_score)) invalid();
   } catch { invalid(); }
-  await touchLearningScope(db, ctx, subjectId, false);
+  if (!reportTarget) await touchLearningScope(db, ctx, subjectId, false);
   try {
     if (session.textbook_edition_id) {
-      const textbook = await sources.textbook(ctx, session.textbook_edition_id, false);
+      const textbook = await sources.textbook(ctx, session.textbook_edition_id, false, !!reportTarget);
       if (textbook.subject_id !== subjectId) invalid();
     }
     for (const version of versions) {
-      const source = await sources.question(ctx, version, false);
+      const source = await sources.question(ctx, version, false, !!reportTarget);
       if (source.subject_id !== subjectId || !items.some(item => item.snapshot.question_id === source.question_id)) invalid();
     }
-    await sources.guard(ctx, versions, 'visibility');
+    await sources.guard(ctx, versions, 'visibility', undefined, !!reportTarget);
   } catch (error) {
     if (!(error instanceof HttpException) || ![403, 404, 409, 422].includes(error.getStatus())) throw error;
     const body = error.getResponse();

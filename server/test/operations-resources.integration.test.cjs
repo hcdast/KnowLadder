@@ -58,7 +58,12 @@ foreach($p in @($env:KL_TEST_PRIVATE_ROOT,$env:KL_TEST_PRIMARY,$env:KL_TEST_MIRR
     Object.assign(f,await f.start());const editor=await f.authenticated();
     await f.ops.setMembership(f.context,{user_id:editor.user_id,org_id:org,roles:["content_editor"]});
     const member=await f.db.collection("organization_members").findOne({org_id:org,user_id:editor.user_id});
-    await f.db.collection("member_capability_grants").insertMany(["content:revoke","file:delete"].map(capability=>({_id:randomUUID(),org_id:org,member_id:member._id,capability})));
+    let revision=member.authorization_revision;
+    for(const capability of ["content:revoke","file:delete"]) {
+      const granted=await f.ops.setCapability(f.context,{org_id:org,member_id:member._id,capability,
+        granted:true,valid_to:new Date(Date.now()+3600000),expected_revision:revision});
+      revision=granted.authorization_revision;
+    }
     f.post=(path,body,key=randomUUID())=>f.browser.request(path,{method:"POST",body,headers:{"X-Org-Id":org,"Idempotency-Key":key}});
   }
   return Object.assign(f,{root,primary,mirror,filesRoot,environmentId,owner});

@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { randomUUID } from 'node:crypto';
 import type { Db } from 'mongodb';
 import type { AssessmentContext, SessionItem, Submission } from '../assessment/contracts';
@@ -6,6 +7,7 @@ import type { BaseVersion, ContentKind } from '../content/contracts';
 import { fail } from '../errors';
 import { requireEvidenceSubject } from '../assessment/subject-access';
 import { assertOperationalAccess } from '../operations/control';
+import { isExplicitStandaloneWork } from '../database/txn';
 
 type TrackingContext = Pick<AssessmentContext, 'orgId' | 'userId' | 'session'>;
 interface TrackingConfig { _id:string; epoch:string; cutover_at:Date; tracking_ready:boolean; }
@@ -15,20 +17,20 @@ interface QuestionState {
   sealed_submission_id:string|null; revision:number; legacy_unknown:boolean; created_at:Date; updated_at:Date;
 }
 async function config(db:Db, ctx:TrackingContext):Promise<TrackingConfig> {
-  if (!ctx.session.inTransaction()) fail(503, 'LEARNING_TRANSACTION_REQUIRED', '学情记录需要事务');
-  await requireEvidenceSubject(db, ctx.session, ctx.userId);
+  if (!ctx.session.inTransaction() && !isExplicitStandaloneWork(ctx.session)) fail(503, 'LEARNING_TRANSACTION_REQUIRED', '学情记录需要真实事务或显式本地standalone工作上下文');
+  await requireEvidenceSubject(db, ctx.session, ctx.userId, ctx.orgId);
   const row = await db.collection<TrackingConfig>('learning_tracking_config').findOne({_id:'tracking'}, {session:ctx.session});
-  const marker = await db.collection('schema_migrations').findOne({version:5,status:'completed'}, {session:ctx.session,projection:{_id:1}});
+  const marker = await db.collection('schema_migrations').findOne({version:10,status:'completed'}, {session:ctx.session,projection:{_id:1}});
   if (!row?.tracking_ready || !marker) fail(503, 'LEARNING_TRACKING_NOT_READY', '学情追踪尚未启用');
   return row;
 }
 export async function touchLearningScope(db:Db, ctx:TrackingContext, subjectId:string, change:boolean):Promise<void> {
-  if (!ctx.session.inTransaction()) fail(503, 'LEARNING_TRANSACTION_REQUIRED', '学情记录需要事务');
+  if (!ctx.session.inTransaction() && !isExplicitStandaloneWork(ctx.session)) fail(503, 'LEARNING_TRANSACTION_REQUIRED', '学情记录需要真实事务或显式本地standalone工作上下文');
   await assertOperationalAccess(db);
   const now = await databaseNow(db, ctx);
   await db.collection<{_id:string;org_id:string;subject_id:string}>('learning_scope_states').updateOne(
     {org_id:ctx.orgId, subject_id:subjectId},
-    {$inc:{access_fence:1, eligibility_revision:change?1:0, catalog_revision:change?1:0}, $set:{updated_at:now}, $setOnInsert:{_id:randomUUID(),org_id:ctx.orgId,subject_id:subjectId,created_at:now}},
+    {$inc:{access_fence:1, eligibility_revision:change?1:0, catalog_revision:change?1:0}, $set:{updated_at:now}, $setOnInsert:{_id:newId(),org_id:ctx.orgId,subject_id:subjectId,created_at:now}},
     {session:ctx.session,upsert:true});
 }
 export async function touchContentLearningScope(db:Db, ctx:TrackingContext, kind:ContentKind, version:BaseVersion, change:boolean):Promise<void> {
@@ -50,7 +52,7 @@ async function state(db:Db, ctx:TrackingContext, questionId:string, settings:Tra
   if (!user || !question) throw new Error('LEARNING_IDENTITY_INTEGRITY_ERROR');
   const legacy = !(user.created_at > settings.cutover_at || question.created_at > settings.cutover_at);
   const author = await db.collection('question_versions').findOne({org_id:ctx.orgId,question_id:questionId,$or:[{created_by:ctx.userId},{contributors:ctx.userId},{published_by:ctx.userId},{submitted_by:ctx.userId}]}, {session:ctx.session,projection:{_id:1}});
-  const row:QuestionState = {_id:randomUUID(),...filter,epoch:settings.epoch,first_session_item_id:null,first_seen_at:null,feedback_seen:!!author,sealed_submission_id:null,revision:1,legacy_unknown:legacy,created_at:now,updated_at:now};
+  const row:QuestionState = {_id:newId(),...filter,epoch:settings.epoch,first_session_item_id:null,first_seen_at:null,feedback_seen:!!author,sealed_submission_id:null,revision:1,legacy_unknown:legacy,created_at:now,updated_at:now};
   await states.insertOne(row,{session:ctx.session});
   return row;
 }
@@ -81,7 +83,7 @@ export async function sealLearningContexts(db:Db, ctx:AssessmentContext, submiss
         else if (row.feedback_seen) { qualification='exposed'; reason='prior_feedback'; }
       }
     }
-    await attempts.insertOne({_id:randomUUID(),...filter,user_id:submission.user_id,member_id:submission.member_id,question_id:item.snapshot.question_id,subject_id:item.snapshot.subject_id,epoch:settings.epoch,qualification,reason,created_at:now,updated_at:now} as never,{session:ctx.session});
+    await attempts.insertOne({_id:newId(),...filter,user_id:submission.user_id,member_id:submission.member_id,question_id:item.snapshot.question_id,subject_id:item.snapshot.subject_id,epoch:settings.epoch,qualification,reason,created_at:now,updated_at:now} as never,{session:ctx.session});
     if (row.first_session_item_id === item._id && !row.sealed_submission_id) await db.collection<QuestionState>('learning_question_states').updateOne({_id:row._id},{$set:{sealed_submission_id:submission._id}},{session:ctx.session});
   }
 }

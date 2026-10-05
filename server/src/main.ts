@@ -31,7 +31,12 @@ async function main() {
     throw error;
   }
 }
-main().catch(() => {
+main().catch((error: unknown) => {
+  if (error instanceof Error && error.message === 'FILE_SCAN_ENABLED 必须为 true 或 false') {
+    process.stderr.write('API 启动失败：FILE_SCAN_ENABLED 必须为 true 或 false。\n');
+    process.exitCode = 1;
+    return;
+  }
   process.stderr.write(
     "API 启动失败：请检查运行配置、数据库副本集与迁移状态。\n",
   );

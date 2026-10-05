@@ -1,3 +1,5 @@
+const {objectIdDatabase, rawDatabase, decodeDocument, newId} = require("../server/dist/database/object-id.js");
+const OID = /^[0-9a-f]{24}$/;
 "use strict";
 const { MongoClient, BSON } = require('../server/node_modules/mongodb');
 const { fs, path, crypto, ensure, hash, privateDirectory, openFile, writeAll, createArchive, readArchive, CHUNK } = require('./system-backup-archive.cjs');
@@ -9,8 +11,10 @@ const MAX_DB = 256 * 1024 ** 2, MAX_FILES = 1024 ** 3, MAX_FILE = 10 * 1024 ** 2
 const KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const AREAS = ['tmp', 'quarantine', 'ready'];
-const SKIP_IMPORT = new Set(['operational_state','operational_writers','backup_restore_runs','member_roles','member_capability_grants']);
+// Restore is a locked disaster-recovery copy, never an authorization rollback or an approval replay.
+const SKIP_IMPORT = new Set(['operational_state','operational_writers','backup_restore_runs','member_roles','member_capability_grants','administrative_grants','authorization_requests','administration_operations','administration_guard','object_id_allocations']);
 function exact(value, fields) { ensure(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join('|') === fields.slice().sort().join('|')); }
+async function requireReplicaSet(db) { ensure(typeof (await db.admin().command({ hello: 1 })).setName === 'string', 'LOCAL_REPLICA_SET_REQUIRED'); }
 function uriDatabase(uri, restore = false) {
   ensure(typeof uri === 'string');
   const match = /^mongodb:\/\/([^/]+)\/([^?]+)(?:\?.*)?$/.exec(uri); ensure(match && !match[1].includes('@'), 'LOCAL_REPLICA_SET_REQUIRED');
@@ -72,6 +76,8 @@ async function registerPublishedBackup(db, file, key, root, maintenanceToken, ga
 }
 
 async function backup({ client, db, file, key, root, maintenanceToken }) {
+  db = objectIdDatabase(db);
+  await requireReplicaSet(db);
   ensure(/^kl_test_[\w-]+$/.test(db.databaseName), 'LOCAL_DATABASE_REQUIRED');
   const gate = await control.assertMaintenance(db, maintenanceToken);
   const maintenance = await db.collection('operational_state').findOne({ _id: 'environment', mode: 'maintenance', maintenance_token: maintenanceToken, environment_id: gate.environmentId });
@@ -96,11 +102,11 @@ async function backup({ client, db, file, key, root, maintenanceToken }) {
     for (const name of registry.collections.filter(n => !registry.excluded.includes(n))) {
       checkpoint();
       manifest.counts[name] = 0;
-      for await (const row of db.collection(name).find({}, { session, maxTimeMS: 45000, promoteValues: false, promoteLongs: false }).batchSize(20)) {
+      for await (const row of rawDatabase(db).collection(name).find({}, { session, maxTimeMS: 45000, promoteValues: false, promoteLongs: false }).batchSize(20)) {
         ensure(Date.now() < deadline, 'BACKUP_SNAPSHOT_TIMEOUT');
         const bytes = BSON.serialize(row); manifest.db_bytes += bytes.length; ensure(manifest.db_bytes <= MAX_DB, 'BACKUP_LIMIT_EXCEEDED');
         await emitBytes(archive, 'db', { collection: name, index: manifest.counts[name]++ }, bytes);
-        if (name === 'file_resources') resources.push(BSON.deserialize(bytes));
+        if (name === 'file_resources') resources.push(decodeDocument(BSON.deserialize(bytes), name));
       }
     }
     ensure(Date.now() < deadline, 'BACKUP_SNAPSHOT_TIMEOUT'); await session.commitTransaction();
@@ -151,8 +157,8 @@ async function authenticate(handle, key, onDocument = async () => {}, onFile = a
   ensure(manifest.format === 1 && KEY.test(manifest.backup_id) && UUID.test(manifest.environment_id) && /^kl_test_[\w-]+$/.test(manifest.source_database) && /^[a-f0-9]{64}$/.test(manifest.source_cluster_hash) && /^[a-f0-9]{64}$/.test(manifest.source_root_hash) && typeof manifest.created_at === 'string' && Number.isFinite(Date.parse(manifest.created_at)));
   ensure(Number.isSafeInteger(manifest.ledger_sequence) && manifest.ledger_sequence >= 0 && JSON.stringify(manifest.registry) === JSON.stringify(registry) && manifest.db_bytes === dbBytes && JSON.stringify(manifest.counts) === JSON.stringify(counts));
   for (const field of ['format','backup_id','environment_id','source_database','source_cluster_hash','source_root_hash','created_at','registry','ledger_sequence']) ensure(JSON.stringify(header[field]) === JSON.stringify(manifest[field]));
-  ensure(Array.isArray(manifest.files) && manifest.files.length === files.length && Array.isArray(manifest.missing) && manifest.missing.every(id => UUID.test(id)));
-  manifest.files.forEach((f, index) => { exact(f, ['area','key','size','checksum','classification','resource_id']); ensure(['ready','quarantined','unresolved','orphan'].includes(f.classification) && (f.resource_id === null || UUID.test(f.resource_id))); for (const field of ['area','key','size','checksum']) ensure(f[field] === files[index][field]); });
+  ensure(Array.isArray(manifest.files) && manifest.files.length === files.length && Array.isArray(manifest.missing) && manifest.missing.every(id => OID.test(id)));
+  manifest.files.forEach((f, index) => { exact(f, ['area','key','size','checksum','classification','resource_id']); ensure(['ready','quarantined','unresolved','orphan'].includes(f.classification) && (f.resource_id === null || OID.test(f.resource_id))); for (const field of ['area','key','size','checksum']) ensure(f[field] === files[index][field]); });
   return result;
 }
 function transform(name, row) {
@@ -169,6 +175,8 @@ function transform(name, row) {
   return row;
 }
 async function restore({ client, db, file, key, root }) {
+  db = objectIdDatabase(db);
+  await requireReplicaSet(db);
   ensure(/^kl_restore_[\w-]+$/.test(db.databaseName));
   const handle = await openFile(file); let output = null;
   try {
@@ -178,7 +186,7 @@ async function restore({ client, db, file, key, root }) {
     const safety = await ledgerApi.readSafetyLedger(manifest.environment_id, manifest.ledger_sequence);
     ensure((await db.listCollections({}, { nameOnly: true }).toArray()).length === 0, 'RESTORE_TARGET_NOT_EMPTY');
     root = await fileRoot(root, true); await schema.initializeRestoreSchema(db);
-    const restoreId = crypto.randomUUID(); await control.quarantineRestore(db, { environmentId: manifest.environment_id, restoreId });
+    const restoreId = newId(); await control.quarantineRestore(db, { environmentId: manifest.environment_id, restoreId });
     const now = new Date(); const run = { _id: restoreId, environment_id: manifest.environment_id, status: 'quarantined', manifest_hash: verified.manifestHash, file_root_hash: hash(await fs.realpath(root)), ledger_sequence: safety.sequence, revision: 0, checks: { schema: false, files: false, ledger: false, identities: false, smoke: false }, created_at: now, updated_at: now };
     await db.collection('backup_restore_runs').insertOne(run);
     try {
@@ -210,11 +218,12 @@ async function reconcileDeletedFiles(db, manifest, root, minimumSequence) {
           const state = await db.collection('operational_state').findOne({ _id: 'environment', environment_id: manifest.environment_id, mode: 'restore_quarantined' }, { session });
           ensure(state, 'RESTORE_QUARANTINED');
           if (await fileReferenced(db, id, session)) return;
-          const ownerCollection = row.owner_type === 'textbook' ? 'textbook_editions' : row.owner_type === 'question' ? 'question_versions' : null;
+          const ownerCollection = row.owner_type === 'textbook' ? 'textbook_editions' : row.owner_type === 'question' ? 'question_versions' : row.owner_type === 'coursework' ? 'coursework_heads' : null;
           if (!ownerCollection) return;
           const owner = await db.collection(ownerCollection).findOne({ _id: row.owner_version_id, org_id: row.org_id }, { session });
-          if (!owner || !Number.isSafeInteger(owner.access_revision)) return;
-          ensure((await db.collection(ownerCollection).updateOne({ _id: owner._id, org_id: row.org_id, access_revision: owner.access_revision }, { $inc: { access_revision: 1 } }, { session })).matchedCount === 1, 'OWNER_FENCE_CONFLICT');
+          const coursework = row.owner_type === 'coursework';
+          if (!owner || (coursework && (process.env.KL_COURSEWORK_FILES_ENABLED !== 'true' || owner.user_id !== row.created_by)) || !Number.isSafeInteger(coursework ? owner.revision : owner.access_revision)) return;
+          ensure((await db.collection(ownerCollection).updateOne({ _id: owner._id, org_id: row.org_id, ...(coursework ? { revision: owner.revision } : { access_revision: owner.access_revision }) }, { $inc: coursework ? { revision: 1 } : { access_revision: 1 } }, { session })).matchedCount === 1, 'OWNER_FENCE_CONFLICT');
           ensure((await db.collection('operational_state').updateOne({ _id: 'environment', mode: 'restore_quarantined', restore_id: state.restore_id }, { $inc: { access_fence: 1 } }, { session })).matchedCount === 1, 'RESTORE_QUARANTINED');
           authorized = true;
         }, { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' } });
@@ -239,6 +248,8 @@ async function reconcileDeletedFiles(db, manifest, root, minimumSequence) {
 }
 
 async function verifyRestore({ db, file, key, root, restoreId, apply = false }) {
+  db = objectIdDatabase(db);
+  await requireReplicaSet(db);
   const handle = await openFile(file);
   try {
     const { manifest, manifestHash } = await authenticate(handle, key);
@@ -256,7 +267,14 @@ async function verifyRestore({ db, file, key, root, restoreId, apply = false }) 
     const expected = manifest.files.filter(descriptor => !suppressed.has(descriptor.resource_id));
     let files = manifest.missing.filter(id => !suppressed.has(id)).length === 0 && inventory.missing.length === 0 && inventory.descriptors.length === expected.length;
     for (const descriptor of expected) { const actual = inventory.descriptors.find(f => f.area === descriptor.area && f.key === descriptor.key); if (!actual || actual.checksum !== descriptor.checksum || actual.size !== descriptor.size || !['ready','quarantined'].includes(actual.classification)) files = false; }
-    const identities = await db.collection('users').countDocuments({ status: { $ne: 'disabled' } }) === 0 && await db.collection('organization_members').countDocuments({ status: { $ne: 'disabled' } }) === 0 && await db.collection('member_roles').countDocuments({}) === 0 && await db.collection('member_capability_grants').countDocuments({}) === 0 && await db.collection('auth_sessions').countDocuments({}) === 0;
+    const emptyAuthorization = ['member_roles', 'member_capability_grants', 'administrative_grants',
+      'authorization_requests', 'administration_operations', 'auth_sessions'];
+    const identities = await db.collection('users').countDocuments({ status: { $ne: 'disabled' } }) === 0
+      && await db.collection('organization_members').countDocuments({ status: { $ne: 'disabled' } }) === 0
+      && await db.collection('administration_guard').countDocuments({ _id: 'administration', state: 'idle', operation_id: null, recovery_token: null,
+        'blocked_targets.user_ids': [], 'blocked_targets.member_ids': [], 'blocked_targets.org_ids': [],
+        'blocked_targets.global': false, affected_orgs: [] }) === 1
+      && (await Promise.all(emptyAuthorization.map(name => db.collection(name).findOne({}, { projection: { _id: 1 } })))).every(row => row === null);
     const noWriters = await db.collection('operational_writers').countDocuments({ state: 'running' }) === 0;
     const noLeases = await db.collection('outbox_events').countDocuments({ status: 'running' }) === 0 && await db.collection('student_projection_states').countDocuments({ lease_token: { $ne: null } }) === 0 && await db.collection('learning_projection_builds').countDocuments({ status: 'building' }) === 0;
     const ledgerCurrent = !safety.pending && (apply || safety.sequence === run.ledger_sequence);
@@ -272,12 +290,12 @@ async function verifyRestore({ db, file, key, root, restoreId, apply = false }) 
 }
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  if (!command || command === '--help') { console.log('LOCAL/SYNTHETIC: inspect --file <encrypted> (SYSTEM_BACKUP_KEY only; no DB connection). backup|restore --file <encrypted>. verify --file <encrypted> --restore-id <UUID>. release --file <encrypted> --restore-id <UUID> --actor <actor> --reason <reason>. Mutating/target commands require MONGODB_URI, FILE_STORAGE_ROOT and managed independent ledger. Restore never grants identities.'); return; }
+  if (!command || command === '--help') { console.log('LOCAL/SYNTHETIC: inspect --file <encrypted> (SYSTEM_BACKUP_KEY only; no DB connection). backup|restore --file <encrypted>. verify --file <encrypted> --restore-id <ObjectId>. release --file <encrypted> --restore-id <ObjectId> --actor <actor> --reason <reason>. Mutating/target commands require MONGODB_URI, FILE_STORAGE_ROOT and managed independent ledger. Restore never grants identities.'); return; }
   ensure(['backup','restore','inspect','verify','release'].includes(command)); const options = {};
   for (let i = 0; i < args.length; i += 2) { ensure(['--file','--restore-id','--actor','--reason'].includes(args[i]) && args[i + 1] && !Object.hasOwn(options, args[i])); options[args[i]] = args[i + 1]; }
   const allowed = command === 'inspect' || command === 'backup' || command === 'restore' ? ['--file'] : command === 'verify' ? ['--file','--restore-id'] : ['--file','--restore-id','--actor','--reason'];
   ensure(Object.keys(options).every(option => allowed.includes(option)), 'INVALID_COMMAND_OPTIONS');
-  if (command === 'verify' || command === 'release') ensure(UUID.test(options['--restore-id'] || ''), 'RESTORE_ID_REQUIRED');
+  if (command === 'verify' || command === 'release') ensure(OID.test(options['--restore-id'] || ''), 'RESTORE_ID_REQUIRED');
   ensure(options['--file'] && /^[a-fA-F0-9]{64}$/.test(process.env.SYSTEM_BACKUP_KEY || ''), 'BACKUP_KEY_REQUIRED');
   const key = Buffer.from(process.env.SYSTEM_BACKUP_KEY, 'hex'); delete process.env.SYSTEM_BACKUP_KEY;
   let client;
@@ -290,7 +308,7 @@ async function main() {
       } finally { await handle.close(); }
       return;
     }
-    const name = uriDatabase(process.env.MONGODB_URI, command !== 'backup'); client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 }); await client.connect(); const db = client.db(name);
+    const name = uriDatabase(process.env.MONGODB_URI, command !== 'backup'); client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 10000 }); await client.connect(); const db = objectIdDatabase(client.db(name));
     ensure(typeof (await db.admin().command({ hello: 1 })).setName === 'string', 'LOCAL_REPLICA_SET_REQUIRED');
     const input = { client, db, file: path.resolve(options['--file']), key, root: process.env.FILE_STORAGE_ROOT, restoreId: options['--restore-id'], maintenanceToken: process.env.KL_MAINTENANCE_TOKEN };
     let report;

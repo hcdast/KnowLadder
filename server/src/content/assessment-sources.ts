@@ -1,31 +1,46 @@
+import { newId } from "../database/object-id";
 import { createHash, randomUUID } from 'node:crypto';
 import type { Db, Document } from 'mongodb';
 import type { AssessmentContext, AssessmentQuestionState, AssessmentResourceReference, QuestionSnapshot, Quiz } from '../assessment/contracts';
 import { fail } from '../errors';
-import { uuidPattern } from './access';
+import { resourceIdPattern } from './access';
 import { canonical, validateQuestion } from './dto';
 import { CONTENT_COLLECTIONS, type BaseVersion, type ChapterRecord, type ContentKind, type FileResource, type QuestionVersion } from './contracts';
 import { touchLearningScope } from '../learning/tracking';
+import { isExplicitStandaloneWork } from '../database/txn';
 
 /** Internal only: callers authorize the assessment operation before entering this boundary. */
 export class AssessmentSources {
   constructor(readonly db: Db) {}
-  private authorized(ctx: AssessmentContext) {
+  private authorized(ctx: AssessmentContext, readOnly = false) {
     const worker = ctx.capabilities.length === 1 && (ctx.userId === 'system:assessment' && ctx.capabilities[0] === 'assessment:worker' || ctx.userId === 'system:learning' && ctx.capabilities[0] === 'learning:projection-worker');
     const internal = ctx.userId.startsWith('system:') || ctx.capabilities.some(c => c === 'assessment:worker' || c === 'learning:projection-worker');
-    if (internal ? !worker : !ctx.capabilities.some(c => ['learning:self', 'assessment:manage', 'assessment:review'].includes(c))) fail(403, 'FORBIDDEN', '未获评估来源访问权限');
-    if (!ctx.session.inTransaction()) fail(503, 'ASSESSMENT_TRANSACTION_REQUIRED', '来源访问必须位于调用者事务');
+    const report = readOnly && ctx.platform?.principalKind === 'platform_delegate' && ctx.capabilities.includes('report:read');
+    if (internal ? !worker : !report && !ctx.capabilities.some(c => ['learning:self', 'assessment:manage', 'assessment:review'].includes(c))) fail(403, 'FORBIDDEN', '未获评估来源访问权限');
+    if (!readOnly && !ctx.session.inTransaction() && !isExplicitStandaloneWork(ctx.session)) fail(503, 'ASSESSMENT_TRANSACTION_REQUIRED', '来源访问需要真实事务或显式本地standalone工作上下文');
   }
   private async now(ctx: AssessmentContext): Promise<Date> {
     const row = await this.db.aggregate<{ now: Date }>([{ $documents: [{}] }, { $project: { _id: 0, now: '$$NOW' } }], { session: ctx.session }).next();
     if (!(row?.now instanceof Date)) fail(503, 'DATABASE_TIME_UNAVAILABLE', '数据库时间不可用');
     return row.now;
   }
-  private async owner(ctx: AssessmentContext, kind: ContentKind, id: string, newUse: boolean): Promise<BaseVersion> {
-    this.authorized(ctx);
+  private async owner(ctx: AssessmentContext, kind: ContentKind, id: string, newUse: boolean, readOnly = false): Promise<BaseVersion> {
+    this.authorized(ctx, readOnly);
     if (ctx.userId === 'system:learning' && newUse) fail(403, 'FORBIDDEN', '投影不能创建来源引用');
-    if (!uuidPattern.test(id)) fail(404, 'NOT_FOUND', '来源不存在');
+    if (!resourceIdPattern.test(id)) fail(404, 'NOT_FOUND', '来源不存在');
     const owners = this.db.collection<BaseVersion>(CONTENT_COLLECTIONS[kind]);
+    if (readOnly) {
+      const found = await owners.findOne({
+        _id: id, org_id: ctx.orgId, status: { $in: newUse ? ['published'] : ['published', 'retired'] },
+        access_revoked_at: null, 'license.granted': true, 'license.source': { $regex: '\\S' },
+        $expr: { $or: [
+          { $eq: ['$license.expires_at', null] },
+          { $gt: [{ $convert: { input: '$license.expires_at', to: 'date', onError: null, onNull: null } }, '$$NOW'] },
+        ] },
+      }, { session: ctx.session });
+      if (!found || !Number.isSafeInteger(found.access_revision)) fail(409, 'CONTENT_UNAVAILABLE', '来源已撤回、过期或授权不可用');
+      return found;
+    }
     const row = await owners.findOne({ _id: id, org_id: ctx.orgId }, { session: ctx.session });
     if (!row || !Number.isSafeInteger(row.access_revision)) fail(409, 'CONTENT_UNAVAILABLE', '来源不可用');
     const fenced = await owners.findOneAndUpdate({
@@ -53,8 +68,8 @@ export class AssessmentSources {
       return row;
     });
   }
-  async question(ctx: AssessmentContext, versionId: string, newUse: boolean): Promise<QuestionSnapshot> {
-    const row = await this.owner(ctx, 'question', versionId, newUse) as QuestionVersion;
+  async question(ctx: AssessmentContext, versionId: string, newUse: boolean, readOnly = false): Promise<QuestionSnapshot> {
+    const row = await this.owner(ctx, 'question', versionId, newUse, readOnly) as QuestionVersion;
     validateQuestion(row);
     const points = await this.db.collection('knowledge_points').countDocuments({ _id: { $in: row.knowledge_point_ids } as never, subject_id: row.subject_id }, { session: ctx.session });
     if (points !== row.knowledge_point_ids.length) fail(409, 'CONTENT_UNAVAILABLE', '来源知识映射不可用');
@@ -69,24 +84,25 @@ export class AssessmentSources {
     if (Buffer.byteLength(JSON.stringify(snapshot)) > 128 * 1024) fail(413, 'SNAPSHOT_TOO_LARGE', '题项快照超过上限');
     return snapshot;
   }
-  async textbook(ctx: AssessmentContext, editionId: string, newUse: boolean): Promise<{ subject_id: string; knowledge_point_ids: string[]; chapters: Array<{ id: string; knowledge_point_ids: string[] }> }> {
-    const edition = await this.owner(ctx, 'textbook', editionId, newUse);
+  async textbook(ctx: AssessmentContext, editionId: string, newUse: boolean, readOnly = false): Promise<{ subject_id: string; knowledge_point_ids: string[]; chapters: Array<{ id: string; knowledge_point_ids: string[] }> }> {
+    const edition = await this.owner(ctx, 'textbook', editionId, newUse, readOnly);
     const root = await this.db.collection<Document & { _id: string }>('textbooks').findOne({ _id: edition.textbook_id, org_id: ctx.orgId }, { session: ctx.session });
     if (!root || typeof root.subject_id !== 'string') fail(409, 'CONTENT_UNAVAILABLE', '教材身份不可用');
     const chapters = await this.db.collection<ChapterRecord>('chapters').find({ org_id: ctx.orgId, textbook_edition_id: editionId }, { session: ctx.session }).sort({ position: 1, _id: 1 }).limit(101).toArray();
     if (!chapters.length || chapters.length > 100) fail(409, 'CONTENT_UNAVAILABLE', '教材章节不可用');
     return { subject_id: root.subject_id, knowledge_point_ids: [...new Set(chapters.flatMap(ch => ch.knowledge_point_ids))], chapters: chapters.map(ch => ({ id: ch._id, knowledge_point_ids: ch.knowledge_point_ids })) };
   }
-  async guard(ctx: AssessmentContext, versionIds: string[], mode: 'practice' | 'quiz' | 'publish' | 'visibility' | 'feedback', quizId?: string): Promise<void> {
-    this.authorized(ctx);
+  async guard(ctx: AssessmentContext, versionIds: string[], mode: 'practice' | 'quiz' | 'publish' | 'visibility' | 'feedback', quizId?: string, readOnly = false): Promise<void> {
+    this.authorized(ctx, readOnly);
+    if (readOnly && mode !== 'visibility') fail(403, 'FORBIDDEN', '只读报告仅能核验可见性');
     if (ctx.userId === 'system:learning' && mode !== 'visibility') fail(403, 'FORBIDDEN', '投影仅能检查可见性');
-    if ((mode === 'publish' || mode === 'quiz') && (!quizId || !uuidPattern.test(quizId))) fail(409, 'QUESTION_EMBARGOED', '考试保密上下文无效');
+    if ((mode === 'publish' || mode === 'quiz') && (!quizId || !resourceIdPattern.test(quizId))) fail(409, 'QUESTION_EMBARGOED', '考试保密上下文无效');
     const states = this.db.collection<AssessmentQuestionState>('assessment_question_states');
     const now = await this.now(ctx);
     const checked: Array<{ state: AssessmentQuestionState; active: boolean }> = [];
     for (const id of [...new Set(versionIds)].sort()) {
       const filter = { org_id: ctx.orgId, question_version_id: id };
-      await states.updateOne(filter, { $setOnInsert: { _id: randomUUID(), ...filter, revision: 1, embargo_quiz_id: null, answer_disclosed: false, created_at: now, updated_at: now } }, { upsert: true, session: ctx.session });
+      if (!readOnly) await states.updateOne(filter, { $setOnInsert: { _id: newId(), ...filter, revision: 1, embargo_quiz_id: null, answer_disclosed: false, created_at: now, updated_at: now } }, { upsert: true, session: ctx.session });
       const state = await states.findOne(filter, { session: ctx.session });
       if (!state) fail(409, 'QUESTION_EMBARGOED', '题目保密状态不可用');
       let active = false;
@@ -96,8 +112,9 @@ export class AssessmentSources {
         active = !quiz || !(quiz.release_at instanceof Date) || quiz.release_at > now;
       }
       if (mode === 'publish' && (state.answer_disclosed || active && state.embargo_quiz_id !== quizId) || mode === 'quiz' && active && state.embargo_quiz_id !== quizId || (mode === 'practice' || mode === 'visibility' || mode === 'feedback') && active) fail(409, 'QUESTION_EMBARGOED', '题目处于考试保密期或已披露');
-      checked.push({ state, active });
+      if (!readOnly) checked.push({ state, active });
     }
+    if (readOnly) return;
     const changes = checked.filter(({ state, active }) => mode === 'publish' || state.embargo_quiz_id !== null && !active).map(({ state }) => state.question_version_id);
     if (changes.length) {
       const rows = await this.db.collection<QuestionVersion>('question_versions').find({ org_id: ctx.orgId, _id: { $in: changes } }, { session: ctx.session }).toArray();
@@ -114,8 +131,8 @@ export class AssessmentSources {
     }
   }
   /** Internal dependency deadline; never include this value in a student DTO. */
-  async nextCheckAt(ctx: AssessmentContext, versionIds: string[], editionId: string | null, quizId: string | null, now: Date): Promise<Date | null> {
-    this.authorized(ctx);
+  async nextCheckAt(ctx: AssessmentContext, versionIds: string[], editionId: string | null, quizId: string | null, now: Date, readOnly = false): Promise<Date | null> {
+    this.authorized(ctx, readOnly);
     const options = { session: ctx.session };
     const questions = await this.db.collection<QuestionVersion>('question_versions').find({ org_id: ctx.orgId, _id: { $in: versionIds } }, options).toArray();
     const edition = editionId ? await this.db.collection<BaseVersion>('textbook_editions').findOne({ org_id: ctx.orgId, _id: editionId }, options) : null;
@@ -135,7 +152,7 @@ export class AssessmentSources {
     const now = await this.now(ctx);
     for (const file of files) {
       const filter = { org_id: ctx.orgId, reference_type: referenceType, reference_id: referenceId, file_id: file._id };
-      await this.db.collection<AssessmentResourceReference>('assessment_resource_references').updateOne(filter, { $setOnInsert: { _id: randomUUID(), ...filter, owner_type: 'question', owner_version_id: snapshot.question_version_id, created_at: now, updated_at: now } }, { upsert: true, session: ctx.session });
+      await this.db.collection<AssessmentResourceReference>('assessment_resource_references').updateOne(filter, { $setOnInsert: { _id: newId(), ...filter, owner_type: 'question', owner_version_id: snapshot.question_version_id, created_at: now, updated_at: now } }, { upsert: true, session: ctx.session });
     }
   }
   async digest(snapshot: QuestionSnapshot, ctx?: AssessmentContext): Promise<string> {

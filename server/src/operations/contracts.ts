@@ -22,3 +22,5 @@ export async function getOperationalState(db:Db):Promise<OperationalState> {
   if(!state) throw new Error("OPERATIONS_STATE_MISSING");
   return state;
 }
+
+export function requireObjectId(value:string):void { if(!/^[0-9a-f]{24}$/.test(value)) throw new Error("OPERATIONS_INVALID_ID"); }

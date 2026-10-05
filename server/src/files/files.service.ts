@@ -1,3 +1,6 @@
+import {isCourseworkFile,fileOwnerCollection} from './owner';
+import { requireObjectId } from "../operations/contracts";
+import { newId } from "../database/object-id";
 import { HttpException, Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream } from 'node:fs';
@@ -10,12 +13,13 @@ import { Database } from '../database/database';
 import { ContentAccess, type ContentContext } from '../content/access';
 import { CONTENT_COLLECTIONS, licensed, type BaseVersion, type FileResource } from '../content/contracts';
 import { ApiRequest, fail } from '../errors';
-import { FILE_MIMES, fileConfig, MAX_FILE_SIZE, openPrivate, assertUploadCapacity } from './config';
+import { allowedFileMimes, fileConfig, fileScanEnabled, MAX_FILE_SIZE, openPrivate, assertUploadCapacity } from './config';
 import { receive } from './stream';
 import { assertScanner } from './scanner';
 import { fileReferenced, fenceFileRetentionSubjects } from './references';
 import { recordLearningFeedback, touchContentLearningScope } from '../learning/tracking';
 import { assertOperationalAccess } from '../operations/control';
+import { runInTxn } from '../database/txn';
 import { confirmSafetyIntent, reserveManagedSafetyIntent, safetyOperationId } from '../operations/ledger';
 import { assertLocalEnvironment, getOperationalState, requireActor, requireUuid } from '../operations/contracts';
 export interface RegisterFile { owner_type:'textbook'|'question'; owner_version_id:string; expected_revision:number; display_name:string; size:number; mime:string; checksum:string; }
@@ -23,7 +27,7 @@ export interface ScheduleDeletion { expected_owner_revision:number; retention_un
 interface PreparedDelivery { handle:FileHandle; start:number; end:number; partial:boolean; }
 const UPLOAD_LEASE_MS = 120000;
 export async function setFileHold(client:MongoClient,db:Db,input:{fileId:string;hold:boolean;actor:string;reason:string}) {
-  requireUuid(input.fileId); requireActor(input);
+  requireObjectId(input.fileId); requireActor(input);
   if(typeof input.hold!=='boolean')throw new Error('FILE_HOLD_INVALID');
   await assertOperationalAccess(db);
   const state=await getOperationalState(db);
@@ -32,30 +36,30 @@ export async function setFileHold(client:MongoClient,db:Db,input:{fileId:string;
   const files=db.collection<FileResource>('file_resources');
   const before=await files.findOne({_id:input.fileId});
   if(!before)throw new Error('FILE_NOT_FOUND');
+  if(isCourseworkFile(before) && process.env.KL_COURSEWORK_FILES_ENABLED!=='true')throw Error('COURSEWORK_FILES_DISABLED');
   const operationId=safetyOperationId(JSON.stringify(['file.hold',input.fileId,input.hold,input.actor,input.reason]));
   const reservation=await reserveManagedSafetyIntent(db,{operationId,action:'file.hold',resourceId:input.fileId,resourceType:'file',hold:input.hold});
   if(!reservation)throw new Error('FILE_HOLD_MANAGED_ACTIVE_REQUIRED');
-  const session=client.startSession();
-  try {
-    await session.withTransaction(async()=>{
-      await assertOperationalAccess(db);
-      const receipt=await db.collection<AuditEvent>('audit_events').findOne({request_id:operationId,resource_type:'file',resource_id:input.fileId,actor_id:input.actor,action:input.hold?'file.hold.set':'file.hold.release',reason:input.reason},{session});
-      if(receipt)return;
-      if(before.status==='deleting' || before.deleted_at)throw new Error('FILE_DELETE_BLOCKED');
-      const live=await files.findOne({_id:input.fileId,updated_at:before.updated_at,legal_hold:before.legal_hold,status:{$ne:'deleting'},deleted_at:null},{session});
-      if(!live)throw new Error('FILE_HOLD_CONFLICT');
-      await fenceFileRetentionSubjects(db,live._id,session);
-      const owners=db.collection<BaseVersion>(CONTENT_COLLECTIONS[live.owner_type]);
-      const owner=await owners.findOne({_id:live.owner_version_id,org_id:live.org_id},{session});
-      if(!owner)throw new Error('FILE_OWNER_NOT_FOUND');
-      const fenced=await owners.updateOne({_id:owner._id,access_revision:owner.access_revision},{$inc:{access_revision:1}},{session});
-      if(fenced.modifiedCount!==1)throw new Error('FILE_HOLD_CONFLICT');
-      const now=new Date();
-      const changed=await files.updateOne({_id:live._id,updated_at:live.updated_at,legal_hold:live.legal_hold,status:{$ne:'deleting'},deleted_at:null},{$set:{legal_hold:input.hold,updated_at:now}},{session});
-      if(changed.matchedCount!==1)throw new Error('FILE_HOLD_CONFLICT');
-      await db.collection<AuditEvent>('audit_events').insertOne({_id:randomUUID(),org_id:live.org_id,actor_id:input.actor,action:input.hold?'file.hold.set':'file.hold.release',resource_type:'file',resource_id:live._id,owner_type:live.owner_type,owner_version_id:live.owner_version_id,revision_before:owner.revision,revision_after:owner.revision,access_revision_before:owner.access_revision,access_revision_after:owner.access_revision+1,reason:input.reason,request_id:operationId,created_at:now},{session});
-    },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},readPreference:'primary'});
-  } finally {await session.endSession();}
+  await runInTxn(client, async (session) => {
+    await assertOperationalAccess(db);
+    const receipt=await db.collection<AuditEvent>('audit_events').findOne({request_id:operationId,resource_type:'file',resource_id:input.fileId,actor_id:input.actor,action:input.hold?'file.hold.set':'file.hold.release',reason:input.reason},{session});
+    if(receipt)return;
+    if(before.status==='deleting' || before.deleted_at)throw new Error('FILE_DELETE_BLOCKED');
+    const live=await files.findOne({_id:input.fileId,updated_at:before.updated_at,legal_hold:before.legal_hold,status:{$ne:'deleting'},deleted_at:null},{session});
+    if(!live)throw new Error('FILE_HOLD_CONFLICT');
+    await fenceFileRetentionSubjects(db,live._id,session);
+    const owners=db.collection<BaseVersion>(fileOwnerCollection(live));
+    const owner=await owners.findOne({_id:live.owner_version_id,org_id:live.org_id},{session});
+    if(!owner)throw new Error('FILE_OWNER_NOT_FOUND');
+    const coursework=isCourseworkFile(live);
+    if(coursework && (owner.user_id!==live.created_by || !Number.isSafeInteger(owner.revision)))throw Error('FILE_OWNER_INVALID');
+    const fenced=await owners.updateOne({_id:owner._id,org_id:live.org_id,...(coursework?{revision:owner.revision}:{access_revision:owner.access_revision})},{$inc:coursework?{revision:1}:{access_revision:1}},{session});
+    if(fenced.modifiedCount!==1)throw new Error('FILE_HOLD_CONFLICT');
+    const now=new Date();
+    const changed=await files.updateOne({_id:live._id,updated_at:live.updated_at,legal_hold:live.legal_hold,status:{$ne:'deleting'},deleted_at:null},{$set:{legal_hold:input.hold,updated_at:now}},{session});
+    if(changed.matchedCount!==1)throw new Error('FILE_HOLD_CONFLICT');
+    await db.collection<AuditEvent>('audit_events').insertOne({_id:newId(),org_id:live.org_id,actor_id:input.actor,action:input.hold?'file.hold.set':'file.hold.release',resource_type:'file',resource_id:live._id,owner_type:live.owner_type,owner_version_id:live.owner_version_id,revision_before:owner.revision,revision_after:owner.revision+(coursework?1:0),access_revision_before:coursework?null:owner.access_revision,access_revision_after:coursework?null:owner.access_revision+1,reason:input.reason,request_id:operationId,created_at:now},{session});
+  },{readConcern:{level:'snapshot'},writeConcern:{w:'majority'},readPreference:'primary'});
   await confirmSafetyIntent(db,reservation);
   return {fileId:input.fileId,hold:input.hold,operationId};
 }
@@ -64,21 +68,24 @@ export async function setFileHold(client:MongoClient,db:Db,input:{fileId:string;
 export class FilesService {
   constructor(readonly access: ContentAccess, readonly database: Database) {}
   private get files() { return this.database.db.collection<FileResource>('file_resources'); }
-  private configured() { try { fileConfig(); } catch { fail(503,'SCANNER_NOT_CONFIGURED','私有文件存储或扫描引擎未配置'); } }
+  private configured() {
+    if (!fileScanEnabled()) fail(503,'FILE_SCAN_DISABLED','文件扫描已关闭，暂停新附件上传');
+    try { fileConfig(); } catch { fail(503,'SCANNER_NOT_CONFIGURED','私有文件存储或扫描引擎未配置'); }
+  }
   private revision(value: unknown): number { if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) fail(422,'INVALID_REVISION','版本revision无效'); return value; }
   private async file(ctx: ContentContext, id: string) {
     const file = await this.files.findOne({_id:id,org_id:ctx.orgId},{session:ctx.session});
-    if (!file) fail(404,'NOT_FOUND','文件不存在');
+    if (!file || isCourseworkFile(file)) fail(404,'NOT_FOUND','文件不存在');
     return file;
   }
   private view(file: FileResource) { return {id:file._id,owner_type:file.owner_type,owner_version_id:file.owner_version_id,display_name:file.display_name,size:file.size ?? file.declared_size,mime:file.mime ?? file.declared_mime,checksum:file.checksum ?? file.declared_checksum,status:file.status,scan_status:file.scan_status,error_code:file.error_code,retention_until:file.retention_until,legal_hold:file.legal_hold,deletion_requested_at:file.deletion_requested_at,deleted_at:file.deleted_at,upload_in_progress:!!file.upload_lease_until&&file.upload_lease_until.getTime()>Date.now(),scanned_at:file.scanned_at,scan_engine_version:file.scan_engine_version,scan_database_version:file.scan_database_version,scan_database_updated_at:file.scan_database_updated_at}; }
   private async audit(ctx: ContentContext, file: FileResource, action: string, before:BaseVersion, after:BaseVersion, reason:string) {
     await touchContentLearningScope(this.database.db,ctx,file.owner_type,after,true);
-    await this.database.db.collection<AuditEvent>('audit_events').insertOne({_id:randomUUID(),org_id:ctx.orgId,actor_id:ctx.userId,action,resource_type:'file',resource_id:file._id,owner_type:file.owner_type,owner_version_id:file.owner_version_id,revision_before:before.revision,revision_after:after.revision,access_revision_before:before.access_revision,access_revision_after:after.access_revision,reason,request_id:ctx.requestId,created_at:new Date()},{session:ctx.session});
+    await this.database.db.collection<AuditEvent>('audit_events').insertOne({_id:newId(),org_id:ctx.orgId,actor_id:ctx.userId,action,resource_type:'file',resource_id:file._id,owner_type:file.owner_type,owner_version_id:file.owner_version_id,revision_before:before.revision,revision_after:after.revision,access_revision_before:before.access_revision,access_revision_after:after.access_revision,reason,request_id:ctx.requestId,created_at:new Date(),...(ctx.platform?{actor_org_id:ctx.platform.actorOrgId,target_org_id:ctx.orgId,grant_ids:ctx.platform.grantIds,grant_revision:ctx.platform.grantRevision}:{})},{session:ctx.session});
   }
   async register(req: ApiRequest, input: RegisterFile) {
     this.configured();
-    if (!input || typeof input !== 'object' || Object.keys(input).some(key=>!['owner_type','owner_version_id','expected_revision','display_name','size','mime','checksum'].includes(key)) || !['textbook','question'].includes(input.owner_type) || typeof input.owner_version_id !== 'string' || typeof input.display_name !== 'string' || input.display_name.length < 1 || input.display_name.length > 200 || /[\u0000-\u001f\u007f/\\]/.test(input.display_name) || !Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_FILE_SIZE || !FILE_MIMES.some(mime=>mime===input.mime) || typeof input.checksum !== 'string' || !/^[a-f0-9]{64}$/.test(input.checksum)) fail(422,'INVALID_FILE','附件登记参数无效');
+    if (!input || typeof input !== 'object' || Object.keys(input).some(key=>!['owner_type','owner_version_id','expected_revision','display_name','size','mime','checksum'].includes(key)) || !['textbook','question'].includes(input.owner_type) || typeof input.owner_version_id !== 'string' || typeof input.display_name !== 'string' || input.display_name.length < 1 || input.display_name.length > 200 || /[\u0000-\u001f\u007f/\\]/.test(input.display_name) || !Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_FILE_SIZE || !allowedFileMimes().some(mime=>mime===input.mime) || typeof input.checksum !== 'string' || !/^[a-f0-9]{64}$/.test(input.checksum)) fail(422,'INVALID_FILE','附件登记参数无效');
     this.revision(input.expected_revision);
     return this.access.run(req,true,async ctx => {
       this.access.require(ctx,'edit');
@@ -88,7 +95,7 @@ export class FilesService {
         await this.access.fenceOwner(ctx,input.owner_type,input.owner_version_id);
         const owner = await this.access.touchOwner(ctx,input.owner_type,input.owner_version_id,input.expected_revision);
         const now = new Date();
-        const file: FileResource = {_id:randomUUID(),org_id:ctx.orgId,owner_type:input.owner_type,owner_version_id:input.owner_version_id,created_by:ctx.userId,display_name:input.display_name,storage_key:randomUUID(),declared_size:input.size,declared_mime:input.mime,declared_checksum:input.checksum,size:null,mime:null,checksum:null,status:'pending',scan_status:'awaiting_upload',scan_attempt:0,lease_token:null,lease_until:null,available_at:now,uploaded_at:null,error_code:null,created_at:now,updated_at:now,upload_key:null,upload_lease_token:null,upload_lease_until:null,upload_storage_key:null,upload_storage_keys:[],upload_owner_revision:null,upload_result_revision:null,retention_until:null,legal_hold:false,deletion_requested_at:null,deletion_requested_by:null,deletion_requested_reason:null,deleted_at:null,deletion_lease_token:null,deletion_lease_until:null,deletion_attempt:0,scan_engine_version:null,scan_database_version:null,scan_database_updated_at:null,scanned_at:null};
+        const file: FileResource = {_id:newId(),org_id:ctx.orgId,owner_type:input.owner_type,owner_version_id:input.owner_version_id,created_by:ctx.userId,display_name:input.display_name,storage_key:randomUUID(),declared_size:input.size,declared_mime:input.mime,declared_checksum:input.checksum,size:null,mime:null,checksum:null,status:'pending',scan_status:'awaiting_upload',scan_attempt:0,lease_token:null,lease_until:null,available_at:now,uploaded_at:null,error_code:null,created_at:now,updated_at:now,upload_key:null,upload_lease_token:null,upload_lease_until:null,upload_storage_key:null,upload_storage_keys:[],upload_owner_revision:null,upload_result_revision:null,retention_until:null,legal_hold:false,deletion_requested_at:null,deletion_requested_by:null,deletion_requested_reason:null,deleted_at:null,deletion_lease_token:null,deletion_lease_until:null,deletion_attempt:0,scan_engine_version:null,scan_database_version:null,scan_database_updated_at:null,scanned_at:null};
         await this.files.insertOne(file,{session:ctx.session});
         await this.audit(ctx,file,'file.register',before,owner,'登记私有附件');
         return {...this.view(file),owner_revision:owner.revision};
@@ -105,12 +112,24 @@ export class FilesService {
     if(!Number.isSafeInteger(limit)||limit<1||limit>50)fail(422,'INVALID_QUERY','limit须为1至50');
     return this.access.run(req,false,async ctx=>{
       const owner=await this.access.owner(ctx,kind,id,'manage');
-      const scope=createHash('sha256').update(JSON.stringify([ctx.orgId,ctx.userId,'files',kind,id,limit])).digest('hex');
+      const scope=createHash('sha256').update(JSON.stringify([ctx.orgId,ctx.userId,ctx.platform?.actorOrgId ?? ctx.orgId,'files',kind,id,limit])).digest('hex');
       let after:string|undefined;
       if(query.cursor!==undefined){try{if(typeof query.cursor!=='string'||query.cursor.length>1000)throw new Error();const decoded=JSON.parse(Buffer.from(query.cursor,'base64url').toString());if(decoded.scope!==scope||typeof decoded.after!=='string'||!/^[a-f0-9-]{36}$/.test(decoded.after))throw new Error();after=decoded.after;}catch{fail(422,'INVALID_CURSOR','游标不属于当前文件范围');}}
       const rows=await this.files.find({org_id:ctx.orgId,owner_type:kind,owner_version_id:id,...(after?{_id:{$gt:after}}:{})},{session:ctx.session}).sort({_id:1}).limit(limit+1).toArray();
       const more=rows.length>limit;const items=rows.slice(0,limit);
       return {items:items.map(row=>this.view(row)),owner_revision:owner.revision,next_cursor:more?Buffer.from(JSON.stringify({scope,after:items[items.length-1]._id})).toString('base64url'):null};
+    });
+  }
+  async uploadReceipt(req: ApiRequest, key: string, id: string) {
+    if (!/^[A-Za-z0-9_-]{8,128}$/.test(key) || !/^[a-f0-9-]{36}$/i.test(id)) fail(422,'INVALID_QUERY','上传恢复查询无效');
+    return this.access.run(req,false,async ctx=>{
+      if(!ctx.platform)fail(403,'FORBIDDEN','仅平台业务恢复入口可查询上传回执');
+      const row=await this.file(ctx,id);
+      const owner=await this.access.owner(ctx,row.owner_type,row.owner_version_id,'manage');
+      if(!licensed(owner))fail(404,'NOT_FOUND','内容不存在或未获授权');
+      if(row.upload_key!==key||row.upload_actor_user_id!==ctx.userId||row.upload_actor_org_id!==ctx.platform.actorOrgId||row.upload_result_revision===null)
+        return {status:'unknown' as const};
+      return {status:'resolved' as const,result:{id:row._id,status:row.status,scan_status:row.scan_status,owner_revision:row.upload_result_revision}};
     });
   }
   async upload(req: ApiRequest, id: string) {
@@ -125,6 +144,9 @@ export class FilesService {
     const file=await this.access.run(req,true,async ctx=>{
       const row=await this.file(ctx,id);await this.access.fenceOwner(ctx,row.owner_type,row.owner_version_id);
       if(row.upload_key!==null&&row.upload_key!==key)fail(409,'IDEMPOTENCY_CONFLICT','此资源已绑定其他上传幂等键');
+      const actorOrgId=ctx.platform?.actorOrgId ?? ctx.orgId;
+      if(row.upload_key!==null&&((row.upload_actor_user_id&&row.upload_actor_user_id!==ctx.userId)||(row.upload_actor_org_id&&row.upload_actor_org_id!==actorOrgId)||(ctx.platform&&!row.upload_actor_user_id)))
+        fail(409,'IDEMPOTENCY_CONFLICT','上传幂等键属于另一操作者上下文');
       if(row.status!=='pending')fail(409,'FILE_IMMUTABLE','文件已上传或安排删除，请查询最新状态，不得覆盖');
       if(row.upload_storage_keys.length>=100)fail(409,'UPLOAD_ATTEMPT_LIMIT','上传恢复记录已达上限，请联系管理员安排受控清理');
       const owner=await this.access.owner(ctx,row.owner_type,row.owner_version_id,'edit');
@@ -132,7 +154,7 @@ export class FilesService {
       const length=req.get('Content-Length');
       if(length&&(!/^\d+$/.test(length)||Number(length)!==row.declared_size))fail(422,'FILE_INTEGRITY_MISMATCH','Content-Length与登记不符');
       const now=new Date();
-      const result=await this.files.updateOne({_id:id,status:'pending',$or:[{upload_lease_until:null},{upload_lease_until:{$lte:now}}]},{$set:{upload_key:key,upload_lease_token:token,upload_lease_until:new Date(now.getTime()+leaseMs),upload_storage_key:storageKey,upload_storage_keys:[...row.upload_storage_keys,storageKey],upload_owner_revision:revision,error_code:null,updated_at:now}},{session:ctx.session});
+      const result=await this.files.updateOne({_id:id,status:'pending',$or:[{upload_lease_until:null},{upload_lease_until:{$lte:now}}]},{$set:{upload_key:key,upload_actor_user_id:ctx.userId,upload_actor_org_id:actorOrgId,upload_lease_token:token,upload_lease_until:new Date(now.getTime()+leaseMs),upload_storage_key:storageKey,upload_storage_keys:[...row.upload_storage_keys,storageKey],upload_owner_revision:revision,error_code:null,updated_at:now}},{session:ctx.session});
       if(result.modifiedCount!==1)fail(409,'UPLOAD_IN_PROGRESS','此资源已有上传正在进行');
       return row;
     });
@@ -147,7 +169,7 @@ export class FilesService {
         await this.access.fenceOwner(ctx,current.owner_type,current.owner_version_id);
         const owner=await this.access.touchOwner(ctx,current.owner_type,current.owner_version_id,revision);
         const now=new Date();
-        const updated=await this.files.updateOne({_id:id,org_id:ctx.orgId,status:'pending',upload_key:key,upload_lease_token:token,upload_lease_until:{$gt:now}},{$set:{...actual,storage_key:storageKey,status:'quarantined',scan_status:'queued',available_at:now,uploaded_at:now,updated_at:now,upload_lease_token:null,upload_lease_until:null,upload_result_revision:owner.revision}},{session:ctx.session});
+        const updated=await this.files.updateOne({_id:id,org_id:ctx.orgId,status:'pending',upload_key:key,upload_actor_user_id:ctx.userId,upload_actor_org_id:ctx.platform?.actorOrgId ?? ctx.orgId,upload_lease_token:token,upload_lease_until:{$gt:now}},{$set:{...actual,storage_key:storageKey,status:'quarantined',scan_status:'queued',available_at:now,uploaded_at:now,updated_at:now,upload_lease_token:null,upload_lease_until:null,upload_result_revision:owner.revision}},{session:ctx.session});
         if(updated.modifiedCount!==1)fail(409,'UPLOAD_LEASE_LOST','上传租约已失效，请查询状态后恢复');
         await this.audit(ctx,current,'file.upload',before,owner,'上传附件至安全隔离区');
         return {id,status:'quarantined',scan_status:'queued',owner_revision:owner.revision};
@@ -192,6 +214,7 @@ export class FilesService {
   }
   async download(req: ApiRequest,id: string,res: Response,management=false) {
     return this.deliverAuthorized(req,res,prepare=>this.access.run(req,false,async ctx=>{
+        if(management&&!ctx.capabilities.some(capability=>capability==='content:edit'||capability==='content:review'))fail(403,'FORBIDDEN','私有附件预览需要内容编辑或审核职责');
         const row=await this.file(ctx,id);
         if(!management&&row.owner_type==='question')fail(404,'NOT_FOUND','题目附件仅可由本人会话交付');
         const owner=await this.access.owner(ctx,row.owner_type,row.owner_version_id,management?'manage':'read');
@@ -202,6 +225,7 @@ export class FilesService {
         }
         await prepare(row);
         if(management&&row.owner_type==='question'){await touchContentLearningScope(this.database.db,ctx,row.owner_type,owner,false);await recordLearningFeedback(this.database.db,ctx,[owner.question_id]);}
+        if(ctx.platform)await this.database.db.collection<AuditEvent>('audit_events').insertOne({_id:newId(),org_id:ctx.orgId,actor_id:ctx.userId,action:'administration.business.file.read',resource_type:'file',resource_id:row._id,owner_type:row.owner_type,owner_version_id:row.owner_version_id,revision_before:owner.revision,revision_after:owner.revision,access_revision_before:owner.access_revision,access_revision_after:owner.access_revision,reason:'跨组织私有附件读取',request_id:ctx.requestId,created_at:new Date(),actor_org_id:ctx.platform.actorOrgId,target_org_id:ctx.orgId,grant_ids:ctx.platform.grantIds,grant_revision:ctx.platform.grantRevision},{session:ctx.session});
         return row;
     }));
   }

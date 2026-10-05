@@ -4,6 +4,16 @@ import path from 'node:path';
 import { assertWindowsPrivateDirectory } from '../security/private-directory';
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const FILE_MIMES = ['application/pdf','image/png','image/jpeg','text/plain'] as const;
+export function allowedFileMimes():readonly string[]{return process.env.KL_TRAINING_ENABLED==='true'?[...FILE_MIMES,'video/mp4','audio/mpeg']:FILE_MIMES;}
+export function fileScanEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  const value = env.FILE_SCAN_ENABLED;
+  if (value === undefined || value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error('FILE_SCAN_ENABLED 必须为 true 或 false');
+}
+export function assertFileScanEnabled(): void {
+  if (!fileScanEnabled()) throw new Error('FILE_SCAN_DISABLED');
+}
 function configuredRoot() {
   const root = process.env.FILE_STORAGE_ROOT;
   if (!root || !path.isAbsolute(root)) throw new Error('必须配置绝对路径 FILE_STORAGE_ROOT');
@@ -17,6 +27,7 @@ export interface FileConfig {
   databaseMaxAgeHours: number;
 }
 export function fileConfig(): FileConfig {
+  assertFileScanEnabled();
   const root = configuredRoot();
   const scanner = process.env.CLAMSCAN_PATH;
   const database = process.env.CLAMAV_DATABASE;

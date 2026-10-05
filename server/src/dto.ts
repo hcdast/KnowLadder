@@ -14,7 +14,7 @@ class PasswordPolicy implements ValidatorConstraintInterface {
     return typeof value === "string" && validPassword(value);
   }
   defaultMessage() {
-    return "密码须为12至128字符且不超过512字节";
+    return "密码须为6至128字符且不超过512字节";
   }
 }
 export class LoginDto {
@@ -26,7 +26,7 @@ export class LoginDto {
   @Matches(/^[a-z0-9_-]{3,64}$/)
   login_name!: string;
   @ApiProperty({
-    minLength: 12,
+    minLength: 6,
     maxLength: 128,
     format: "password",
     writeOnly: true,
@@ -36,7 +36,7 @@ export class LoginDto {
 }
 export class ChangePasswordDto {
   @ApiProperty({
-    minLength: 12,
+    minLength: 6,
     maxLength: 128,
     format: "password",
     writeOnly: true,
@@ -44,7 +44,7 @@ export class ChangePasswordDto {
   @Validate(PasswordPolicy)
   current_password!: string;
   @ApiProperty({
-    minLength: 12,
+    minLength: 6,
     maxLength: 128,
     format: "password",
     writeOnly: true,

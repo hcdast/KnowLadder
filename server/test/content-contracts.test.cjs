@@ -2,8 +2,8 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const { scoringRule, knowledgeWeights, validateQuestion, studentEdition, studentChapter, safeVersion } = require("../dist/content/dto");
-const point = "10000000-0000-4000-8000-000000000001";
-const other = "10000000-0000-4000-8000-000000000002";
+const point = "100000000000000000000001";
+const other = "100000000000000000000002";
 const strategies = { single: "single_exact", multiple: "multiple_exact_set", numeric: "numeric_exact_decimal" };
 function question(type = "single", changes = {}) {
   return { question_type: type, prompt: "原创校验题", options: type === "numeric" ? [] : [{ id: "a", text: "甲" }, { id: "b", text: "乙" }],

@@ -2,7 +2,7 @@
 import { spawn } from 'node:child_process';
 import { lstat } from 'node:fs/promises';
 import path from 'node:path';
-import { fileConfig, MAX_FILE_SIZE } from './config';
+import { assertFileScanEnabled, fileConfig, MAX_FILE_SIZE } from './config';
 import type { FileConfig } from './config';
 
 export type ScanResult = 'clean' | 'infected' | 'failed';
@@ -66,9 +66,11 @@ async function verifyScanner(config: FileConfig): Promise<ScannerHealth> {
   return health;
 }
 export async function assertScanner(): Promise<ScannerHealth> {
+  assertFileScanEnabled();
   return verifyScanner(fileConfig());
 }
 export async function scanWithHealth(filename: string): Promise<{ result: ScanResult; health?: ScannerHealth }> {
+  assertFileScanEnabled();
   let stage = 'file';
   const failed = (code: number | null = null) => {
     console.warn(JSON.stringify({ event: 'file.scanner.failed', stage, exit_code: code }));

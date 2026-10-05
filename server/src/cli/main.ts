@@ -1,10 +1,11 @@
+import { objectIdDatabase } from "../database/object-id";
 import { MongoClient } from "mongodb";
 import { constants } from "node:fs";
 import { open, realpath, stat, type FileHandle } from "node:fs/promises";
 import { dirname, resolve, relative, isAbsolute, basename } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { loadConfig } from "../config";
-import type { RoleCode, Organization, ControlledCapability } from "../database/contracts";
+import type { RoleCode, Organization, ControlledCapability, AdministrationOperation } from "../database/contracts";
 import { assertWindowsPrivateDirectory } from "../security/private-directory";
 import { acquireWriter, type WriterRegistration } from "../operations/control";
 import { assertSchema } from "../migrations/schema";
@@ -19,20 +20,24 @@ import {
   lockRestoredAuth,
   type OperationContext,
   setCapability,
+  bootstrapGovernance,
+  inspectAdministration,
+  recoverCliAdministration,
 } from "./admin-operations";
 
 const HELP = `受审计运维命令（先执行数据库迁移；所有变更必须 --actor 操作者 --reason 原因）：
   organization-create --name 名称 --kind school|personal|platform
   user-create --login-name 登录名 --display-name 显示名 [--secret-file 绝对路径]
-  membership-set --user-id UUID --org-id UUID --roles student,org_admin [--status active|disabled] [--expected-revision 当前版本]
-  user-status --user-id UUID --status active|disabled
-  password-reset --user-id UUID [--secret-file 绝对路径]
-  organization-status --org-id UUID --status active|disabled
+  membership-set --user-id ObjectId --org-id ObjectId --roles student,org_admin [--status active|disabled] [--expected-revision 当前版本] [--valid-to UTC ISO8601 新content_reviewer必填]
+  user-status --user-id ObjectId --status active|disabled
+  password-reset --user-id ObjectId [--secret-file 绝对路径]
+  organization-status --org-id ObjectId --status active|disabled
   lock-restored-auth --confirm LOCK_RESTORED_AUTH
-  capability-set --member-id UUID --org-id UUID --capability content:retire|content:revoke|file:delete|assessment:manage|assessment:review --granted true|false --expected-revision 当前版本
-能力仅显式授予有效成员，membership-set及恢复锁定会清除全部独立能力，需重新审批分配。
-现有成员必须指定 --expected-revision；禁用成员可 --roles none，重新启用须显式指定角色。
-恢复锁定会撤销会话、禁用全部用户及成员并清除旧角色。独立核验后逐个重置密码、启用用户、重新分配成员角色。
+  capability-set --member-id ObjectId --org-id ObjectId --capability content:retire|content:revoke|file:delete|assessment:manage|assessment:review|teaching:roster|teaching:assign|teaching:report --granted true|false --expected-revision 当前版本 [--valid-to UTC ISO8601]
+  governance-bootstrap --user-id ObjectId --org-id ObjectId --expected-revision 当前版本 （两位独立已建平台账号）
+  inspect [--operation-id ObjectId] （严格只读，不注册writer）
+  recovery --operation-id ObjectId --mode forward|void|invalidate|release [--previous-recovery-token UUID] [--secret-file 绝对路径]
+能力仅显式授予有效成员，membership-set及恢复锁定撤销全部独立能力，需重新审批分配。
 密码不接受命令行输入，不向 stdout 输出。非交互必须 --secret-file；文件不得位于仓库内，且不得已存在。
 POSIX父目录须由当前用户独占（0700）；Windows父目录须预先创建且DACL受保护，仅当前用户、SYSTEM和Administrators可访问，祖先不得允许非可信主体替换路径；拒绝重解析点。
 `;
@@ -45,12 +50,16 @@ const flags: Record<string, string[]> = {
     "roles",
     "status",
     "expected-revision",
+    "valid-to",
   ],
   "user-status": ["user-id", "status"],
   "password-reset": ["user-id", "secret-file"],
   "organization-status": ["org-id", "status"],
   "lock-restored-auth": ["confirm"],
-  "capability-set": ["member-id", "org-id", "capability", "granted", "expected-revision"],
+  "capability-set": ["member-id", "org-id", "capability", "granted", "expected-revision", "valid-to"],
+  "governance-bootstrap": ["user-id", "org-id", "expected-revision"],
+  "inspect": ["operation-id"],
+  "recovery": ["operation-id", "mode", "previous-recovery-token", "secret-file"],
 };
 export function parseArguments(argv: string[]): {
   command: string;
@@ -72,14 +81,15 @@ export function parseArguments(argv: string[]): {
       throw new AdminError("USAGE", "参数未知、重复或缺少值");
     values[key] = args[i + 1];
   }
-  required(values, "actor");
-  required(values, "reason");
+  if (command !== "inspect") {
+    required(values, "actor");
+    required(values, "reason");
+  }
   if (
-    values.actor.length > 128 ||
-    values.reason.length > 512 ||
-    /[\x00-\x1f\x7f]/.test(values.actor + values.reason)
-  )
-    throw new AdminError("USAGE", "操作者或原因不合法");
+    (values.actor?.length ?? 0) > 128 ||
+    (values.reason?.length ?? 0) > 512 ||
+    /[\x00-\x1f\x7f]/.test((values.actor ?? "") + (values.reason ?? ""))
+  ) throw new AdminError("USAGE", "操作者或原因不合法");
   return { command, values };
 }
 function required(values: Record<string, string>, key: string): string {
@@ -185,11 +195,20 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
       serverSelectionTimeoutMS: 10000,
     });
     await client.connect();
-    await assertSchema(client.db());
-    writer = await acquireWriter(client.db(), "admin");
+    await assertSchema(objectIdDatabase(client.db()));
+    if (command === "inspect") {
+      process.stdout.write(JSON.stringify(await inspectAdministration(objectIdDatabase(client.db()), v["operation-id"])) + "\n");
+      return;
+    }
+    if (command === "recovery" && v.mode === "forward") {
+      const op = await objectIdDatabase(client.db()).collection<AdministrationOperation>("administration_operations").findOne({ _id: required(v, "operation-id") });
+      if (op && ["user.create", "user.password.reset"].includes(op.action) && op.status !== "applied")
+        sink = await prepareSecretSink(v["secret-file"]);
+    }
+    writer = await acquireWriter(objectIdDatabase(client.db()), "admin");
     const ctx: OperationContext = {
       client,
-      db: client.db(),
+      db: objectIdDatabase(client.db()),
       actor: v.actor,
       reason: v.reason,
       temporaryPasswordMs: config.temporaryPasswordMs,
@@ -201,9 +220,13 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
         const revision = required(v, "expected-revision");
         if (!["true", "false"].includes(granted) || !/^[1-9][0-9]*$/.test(revision))
           throw new AdminError("USAGE", "granted必须为true或false，版本必须是正整数");
+        const validTo = v["valid-to"];
+        if (validTo && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(validTo))
+          throw new AdminError("USAGE", "到期时间需UTC ISO8601");
         result = await setCapability(ctx, { member_id: required(v, "member-id"), org_id: required(v, "org-id"),
           capability: required(v, "capability") as ControlledCapability,
-          granted: granted === "true", expected_revision: Number(revision) });
+          granted: granted === "true", expected_revision: Number(revision),
+          valid_to: validTo ? new Date(validTo) : undefined });
         break;
       }
       case "organization-create":
@@ -223,6 +246,9 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
         const revision = v["expected-revision"];
         if (revision !== undefined && !/^[1-9][0-9]*$/.test(revision))
           throw new AdminError("USAGE", "成员版本必须是正整数");
+        const reviewerValidTo = v["valid-to"];
+        if (reviewerValidTo && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(reviewerValidTo))
+          throw new AdminError("USAGE", "角色期限需UTC ISO8601");
         result = await setMembership(ctx, {
           user_id: required(v, "user-id"),
           org_id: required(v, "org-id"),
@@ -230,6 +256,7 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
           status: v.status as "active" | "disabled" | undefined,
           expected_revision:
             revision === undefined ? undefined : Number(revision),
+          reviewer_valid_to: reviewerValidTo ? new Date(reviewerValidTo) : undefined,
         });
         break;
       }
@@ -253,6 +280,25 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
           confirmation: required(v, "confirm"),
         });
         break;
+      case "governance-bootstrap": {
+        const revision = required(v, "expected-revision");
+        if (!/^[1-9][0-9]*$/.test(revision)) throw new AdminError("USAGE", "成员版本必须是正整数");
+        result = await bootstrapGovernance(ctx, {
+          user_id: required(v, "user-id"), org_id: required(v, "org-id"), expected_revision: Number(revision),
+        });
+        break;
+      }
+      case "recovery": {
+        const mode = required(v, "mode");
+        if (!["forward", "void", "invalidate", "release"].includes(mode))
+          throw new AdminError("USAGE", "恢复模式仅为forward、void、invalidate或release");
+        result = await recoverCliAdministration(ctx, {
+          operation_id: required(v, "operation-id"),
+          mode: mode as "forward" | "void" | "invalidate" | "release",
+          previous_recovery_token: v["previous-recovery-token"],
+        });
+        break;
+      }
       default:
         throw new AdminError("USAGE", "未知命令");
     }

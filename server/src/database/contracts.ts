@@ -1,6 +1,10 @@
+import {PHASE2_CAPABILITIES} from '../training/phase2-schema';
+import { REPORT_CAPABILITIES } from '../training/report-schema';
+import { TRAINING_CAPABILITIES } from "../training/capabilities";
 import type { Collection, Db, Document } from "mongodb";
 export type RoleCode =
   | "student"
+  | "teacher"
   | "content_editor"
   | "content_reviewer"
   | "org_admin"
@@ -47,6 +51,12 @@ export interface MemberRole extends Document {
   org_id: string;
   member_id: string;
   role_id: RoleCode;
+  status?: GrantStatus;
+  valid_from?: Date;
+  valid_to?: Date | null;
+  operation_id?: string | null;
+  approval_id?: string | null;
+  authority?: "legacy" | "cli" | "approval";
 }
 export interface AuthSession extends Document {
   _id: string;
@@ -72,6 +82,99 @@ export interface AuditEvent extends Document {
   request_id: string;
   created_at: Date;
 }
+export type GrantStatus = "pending" | "active" | "revoked";
+export type AdministrativeScope =
+  | { kind: "organization_ids"; organization_ids: string[] }
+  | { kind: "all_organizations"; organization_ids: [] };
+export type AdministrativeCapability =
+  | "platform:govern"
+  | "account:platform-manage"
+  | "account:manage"
+  | "authorization:delegate"
+  | "content:edit"
+  | "content:review"
+  | "assessment:manage"
+  | "assessment:review"
+  | "report:read"
+  | "content:retire"
+  | "content:revoke"
+  | "file:delete";
+export interface AdministrativeGrant extends Document {
+  _id: string;
+  subject_member_id: string;
+  actor_org_id: string;
+  capability: AdministrativeCapability;
+  scope: AdministrativeScope;
+  scope_key: string;
+  delegate_capabilities: string[];
+  status: GrantStatus;
+  revision: number;
+  valid_from: Date;
+  valid_to: Date | null;
+  operation_id: string | null;
+  authority: "cli" | "delegation" | "approval";
+  approval_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+export interface AuthorizationRequest extends Document {
+  _id: string;
+  requester_user_id: string;
+  requester_member_id: string;
+  beneficiary_user_id: string;
+  subject_member_id: string | null;
+  action: string;
+  payload: Document;
+  payload_hash: string;
+  expected_grant_revision: number | null;
+  requester_permission_revision: number;
+  requester_credential_version: number;
+  target_credential_version: number;
+  target_identity_revision: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected" | "applying" | "applied" | "needs_recovery";
+  revision: number;
+  approver_user_id: string | null;
+  approver_credential_version: number | null;
+  approved_at: Date | null;
+  operation_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+export interface AdministrationTargets {
+  user_ids: string[];
+  member_ids: string[];
+  org_ids: string[];
+  global: boolean;
+}
+export interface AdministrationOperation extends Document {
+  _id: string;
+  actor_id: string;
+  action: string;
+  reason: string;
+  targets: AdministrationTargets;
+  payload_hash: string;
+  before: Document;
+  desired: Document;
+  key: string | null;
+  mode: "replicaSet" | "standalone";
+  status: "pending" | "applying" | "applied" | "needs_recovery" | "void";
+  step: string;
+  revision: number;
+  audit_id: string | null;
+  created_at: Date;
+  updated_at: Date;
+}
+export interface AdministrationGuard extends Document {
+  _id: "administration";
+  revision: number;
+  state: "idle" | "applying" | "needs_recovery" | "recovering";
+  operation_id: string | null;
+  recovery_token: string | null;
+  blocked_targets: AdministrationTargets;
+  affected_orgs: string[];
+  updated_at: Date;
+}
 export function collections(db: Db): {
   users: Collection<User>;
   organizations: Collection<Organization>;
@@ -93,19 +196,28 @@ export function collections(db: Db): {
 }
 export const ROLE_CAPABILITIES: Record<RoleCode, string[]> = {
   student: ["account:read", "learning:self"],
+  teacher: ["account:read", "teaching:class"],
   content_editor: ["account:read", "content:edit"],
   content_reviewer: ["account:read", "content:review"],
   org_admin: ["account:read", "organization:admin"],
   platform_ops: ["account:read", "operations:health"],
 };
 // Explicit member grants only. Never append these capabilities to built-in roles.
-export const CONTROLLED_CAPABILITIES = ["content:retire", "content:revoke", "file:delete", "assessment:manage", "assessment:review"] as const;
+export const CONTROLLED_CAPABILITIES = [...TRAINING_CAPABILITIES, ...PHASE2_CAPABILITIES, ...REPORT_CAPABILITIES, "content:retire", "content:revoke", "file:delete", "assessment:manage", "assessment:review", "teaching:roster", "teaching:assign", "teaching:report"] as const;
 export type ControlledCapability = typeof CONTROLLED_CAPABILITIES[number];
 export interface MemberCapabilityGrant extends Document {
   _id: string;
   org_id: string;
   member_id: string;
   capability: ControlledCapability;
+  status: GrantStatus;
+  revision: number;
+  valid_from: Date;
+  valid_to: Date | null;
+  operation_id: string | null;
+  authority: "legacy" | "cli" | "delegation" | "approval";
+  created_at: Date;
+  updated_at: Date;
 }
 export const normalizeLogin = (value: string) => value.trim().toLowerCase();
 export function validLogin(value: string): boolean {
@@ -113,7 +225,7 @@ export function validLogin(value: string): boolean {
 }
 export function validPassword(value: string): boolean {
   return (
-    [...value].length >= 12 &&
+    [...value].length >= 6 &&
     [...value].length <= 128 &&
     Buffer.byteLength(value, "utf8") <= 512
   );

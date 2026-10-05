@@ -46,8 +46,21 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const touchMs = number("SESSION_TOUCH_MS", 60000);
   if (idleMs > absoluteMs || touchMs >= idleMs)
     throw new Error("会话时间必须满足 touch < idle <= absolute");
+  const topologyRaw = env.KL_MONGO_TOPOLOGY ?? "replicaSet";
+  if (!["replicaSet", "standalone", "auto"].includes(topologyRaw)) {
+    throw new Error("KL_MONGO_TOPOLOGY 必须是 replicaSet、standalone 或 auto");
+  }
+  const mongoAllowStandalone = env.KL_MONGO_ALLOW_STANDALONE === "true";
+  if (production && mongoAllowStandalone) {
+    throw new Error("生产环境禁止 KL_MONGO_ALLOW_STANDALONE");
+  }
+  if (production && topologyRaw !== "replicaSet") {
+    throw new Error("生产环境 KL_MONGO_TOPOLOGY 必须为 replicaSet");
+  }
   return {
     mongoUri,
+    mongoTopology: topologyRaw as "replicaSet" | "standalone" | "auto",
+    mongoAllowStandalone,
     origin,
     port: number("PORT", 3000, 1, 65535),
     production,

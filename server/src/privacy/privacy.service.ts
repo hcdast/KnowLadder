@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { Injectable } from '@nestjs/common';
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { ClientSession } from 'mongodb';
@@ -57,13 +58,13 @@ export class PrivacyService {
       if (ongoing) fail(409, 'PRIVACY_REVISION_CONFLICT', '已有处理中申请，请查看当前状态');
       const now = new Date();
       const row: PrivacyRequest = {
-        _id: randomUUID(), user_id: identity.user._id, scope: 'account', policy_revision: PRIVACY_POLICY_REVISION,
+        _id: newId(), user_id: identity.user._id, scope: 'account', policy_revision: PRIVACY_POLICY_REVISION,
         status: 'requested', revision: 1, plan_hash: null, actor: null, reason_code: null,
         deleted_categories: [], retained_categories: [], retention_basis: null, remaining_actions: [],
         created_at: now, updated_at: now, lease_token: null, lease_until: null, ledger_sequence: null, completed_steps: [],
       };
       await requests.insertOne(row, { session });
-      await receipts.insertOne({ _id: randomUUID(), user_id: identity.user._id, key_hash: keyHash, request_hash: requestHash, request_id: row._id, created_at: now }, { session });
+      await receipts.insertOne({ _id: newId(), user_id: identity.user._id, key_hash: keyHash, request_hash: requestHash, request_id: row._id, created_at: now }, { session });
       return privacyRequestView(row);
     });
   }

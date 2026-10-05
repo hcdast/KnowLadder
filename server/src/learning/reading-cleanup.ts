@@ -1,3 +1,4 @@
+import { objectIdDatabase } from "../database/object-id";
 import { MongoClient, type Db } from 'mongodb';
 import { assertSchema } from '../migrations/schema';
 import type { ReadingEvent, ReadingProgress } from './reading.contracts';
@@ -40,7 +41,7 @@ async function main() {
   const client = new MongoClient(process.env.MONGODB_URI, { readPreference: 'primary', writeConcern: { w: 'majority' } });
   let writer: WriterRegistration | undefined;
   try {
-    const db = client.db(), apply = args.includes('--apply');
+    const db = objectIdDatabase(client.db()), apply = args.includes('--apply');
     if (apply) requireIsolatedDatabase(db);
     await client.connect(); await assertSchema(db);
     if (apply) writer = await acquireWriter(db, 'reading');

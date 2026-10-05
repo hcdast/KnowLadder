@@ -1,3 +1,4 @@
+import { newId } from "../database/object-id";
 import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { canonical, safeVersion } from './dto';
@@ -8,19 +9,27 @@ import { ApiRequest, fail } from '../errors';
 import { BaseVersion, ContentKind, CONTENT_COLLECTIONS, licensed, CONTENT_LIMITS } from './contracts';
 import { assertOperationalAccess } from '../operations/control';
 import { reserveManagedSafetyIntent, safetyOperationId, type SafetyIntent } from '../operations/ledger';
-export interface ContentContext { orgId:string; userId:string; capabilities:string[]; session:ClientSession; requestId:string; }
-export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+import { PlatformBusinessAccess, platformBusinessModule, type PlatformBusinessContext } from '../administration/platform-access';
+export interface ContentContext { orgId:string; userId:string; capabilities:string[]; session:ClientSession; requestId:string; platform?:PlatformBusinessContext; }
+export const resourceIdPattern = /^[0-9a-f]{24}$/;
 @Injectable()
 export class ContentAccess {
-  constructor(readonly database:Database, readonly auth:AuthService) {}
+  constructor(readonly database:Database, readonly auth:AuthService, readonly platform:PlatformBusinessAccess) {}
   async run<T>(req:ApiRequest,write:boolean,work:(ctx:ContentContext)=>Promise<T>):Promise<T> {
     await assertOperationalAccess(this.database.db);
     if(write) this.auth.origin(req);
     const orgId=req.get('X-Org-Id');
-    if(!orgId || !uuidPattern.test(orgId)) fail(422,'ORG_REQUIRED','请选择有效组织');
+    if(!orgId || !resourceIdPattern.test(orgId)) fail(422,'ORG_REQUIRED','请选择有效组织');
     return this.database.transaction(async session=>{
       const identity=await this.auth.identify(req,true,session);
       if(write) this.auth.csrf(req,identity.session);
+      if(platformBusinessModule(req)) {
+        const delegated=await this.platform.authorize(req,identity,session,'content');
+        const result=await work({orgId:delegated.orgId,userId:delegated.userId,capabilities:delegated.capabilities,session,requestId:req.requestId,platform:delegated});
+        await this.platform.assertCurrent(delegated);
+        return result;
+      }
+      if(req.get('X-Target-Org-Id')) fail(403,'FORBIDDEN','目标组织只可由平台业务入口选择');
       const capabilities=await this.auth.authorize(identity,orgId,'account:read',session);
       return work({orgId,userId:identity.user._id,capabilities,session,requestId:req.requestId});
     }).catch((error:unknown)=>{if(error&&typeof error==='object'&&'code' in error&&error.code===11000)fail(409,'DUPLICATE_CONTENT','版本号或幂等键已存在，请重新载入');throw error;});
@@ -31,9 +40,10 @@ export class ContentAccess {
     const operationId=await this.run(req,true,async ctx=>{
       this.require(ctx,'manage');
       await preflight(ctx);
-      const existing=await this.database.db.collection('content_idempotency').findOne({org_id:ctx.orgId,user_id:ctx.userId,operation,resource_id:resourceId,key},{session:ctx.session});
+      const operationScope=ctx.platform?`${ctx.platform.actorOrgId}:${operation}`:operation;
+      const existing=await this.database.db.collection('content_idempotency').findOne({org_id:ctx.orgId,user_id:ctx.userId,operation:operationScope,resource_id:resourceId,key},{session:ctx.session});
       if(existing && existing.request_hash!==createHash('sha256').update(canonical(payload)).digest('hex'))fail(409,'IDEMPOTENCY_CONFLICT','幂等键已用于不同请求');
-      return safetyOperationId(canonical([ctx.orgId,ctx.userId,operation,resourceId,key]));
+      return safetyOperationId(canonical([ctx.platform?.actorOrgId??null,ctx.orgId,ctx.userId,operation,resourceId,key]));
     });
     // External durable pending must precede, and never run inside, the source transaction.
     return reserveManagedSafetyIntent(this.database.db,{...intent,operationId});
@@ -48,7 +58,7 @@ export class ContentAccess {
     if((kind==='textbook'||kind==='question')&&(action==='patch'||action==='chapters'))this.require(ctx,'edit');
     const key=req.get('Idempotency-Key');
     if(!key || !/^[A-Za-z0-9_-]{8,128}$/.test(key)) fail(422,'IDEMPOTENCY_KEY_REQUIRED','请提供8至128字符幂等键');
-    const filter={org_id:ctx.orgId,user_id:ctx.userId,operation,resource_id:resourceId,key};
+    const filter={org_id:ctx.orgId,user_id:ctx.userId,operation:ctx.platform?`${ctx.platform.actorOrgId}:${operation}`:operation,resource_id:resourceId,key};
     const request_hash=createHash('sha256').update(canonical(payload)).digest('hex');
     const collection=this.database.db.collection('content_idempotency');
     const existing=await collection.findOne(filter,{session:ctx.session});
@@ -62,12 +72,12 @@ export class ContentAccess {
       return existing.result as T;
     }
     const result=await work();
-    await collection.insertOne({_id:randomUUID(),...filter,request_hash,result,created_at:new Date()} as never,{session:ctx.session});
+    await collection.insertOne({_id:newId(),...filter,request_hash,result,created_at:new Date()} as never,{session:ctx.session});
     return result;
   }
   async owner(ctx:ContentContext,kind:ContentKind,id:string,mode:'edit'|'manage'|'read'):Promise<BaseVersion> {
     this.require(ctx,mode);
-    if(!uuidPattern.test(id)) fail(404,'NOT_FOUND','内容不存在');
+    if(!resourceIdPattern.test(id)) fail(404,'NOT_FOUND','内容不存在');
     const version=await this.database.db.collection<BaseVersion>(CONTENT_COLLECTIONS[kind]).findOne({_id:id,org_id:ctx.orgId},{session:ctx.session});
     if(!version || (mode==='read'&&(version.status!=='published'||!licensed(version)))) fail(404,'NOT_FOUND','内容不存在或未获授权');
     if(mode==='edit'&&version.status!=='draft') fail(409,'VERSION_IMMUTABLE','仅草稿可以编辑');

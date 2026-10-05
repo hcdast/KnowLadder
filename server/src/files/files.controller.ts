@@ -1,3 +1,4 @@
+import { allowedFileMimes } from './config';
 import { Body, Controller, Get, Post, Put, Param, Query, Req, Res, HttpCode } from '@nestjs/common';
 import { ApiBody, ApiConsumes, ApiCookieAuth, ApiOperation, ApiResponse, ApiTags, type OpenAPIObject } from '@nestjs/swagger';
 import type { SchemaObject } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
@@ -63,11 +64,11 @@ function envelope(data: SchemaObject): SchemaObject {
 export function filesOpenApi(document: OpenAPIObject) {
   const timestamp: SchemaObject = { type: 'string', format: 'date-time', nullable: true };
   const properties: Record<string, SchemaObject> = {
-    id: { type: 'string', format: 'uuid' },
+    id: { type: 'string', pattern: '^[0-9a-f]{24}$' },
     owner_type: { type: 'string', enum: ['textbook', 'question'] },
-    owner_version_id: { type: 'string', format: 'uuid' },
+    owner_version_id: { type: 'string', pattern: '^[0-9a-f]{24}$' },
     display_name: { type: 'string' }, size: { type: 'integer', minimum: 1, maximum: 10485760 },
-    mime: { type: 'string', enum: ['application/pdf', 'image/png', 'image/jpeg', 'text/plain'] },
+    mime: { type: 'string', enum: [...allowedFileMimes()] },
     checksum: { type: 'string', pattern: '^[a-f0-9]{64}$' },
     status: { type: 'string', enum: ['pending', 'quarantined', 'ready', 'deleting'] },
     scan_status: { type: 'string', enum: ['awaiting_upload', 'queued', 'scanning', 'clean', 'infected', 'failed'] },
@@ -92,9 +93,10 @@ export function filesOpenApi(document: OpenAPIObject) {
   for (const [route, method] of routes) {
     const operation = document.paths[route]?.[method];
     if (!operation) continue;
-    operation.parameters = [...(operation.parameters ?? []), { in: 'header', name: 'X-Org-Id', required: true, schema: { type: 'string', format: 'uuid' } }];
+    operation.parameters = [...(operation.parameters ?? []), { in: 'header', name: 'X-Org-Id', required: true, schema: { type: 'string', pattern: '^[0-9a-f]{24}$' } }];
     for (const [status, description] of Object.entries({ 401: '会话失效', 403: '权限或CSRF校验失败', 404: '资源不存在或不可访问', 409: '版本、幂等键、租约、引用、hold或文件状态冲突', 422: '参数或游标无效', 429: '请求频率超限', 503: '存储、扫描、签名库或磁盘容量不可用' })) {
-      operation.responses[status] = { description, content: { 'application/json': { schema: error } } };
+      const scanDisabled = status === '503' && ((route === '/api/v1/admin/files' && method === 'post') || (route === '/api/v1/admin/files/{id}/content' && method === 'put'));
+      operation.responses[status] = { description: scanDisabled ? `文件扫描已关闭（FILE_SCAN_DISABLED）；或${description}` : description, content: { 'application/json': { schema: error } } };
     }
     if (method !== 'get') operation.parameters.push(
       { in: 'header', name: 'Idempotency-Key', required: true, schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{8,128}$' } },
@@ -113,7 +115,7 @@ export function filesOpenApi(document: OpenAPIObject) {
       for (const code of ['200', '206']) operation.responses[code] = {
         description: code === '206' ? '授权单Range字节流' : '授权完整字节流',
         headers: code === '206' ? { ...headers, 'Content-Range': { schema: { type: 'string' } } } : headers,
-        content: Object.fromEntries(['application/pdf', 'image/png', 'image/jpeg', 'text/plain'].map(mime => [mime, { schema: { type: 'string', format: 'binary' } }])),
+        content: Object.fromEntries(allowedFileMimes().map(mime => [mime, { schema: { type: 'string', format: 'binary' } }])),
       };
       operation.responses['416'] = { description: 'Range无效或为多Range', headers: { 'Content-Range': { schema: { type: 'string' }, description: 'bytes */完整大小' } }, content: { 'application/json': { schema: error } } };
       continue;

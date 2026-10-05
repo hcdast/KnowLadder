@@ -1,3 +1,5 @@
+import { requireObjectId } from "../operations/contracts";
+import { objectIdDatabase } from "../database/object-id";
 import { MongoClient } from 'mongodb';
 import { assertLocalEnvironment, requireUuid } from '../operations/contracts';
 import { acquireWriter, type WriterRegistration } from '../operations/control';
@@ -15,7 +17,7 @@ export function parsePrivacyArguments(argv:string[]) {
     values[name]=args[i+1];
   }
   for(const key of commands[command]) if(!values[key]) throw new Error('PRIVACY_USAGE');
-  requireUuid(values['request-id']);
+  requireObjectId(values['request-id']);
   if(values['expected-revision']!==undefined&&!/^(0|[1-9][0-9]*)$/.test(values['expected-revision'])) throw new Error('PRIVACY_USAGE');
   if(values['expected-revision']!==undefined&&!Number.isSafeInteger(Number(values['expected-revision']))) throw new Error('PRIVACY_USAGE');
   if(values['plan-hash']!==undefined&&!/^[0-9a-f]{64}$/.test(values['plan-hash'])) throw new Error('PRIVACY_USAGE');
@@ -28,7 +30,7 @@ export async function runPrivacyCli(argv:string[]) {
   const client=new MongoClient(uri,{serverSelectionTimeoutMS:5000});
   let writer:WriterRegistration|undefined;
   try {
-    await client.connect(); const db=client.db(); assertLocalEnvironment(db,process.env.KL_ENVIRONMENT_ID);
+    await client.connect(); const db=objectIdDatabase(client.db()); assertLocalEnvironment(db,process.env.KL_ENVIRONMENT_ID);
     await assertSchema(db);
     if(command==='approve'||command==='reject') writer=await acquireWriter(db,'privacy');
     const input={requestId:values['request-id'],actor:values.actor,reason:values.reason,expectedRevision:Number(values['expected-revision']),planHash:values['plan-hash'],retentionBasis:values['retention-basis']};
