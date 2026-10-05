@@ -1,0 +1,91 @@
+/* Shared brand presentation. Reading/assessment content keeps a plain surface. */
+:root {
+  --color-brand: #1e6fff;
+  --color-action: #245edb;
+  --color-action-hover: #1d4db8;
+  --color-surface: #fff;
+  --color-growth: #145c43;
+  --color-growth-bg: #e8f7ef;
+  --layout-max: 76rem;
+}
+body { min-width: 0; }
+.app-header { padding-block: 1.4rem; border-bottom: 0; }
+.brand-name { color: var(--color-brand); }
+.header-note { display: flex; align-items: center; gap: .4rem; }
+.layout { padding-top: 1.5rem; padding-bottom: 2rem; }
+.auth-layout {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: stretch; gap: 0; padding: 0; margin: 1rem auto 2rem;
+  max-width: calc(var(--layout-max) - 3rem);
+  border: 1px solid #dce5f2; border-radius: 1.5rem;
+  background: #fff; box-shadow: 0 16px 50px #173b6b0c;
+}
+.brand-journey {
+  padding: 2.5rem; border-radius: 1.5rem 0 0 1.5rem;
+  background: radial-gradient(ellipse at 100% 0, #d8f3e9, transparent 60%), linear-gradient(140deg, #edf4ff, #e3edff);
+  display: flex; flex-direction: column; min-width: 0;
+}
+.brand-journey .eyebrow { letter-spacing: .12em; }
+.brand-journey h2 { margin: 1rem 0; font-size: clamp(2.5rem, 4vw, 3.6rem); line-height: 1.2; letter-spacing: -.03em; }
+.brand-journey h2 span { color: var(--color-action); }
+.journey-description { line-height: 1.8; }
+.journey-picture { position: relative; margin-top: 1.75rem; border-radius: 1rem; background: #cbdedb; min-height: 11rem; aspect-ratio: 1.9; overflow: hidden; }
+.journey-picture picture { position: absolute; inset: 0; }
+.journey-picture picture, .journey-picture img { display: block; width: 100%; height: 100%; }
+.journey-picture img { object-fit: cover; object-position: center bottom; }
+.journey-caption { position: absolute; bottom: 0; inset-inline: 0; display: flex; align-items: center; gap: .6rem; padding: .85rem 1rem; background: #fff; color: #244a40; font-size: .875rem; }
+.image-unavailable { background: linear-gradient(135deg, #d4e7fc, #d2ebdf); }
+.journey-steps { list-style: none; padding: 0; margin: 1.5rem 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: .75rem; }
+.journey-steps li { display: flex; flex-direction: column; align-items: flex-start; gap: .5rem; font-size: .875rem; color: #294766; }
+.journey-step-icon { width: 2.5rem; height: 2.5rem; display: grid; place-items: center; border-radius: .7rem; background: #fff; color: var(--color-action); }
+.journey-steps li:nth-child(2) .journey-step-icon { color: #75400e; background: #fff1e5; }
+.journey-steps li:nth-child(3) .journey-step-icon { color: #145c43; background: #d1efdf; }
+.auth-layout > .account-panel { align-self: center; border: 0; border-radius: 0 1.5rem 1.5rem 0; padding: 3rem; background: transparent; }
+.auth-layout .page-heading { gap: .75rem; margin-bottom: 2rem; }
+.auth-layout .page-heading > .eyebrow { letter-spacing: .12em; }
+.auth-layout .stack { gap: 1.4rem; }
+.auth-layout input { min-height: 3.1rem; background: #fbfcff; }
+.login-submit { display: flex; align-items: center; justify-content: center; gap: .7rem; min-height: 3.1rem; }
+.login-help { display: flex; align-items: flex-start; gap: .6rem; color: var(--color-growth); padding-top: .2rem; }
+.login-help > .brand-icon { margin-top: .2rem; }
+.login-help .field-help { font-size: .8125rem; line-height: 1.8; }
+.button { color: #fff; }
+.button:disabled, .button:disabled:hover { background: var(--color-canvas); color: var(--color-muted); border-color: var(--color-border); }
+.button.danger { color: var(--color-error); border-color: var(--color-error); background: #fff; }
+.button.danger:hover:not(:disabled) { background: #fceef0; }
+.account-layout { grid-template-columns: minmax(0, 1fr); gap: 1.5rem; }
+.account-layout > .account-panel { background: linear-gradient(110deg, #edf4ff 0%, #fff 65%, #f1faf5 100%); border-color: #d2dff0; }
+.account-avatar { display: grid; place-items: center; width: 3rem; height: 3rem; border-radius: 1rem; background: var(--color-action); color: #fff; font-size: 1.5rem; font-weight: 700; }
+.account-layout .identity { position: relative; padding-left: 4rem; }
+.account-layout .account-avatar { position: absolute; left: 0; top: .2rem; }
+.workspace-navigation { padding: .75rem; background: #e9eff8; border-radius: 1rem; gap: .5rem; }
+.workspace-navigation .button.secondary { background: transparent; border-color: transparent; color: #46566b; }
+.workspace-navigation .button.secondary[aria-pressed='true'] { background: #fff; color: #1d4db8; border-color: #99b4e3; box-shadow: 0 2px 5px #173b6b0a; }
+.learning-surface > .page-heading { position: relative; padding: 1.5rem; margin: 0; border-radius: .8rem; background: linear-gradient(110deg, #edf4ff, #f0faf5); border-left: 4px solid #245edb; }
+.learning-surface > .page-heading .eyebrow { display: flex; gap: .6rem; align-items: center; }
+.learning-surface > .page-heading .muted { max-width: 65rem; }
+.learning-surface .content-empty { padding: 1.5rem; border-radius: .75rem; background: #f5f8fc; }
+.site-footer { text-align: center; }
+@media (max-width: 78rem) { .auth-layout { margin-inline: 1.5rem; } }
+@media (max-width: 60rem) {
+  .brand-journey { padding: 2rem; }
+  .auth-layout > .account-panel { padding: 2rem; }
+}
+@media (max-width: 48rem) {
+  .auth-layout { grid-template-columns: minmax(0, 1fr); margin: .5rem auto 1.5rem; max-width: min(30rem, calc(100% - 2rem)); border-radius: 1.1rem; }
+  .brand-journey { border-radius: 1.1rem 1.1rem 0 0; padding: 1.5rem; }
+  .brand-journey h2 { font-size: 2rem; margin: .5rem 0 0; }
+  .brand-journey h2 br { display: none; }
+  .journey-picture, .journey-steps, .journey-description { display: none; }
+  .auth-layout > .account-panel { padding: 1.5rem; }
+  .auth-layout .page-heading { margin-bottom: 1.5rem; }
+  .auth-layout .page-heading > .eyebrow { display: none; }
+  .account-layout { max-width: none; }
+  .learning-surface > .page-heading { padding: 1rem; }
+}
+@media (max-width: 24rem) {
+  .auth-layout { max-width: calc(100% - 1.5rem); }
+  .auth-layout > .account-panel, .brand-journey { padding: 1.25rem; }
+  .header-note { font-size: .75rem; }
+  .header-note .brand-icon { display: none; }
+}

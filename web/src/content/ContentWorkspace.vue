@@ -1,10 +1,14 @@
 <script setup lang="ts">
+import BrandIcon from '../components/BrandIcon.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiError, type BusinessRequest, type Identity } from "../session";
 import FileUpload from "./FileUpload.vue";
 import ReadingProgress from "./ReadingProgress.vue";
+import ResourceTable from "../administration/components/ResourceTable.vue";
+import StatusBadge from "../administration/components/StatusBadge.vue";
 import type { AuditEvent, Chapter, ChapterPage, ContentOptions, FileRecord, Kind, Page, ReaderChapter, Version } from "./types";
-const props = defineProps<{ identity: Identity; request: BusinessRequest; readingTarget?: { editionId: string; chapterId: string } }>();
+const props = defineProps<{ identity: Identity; request: BusinessRequest; readingTarget?: { editionId: string; chapterId: string }; platform?: boolean; consolePresentation?: boolean }>();
+const versionStatusLabels: Record<Version["status"], string> = { draft: "草稿", review: "待审核", published: "已发布", retired: "已停用" };
 const emit = defineEmits<{ dirty: [value: boolean]; readingPending: [value: boolean] }>();
 const readingProgress = ref<InstanceType<typeof ReadingProgress>>();
 let leaving: Promise<boolean> | undefined;
@@ -14,9 +18,11 @@ function beforeLeave(): Promise<boolean> {
 }
 defineExpose({ beforeLeave });
 const capabilities = computed(() => props.identity.context?.capabilities || []);
-const manage = computed(() => capabilities.value.some(value => ["content:edit", "content:review", "content:retire", "content:revoke", "file:delete"].includes(value)));
+const manage = computed(() => capabilities.value.some(value => ["content:edit", "content:review"].includes(value)));
 const canEdit = computed(() => capabilities.value.includes("content:edit"));
 const canReview = computed(() => capabilities.value.includes("content:review"));
+const learner = computed(() => !props.platform && capabilities.value.includes("learning:self") && !props.identity.context?.student_conflict && !capabilities.value.some(cap => ["content:edit", "content:review", "assessment:manage", "assessment:review"].includes(cap)));
+const canRead = computed(() => !props.platform && (manage.value || learner.value));
 const mode = ref<"manage" | "read">(manage.value ? "manage" : "read");
 const kind = ref<Kind>("textbook");
 const status = ref("");
@@ -56,7 +62,13 @@ function focusField(field: string) {
   const weightId = weight ? draft.value?.knowledge_weights?.[Number(weight[1])]?.knowledge_point_id : undefined;
   const option = /^options\.(\d+)\.(id|text)/.exec(field);
   const id = chapter && chapterId ? `chapter-${parts[chapter[2] || ""]}-${chapterId}` : weightId ? `weight-${weightId}` : option && !creating.value ? `option-${option[2]}-${option[1]}` : names[field.split(".")[0] || ""];
-  if (id) document.getElementById(id)?.focus();
+  const target = id ? document.getElementById(id) : null;
+  let details = target?.closest("details");
+  while (details) {
+    details.open = true;
+    details = details.parentElement?.closest("details") ?? null;
+  }
+  target?.focus();
 }
 const notice = ref("");
 const conflict = ref(false);
@@ -153,6 +165,7 @@ function clearRecoveredError(cause: unknown) {
   conflict.value = false;
 }
 async function initialize() {
+  if (!manage.value && !learner.value) { notice.value = "当前身份没有许可阅读资格或内容编辑 / 审核读取权，未请求教材正文。"; return; }
   if (manage.value) {
     try { const result = await props.request<ContentOptions>("/admin/content-options", { signal: life.signal }); if (alive) options.value = result; } catch (cause) { report(cause); }
   }
@@ -160,7 +173,7 @@ async function initialize() {
   if (alive && props.readingTarget) await openReadingTarget(props.readingTarget);
 }
 async function loadList(next = false) {
-  if (loading.value) return;
+  if (!alive || loading.value || mode.value === "read" && !canRead.value || mode.value === "manage" && !manage.value) return;
   loading.value = true; error.value = "";
   const token = ++serial;
   try {
@@ -176,6 +189,7 @@ async function loadList(next = false) {
   finally { if (alive) loading.value = false; }
 }
 async function navigate(nextMode: "manage" | "read", nextKind: Kind = "textbook") {
+  if (nextMode === "read" && !canRead.value) return;
   if (loading.value || !mayLeave() || !await beforeLeave() || !alive || loading.value) return;
   resetAudit();
   mode.value = nextMode; kind.value = nextKind; selected.value = undefined; draft.value = undefined;
@@ -269,7 +283,7 @@ async function save() {
       draft.value.revision = saved.revision;
     }
     if (kind.value === "textbook") {
-      const chapters = (value.chapters || []).map((chapter, position) => ({ id: chapter.id, parent_id: chapter.parent_id, position, title: chapter.title, body: chapter.body, knowledge_point_ids: chapter.knowledge_point_ids, resource_ids: chapter.resource_ids }));
+      const chapters = (value.chapters || []).map((chapter, position) => ({ ...(chapter.id.startsWith("new:") ? {client_key:chapter.id} : {id:chapter.id}), ...(chapter.parent_id?.startsWith("new:") ? {parent_client_key:chapter.parent_id} : {parent_id:chapter.parent_id}), position, title: chapter.title, body: chapter.body, knowledge_point_ids: chapter.knowledge_point_ids, resource_ids: chapter.resource_ids }));
       const updated = await mutation<Version>(`/admin/${route.value}/${value.id}/chapters`, "PUT", { expected_revision: plan.metadataRevision, chapters });
       if (!alive) return;
       draft.value.revision = updated.revision;
@@ -284,7 +298,7 @@ async function save() {
   finally { if (alive) loading.value = false; }
 }
 function newChapter() {
-  draft.value?.chapters?.push({ id: crypto.randomUUID(), parent_id: null, position: draft.value.chapters.length, title: "", body: "", knowledge_point_ids: [], resource_ids: [] });
+  draft.value?.chapters?.push({ id: `new:${crypto.randomUUID()}`, parent_id: null, position: draft.value.chapters.length, title: "", body: "", knowledge_point_ids: [], resource_ids: [] });
 }
 function moveChapter(index: number, step: number) {
   const chapters = draft.value?.chapters;
@@ -382,7 +396,7 @@ async function readerEdition(id: string) {
   throw new ApiError(404, "目标教材当前不可阅读。");
 }
 async function openReadingTarget(target: { editionId: string; chapterId: string }) {
-  if (!capabilities.value.includes("learning:self") || loading.value || !mayLeave() || !await beforeLeave() || !alive || loading.value) return;
+  if (!learner.value || loading.value || !mayLeave() || !await beforeLeave() || !alive || loading.value) return;
   mode.value = "read"; kind.value = "textbook"; draft.value = undefined; original.value = ""; pendingSave.value = undefined;
   await openVersion(target.editionId, true, true);
   if (alive && selected.value?.id === target.editionId && readerChapters.value.some(chapter => chapter.id === target.chapterId)) await readChapter(target.chapterId);
@@ -415,26 +429,37 @@ async function download(id: string) {
 </script>
 
 <template>
-  <section class="content-workspace panel stack" aria-labelledby="content-title" :aria-busy="loading">
-    <div class="page-heading"><p class="eyebrow">CONTENT / 教学内容</p><h2 id="content-title">{{ mode === 'manage' ? '教材与题库管理' : '我的教材' }}</h2><p class="muted">当前组织内的真实内容。权限、授权和扫描结果均以服务端校验为准。</p></div>
-    <nav class="actions" aria-label="内容导航">
+  <section class="content-workspace stack" :class="consolePresentation ? 'admin-card' : ['panel', 'learning-surface', mode === 'read' ? 'student-content' : 'editor-content']" :aria-labelledby="consolePresentation ? undefined : 'content-title'" :aria-label="consolePresentation ? '教学内容工作区' : undefined" :aria-busy="loading">
+    <div v-if="!consolePresentation" class="page-heading"><p class="eyebrow"><BrandIcon name="book-open" />CONTENT / 教学内容</p><h2 id="content-title">{{ mode === 'manage' ? '教材与题库管理' : '我的教材' }}</h2><p class="muted">当前组织内的真实内容。权限、授权和扫描结果均以服务端校验为准。</p></div>
+    <nav class="actions" :class="{ 'admin-toolbar': consolePresentation }" aria-label="内容导航">
       <button v-if="manage" class="button secondary" :aria-pressed="mode === 'manage' && kind === 'textbook'" :disabled="loading" @click="navigate('manage', 'textbook')">教材管理</button>
       <button v-if="manage" class="button secondary" :aria-pressed="mode === 'manage' && kind === 'question'" :disabled="loading" @click="navigate('manage', 'question')">题库管理</button>
-      <button v-if="manage || capabilities.includes('learning:self')" class="button secondary" :aria-pressed="mode === 'read'" :disabled="loading" @click="navigate('read')">学生阅读</button>
+      <button v-if="canRead" class="button secondary" :aria-pressed="mode === 'read'" :disabled="loading" @click="navigate('read')">{{ manage ? '教材阅读预览（不记录学情）' : '学生阅读' }}</button>
     </nav>
     <div v-if="error" ref="errorSummary" class="notice" tabindex="-1" role="alert"><p>{{ error }}</p><ul v-if="Object.keys(fieldErrors).length"><li v-for="(message, field) in fieldErrors" :key="field"><button class="text-button" @click="focusField(String(field))">{{ field }}：{{ message }}（定位字段）</button></li></ul><button v-if="conflict && selected" class="button secondary" :disabled="loading" @click="openVersion(selected.id)">放弃本地草稿并重新加载</button></div>
     <p v-if="notice" class="notice" role="status">{{ notice }}</p>
     <p v-if="loading" role="status">正在请求真实数据，请稍候…</p>
     <template v-if="!selected">
-      <div v-if="mode === 'manage' && kind === 'textbook'" class="field"><label for="textbook-filter">教材身份 ID 筛选（可选）</label><input id="textbook-filter" v-model="textbookFilter" :disabled="loading" /></div>
-      <form v-if="mode === 'manage'" class="content-toolbar" @submit.prevent="loadList()"><div class="field"><label for="version-status">版本状态</label><select id="version-status" v-model="status" :disabled="loading"><option value="">全部状态</option><option value="draft">草稿</option><option value="review">待审核</option><option value="published">已发布</option><option value="retired">已停用</option></select></div><button class="button secondary" :disabled="loading">筛选</button><button v-if="canEdit" type="button" class="button" :disabled="loading" @click="openCreate">{{ kind === 'textbook' ? '新建教材版本' : '新建题目' }}</button></form>
-      <p v-if="!loading && !items.length" class="content-empty">{{ mode === 'manage' ? '当前没有符合条件的版本。可调整筛选，或创建第一份草稿。' : '当前没有可阅读的已发布教材。请联系组织管理员确认内容发布与授权。' }}</p>
-      <ul v-else class="content-list"><li v-for="item in items" :key="item.id"><div><h3>{{ item.title }}</h3><p class="field-help">{{ item.edition_code || `题目版本 ${item.id}` }} · {{ mode === 'read' ? '已发布' : ({ draft: '草稿', review: '待审核', published: '已发布', retired: '已停用' })[item.status] }}</p></div><button class="button secondary" :disabled="loading" @click="openVersion(item.id)">{{ mode === 'manage' ? '查看与编辑' : '开始阅读' }}</button></li></ul>
+      <details v-if="consolePresentation && mode === 'manage' && kind === 'textbook'" class="content-section"><summary>高级定位</summary><div class="field"><label for="textbook-filter">教材身份 ID 筛选（可选）</label><input id="textbook-filter" v-model="textbookFilter" :disabled="loading" /><p class="field-help">仅在已知教材身份 ID 时填写；不填写则按版本状态浏览全部教材。</p></div></details>
+      <div v-else-if="mode === 'manage' && kind === 'textbook'" class="field"><label for="textbook-filter">教材身份 ID 筛选（可选）</label><input id="textbook-filter" v-model="textbookFilter" :disabled="loading" /></div>
+      <form v-if="mode === 'manage'" class="content-toolbar" :class="{ 'admin-toolbar': consolePresentation }" @submit.prevent="loadList()"><div class="field"><label for="version-status">版本状态</label><select id="version-status" v-model="status" :disabled="loading"><option value="">全部状态</option><option value="draft">草稿</option><option value="review">待审核</option><option value="published">已发布</option><option value="retired">已停用</option></select></div><button class="button secondary" :disabled="loading">筛选</button><button v-if="canEdit" type="button" class="button" :disabled="loading" @click="openCreate">{{ kind === 'textbook' ? '新建教材版本' : '新建题目' }}</button></form>
+      <ResourceTable v-if="consolePresentation && mode === 'manage'" :headers="['标题', kind === 'textbook' ? '版本号 / 修订' : '修订', '状态', '操作']" :busy="loading" :empty="!items.length" :empty-label="error ? '版本列表未能读取，请确认权限或重新筛选。' : '当前没有符合条件的版本。可调整筛选，或创建第一份草稿。'">
+        <tr v-for="item in items" :key="item.id">
+          <td>{{ item.title }}</td>
+          <td><template v-if="kind === 'textbook'">{{ item.edition_code || '未填写版本号' }} · </template>修订 {{ item.revision }}</td>
+          <td><StatusBadge :status="item.status" :label="versionStatusLabels[item.status]" /></td>
+          <td><button class="button secondary" :disabled="loading" @click="openVersion(item.id)">查看与编辑</button></td>
+        </tr>
+      </ResourceTable>
+      <template v-else>
+        <p v-if="!loading && !items.length" class="content-empty">{{ mode === 'manage' ? '当前没有符合条件的版本。可调整筛选，或创建第一份草稿。' : '当前没有可阅读的已发布教材。请联系组织管理员确认内容发布与授权。' }}</p>
+        <ul v-else class="content-list"><li v-for="item in items" :key="item.id"><div><h3>{{ item.title }}</h3><p class="field-help">{{ item.edition_code || `题目版本 ${item.id}` }} · {{ mode === 'read' ? '已发布' : versionStatusLabels[item.status] }}</p></div><button class="button secondary" :disabled="loading" @click="openVersion(item.id)">{{ mode === 'manage' ? '查看与编辑' : '开始阅读' }}</button></li></ul>
+      </template>
       <button v-if="cursor" class="button secondary" :disabled="loading" @click="loadList(true)">加载更多</button>
     </template>
     <template v-else>
       <div class="actions"><button class="button secondary" :disabled="loading" @click="navigate(mode, kind)">返回列表</button><button class="button secondary" :disabled="loading" @click="openVersion(selected.id)">重新加载版本</button></div>
-      <header class="stack"><h2>{{ selected.title }}</h2><p class="field-help">版本 ID：{{ selected.id }} · 修订 {{ selected.revision }} · {{ mode === 'read' ? '已发布' : selected.status }}</p></header>
+      <header class="stack"><h2>{{ selected.title }}</h2><template v-if="consolePresentation"><p class="field-help"><template v-if="selected.edition_code">版本号 {{ selected.edition_code }} · </template>修订 {{ selected.revision }} · <StatusBadge :status="mode === 'read' ? 'published' : selected.status" :label="mode === 'read' ? '已发布' : versionStatusLabels[selected.status]" /></p><details><summary>高级定位</summary><p class="field-help">版本 ID：{{ selected.id }}</p></details></template><p v-else class="field-help">版本 ID：{{ selected.id }} · 修订 {{ selected.revision }} · {{ mode === 'read' ? '已发布' : selected.status }}</p></header>
       <p v-if="selected.access_revoked_at" class="notice">授权已撤销，原文、答案和附件不可读取。原因：{{ selected.access_revoked_reason }}</p>
       <p v-if="selected.retired_reason" class="notice">撤回原因：{{ selected.retired_reason }}</p>
       <template v-if="mode === 'manage' && draft">
@@ -442,7 +467,7 @@ async function download(id: string) {
         <p v-if="!editable" class="notice">此版本只读。仅有编辑能力的账号可修改草稿；已发布版本可复制，待审核版本须先完成审核。</p>
         <p v-if="dirty" role="status">有未保存的本地修改。先保存，再上传附件或送审。</p>
         <p v-if="pendingSave" class="notice" role="status">保存结果尚未确认，已冻结本次内容与幂等键。再次点击恢复保存将继续原请求，不会重复创建修订。也可保留内容后重新加载核对服务端状态。</p>
-        <form class="stack" novalidate @submit.prevent="save">
+        <form class="stack" :autocomplete="consolePresentation ? 'off' : undefined" novalidate @submit.prevent="save">
           <fieldset class="stack content-fields" :disabled="!editable || loading || conflict || !!pendingSave">
             <legend>版本内容</legend>
             <div class="field"><label for="content-name">标题</label><input id="content-name" v-model="draft.title" maxlength="200" required /></div>
@@ -475,17 +500,18 @@ async function download(id: string) {
         <section class="content-section stack"><h3>审核与发布</h3><p v-if="selfReview" class="field-help">作者及贡献者不可审核自己的版本。请由另一位真实审核账号登录处理。</p><p v-if="dirty" class="field-help">保存所有本地修改后才能送审。</p><div class="field"><label for="review-reason">审核说明 / 退回或停止使用原因</label><textarea id="review-reason" v-model="reason" rows="3" maxlength="2000" :disabled="loading" /></div><div class="actions"><button v-if="editable" class="button" :disabled="loading || dirty || conflict" @click="transition('submit-review')">提交审核</button><button v-if="canReview && selected.status === 'review'" class="button secondary" :disabled="loading || selfReview || conflict" @click="transition('return')">退回修改</button><button v-if="canReview && selected.status === 'review'" class="button" :disabled="loading || selfReview || conflict" @click="transition('publish')">确认授权并发布</button><button v-if="canEdit && selected.status === 'published'" class="button secondary" :disabled="loading || conflict" @click="create(true)">复制为新版本（附件需重传）</button><button v-if="capabilities.includes('content:retire') && selected.status === 'published'" class="button secondary" :disabled="loading || dirty || conflict" @click="transition('retire')">撤回发布</button><button v-if="capabilities.includes('content:revoke')" class="button secondary" :disabled="loading || dirty || conflict" @click="transition('revoke-access')">撤销访问授权（不可恢复）</button></div></section>
       </template>
       <template v-else-if="mode === 'read'">
-        <div class="reader-layout"><nav aria-label="教材目录" class="stack"><h3>目录</h3><p v-if="!readerChapters.length">这份教材暂无章节，请联系内容管理员。</p><ol class="chapter-navigation"><li v-for="chapter in readerChapters" :key="chapter.id" :class="{ 'chapter-child': chapter.parent_id }"><button class="text-button" :disabled="loading" :aria-current="readerChapter?.id === chapter.id ? 'page' : undefined" @click="readChapter(chapter.id)">{{ chapter.title }}</button><p v-if="chapter.parent_id" class="field-help">上级：{{ readerChapters.find(parent => parent.id === chapter.parent_id)?.title }}</p></li></ol></nav><article class="stack"><template v-if="readerChapter"><h3>{{ readerChapter.title }}</h3><ReadingProgress v-if="capabilities.includes('learning:self')" :key="`${selected.id}:${readerChapter.id}:${readerChapter.edition_revision}`" ref="readingProgress" :request="request" :edition-id="selected.id" :edition-revision="readerChapter.edition_revision" :chapter-id="readerChapter.id" :body="readerChapter.body" @pending="emit('readingPending', $event)" @error="report" /><p v-else class="reading-body">{{ readerChapter.body }}</p><h4 v-if="readerChapter.knowledge_point_ids.length">关联知识点</h4><div class="actions"><button v-for="id in readerChapter.knowledge_point_ids" :key="id" class="button secondary" @click="readKnowledge(id)">查看知识点 {{ id }}</button></div><pre v-if="knowledge" class="content-json">{{ JSON.stringify(knowledge, null, 2) }}</pre><h4 v-if="readerChapter.resource_ids.length">章节附件</h4><button v-for="id in readerChapter.resource_ids" :key="id" class="button secondary" @click="download(id)">下载附件 {{ id }}</button></template><p v-else class="content-empty">从目录选择章节开始阅读。</p></article></div><section v-if="selected.resource_ids?.length" class="content-section stack"><h3>教材附件</h3><button v-for="id in selected.resource_ids" :key="id" class="button secondary" @click="download(id)">下载教材附件 {{ id }}</button></section>
+        <div class="reader-layout"><nav aria-label="教材目录" class="stack"><h3>目录</h3><p v-if="!readerChapters.length">这份教材暂无章节，请联系内容管理员。</p><ol class="chapter-navigation"><li v-for="chapter in readerChapters" :key="chapter.id" :class="{ 'chapter-child': chapter.parent_id }"><button class="text-button" :disabled="loading" :aria-current="readerChapter?.id === chapter.id ? 'page' : undefined" @click="readChapter(chapter.id)">{{ chapter.title }}</button><p v-if="chapter.parent_id" class="field-help">上级：{{ readerChapters.find(parent => parent.id === chapter.parent_id)?.title }}</p></li></ol></nav><article class="stack"><template v-if="readerChapter"><h3>{{ readerChapter.title }}</h3><ReadingProgress v-if="learner" :key="`${selected.id}:${readerChapter.id}:${readerChapter.edition_revision}`" ref="readingProgress" :request="request" :edition-id="selected.id" :edition-revision="readerChapter.edition_revision" :chapter-id="readerChapter.id" :body="readerChapter.body" @pending="emit('readingPending', $event)" @error="report" /><p v-else class="reading-body">{{ readerChapter.body }}</p><h4 v-if="readerChapter.knowledge_point_ids.length">关联知识点</h4><div class="actions"><button v-for="id in readerChapter.knowledge_point_ids" :key="id" class="button secondary" @click="readKnowledge(id)">查看知识点 {{ id }}</button></div><pre v-if="knowledge" class="content-json">{{ JSON.stringify(knowledge, null, 2) }}</pre><h4 v-if="readerChapter.resource_ids.length">章节附件</h4><button v-for="id in readerChapter.resource_ids" :key="id" class="button secondary" @click="download(id)">下载附件 {{ id }}</button></template><p v-else class="content-empty">从目录选择章节开始阅读。</p></article></div><section v-if="selected.resource_ids?.length" class="content-section stack"><h3>教材附件</h3><button v-for="id in selected.resource_ids" :key="id" class="button secondary" @click="download(id)">下载教材附件 {{ id }}</button></section>
       </template>
       <details v-if="mode === 'manage'" class="content-section"><summary>审计记录（含归属文件事件）</summary><p v-if="!audit.length">暂无可见审计记录。</p><ol><li v-for="event in audit" :key="event.id">{{ event.created_at }} · {{ event.action }} · 操作人 {{ event.actor_id }}<p>{{ event.reason }}</p><p class="field-help">{{ event.resource_type }} / {{ event.resource_id }} · 内容修订 {{ event.revision_before ?? '历史未记录' }} → {{ event.revision_after ?? '历史未记录' }} · 访问修订 {{ event.access_revision_before ?? '历史未记录' }} → {{ event.access_revision_after ?? '历史未记录' }}</p><p class="field-help">请求编号：{{ event.request_id }}</p></li></ol><button v-if="auditCursor" class="button secondary" :disabled="auditBusy || loading" @click="loadAudit()">加载更多审计记录</button></details>
     </template>
     <dialog ref="createDialog" class="content-dialog" aria-labelledby="new-content-title" @close="onCreateClosed" @cancel="loading && $event.preventDefault()">
-      <form class="stack" @submit.prevent="create(false)">
+      <form class="stack" :autocomplete="consolePresentation ? 'off' : undefined" @submit.prevent="create(false)">
         <h2 id="new-content-title">{{ kind === 'textbook' ? '新建教材版本' : '新建题目' }}</h2>
         <div v-if="error" class="notice" role="alert"><p>{{ error }}</p><ul v-if="Object.keys(fieldErrors).length"><li v-for="(message, field) in fieldErrors" :key="field"><button type="button" class="text-button" @click="focusField(String(field))">{{ field }}：{{ message }}（定位字段）</button></li></ul></div>
         <p v-if="!options.subjects.length || (kind === 'textbook' && !options.education_stages.length)" class="notice">基础目录为空。请运维使用目录导入 CLI 导入真实学段、学科和知识点后刷新页面；系统不会创建示例数据。</p>
         <div class="field"><label for="new-title">标题</label><input id="new-title" v-model="createTitle" autofocus required maxlength="200" /></div>
-        <div class="field"><label for="existing-identity">已有{{ kind === 'textbook' ? '教材' : '题目' }}身份 ID（可选）</label><input id="existing-identity" v-model="existingIdentity" /><p class="field-help">填写同组织身份 ID 可创建不复制来源的空草稿；留空则创建新身份。</p></div>
+        <details v-if="consolePresentation" class="content-section"><summary>高级定位</summary><div class="field"><label for="existing-identity">已有{{ kind === 'textbook' ? '教材' : '题目' }}身份 ID（可选）</label><input id="existing-identity" v-model="existingIdentity" /><p class="field-help">仅在已知同组织身份 ID 时填写，可创建不复制来源的空草稿；常规新建请留空，使用学科{{ kind === 'textbook' ? '与学段' : '' }}选择。</p></div></details>
+        <div v-else class="field"><label for="existing-identity">已有{{ kind === 'textbook' ? '教材' : '题目' }}身份 ID（可选）</label><input id="existing-identity" v-model="existingIdentity" /><p class="field-help">填写同组织身份 ID 可创建不复制来源的空草稿；留空则创建新身份。</p></div>
         <div v-if="kind === 'textbook' && !existingIdentity.trim()" class="field"><label for="new-stage">学段</label><select id="new-stage" v-model="stageId" required><option value="" disabled>选择学段</option><option v-for="item in options.education_stages" :key="item.id" :value="item.id">{{ item.name }}</option></select></div>
         <div class="field"><label for="new-subject">学科</label><select id="new-subject" v-model="subjectId" required><option value="" disabled>选择学科</option><option v-for="item in options.subjects" :key="item.id" :value="item.id">{{ item.name }}</option></select></div>
         <div v-if="kind === 'textbook'" class="field"><label for="new-edition">版本号</label><input id="new-edition" v-model="editionCode" required /></div>

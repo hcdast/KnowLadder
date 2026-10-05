@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BrandIcon from '../components/BrandIcon.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiError, type BusinessRequest, type Identity } from '../session';
 import AssessmentSession from '../assessment/AssessmentSession.vue';
@@ -155,11 +156,11 @@ onMounted(() => {
     const value: unknown = JSON.parse(sessionStorage.getItem(storageKey) || 'null');
     if (value !== null) {
       const v = value as Partial<Recovery>;
-      if (!v || !['learning.mistake.practice', 'learning.recommendation.practice'].includes(v.operation || '') || typeof v.resource !== 'string' || !/^[0-9a-f-]{36}$/i.test(v.resource) || typeof v.key !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(v.key) || Object.keys(v).some(k => !['operation', 'resource', 'key'].includes(k))) throw new Error('安全恢复元数据格式无效，请联系支持，不要重新创建。');
+      if (!v || !['learning.mistake.practice', 'learning.recommendation.practice'].includes(v.operation || '') || typeof v.resource !== 'string' || !/^[0-9a-f]{24}$/.test(v.resource) || typeof v.key !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/.test(v.key) || Object.keys(v).some(k => !['operation', 'resource', 'key'].includes(k))) throw new Error('安全恢复元数据格式无效，请联系支持，不要重新创建。');
       pending.value = v as Recovery;
     }
     const assessment = JSON.parse(sessionStorage.getItem(`assessment-recovery:${props.identity.user.id}:${props.identity.context?.org_id}`) || 'null') as import('../assessment/types').Recovery | null;
-    if (assessment && assessment.user === props.identity.user.id && assessment.org === props.identity.context?.org_id && ['answer.save', 'session.submit'].includes(assessment.operation) && typeof assessment.session_id === 'string' && /^[0-9a-f-]{36}$/i.test(assessment.session_id)) {
+    if (assessment && assessment.user === props.identity.user.id && assessment.org === props.identity.context?.org_id && ['answer.save', 'session.submit'].includes(assessment.operation) && typeof assessment.session_id === 'string' && /^[0-9a-f]{24}$/.test(assessment.session_id)) {
       selectedSession.value = assessment.session_id;
       notice.value = '已恢复原测评会话，请先确认待处理作答或交卷结果。';
     }
@@ -170,8 +171,8 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
 </script>
 
 <template>
-  <section class="panel content-workspace stack" aria-labelledby="learning-title">
-    <header class="page-heading"><p class="eyebrow">我的学习</p><h2 id="learning-title">以真实证据，决定下一步</h2><p class="muted">掌握度基于近90天的合格首次记录作答；至少5道独立题目才提供诊断。重复练习可更新错题状态，不会刷高首次证据。</p></header>
+  <section class="panel content-workspace stack learning-surface" aria-labelledby="learning-title">
+    <header class="page-heading"><p class="eyebrow"><BrandIcon name="chart-no-axes-combined" />我的学习</p><h2 id="learning-title">以真实证据，决定下一步</h2><p class="muted">掌握度基于近90天的合格首次记录作答；至少5道独立题目才提供诊断。重复练习可更新错题状态，不会刷高首次证据。</p></header>
     <p v-if="!allowed" class="notice" role="alert">当前身份不具备独立学生学情权限，兼任内容或评估管理者不能访问此工作台。</p>
     <template v-else>
       <nav class="content-toolbar" aria-label="学情导航"><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'mastery'" @click="navigate('mastery')">学情与报告</button><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'mistakes'" @click="navigate('mistakes')">错题</button><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'recommendations'" @click="navigate('recommendations')">下一步推荐</button></nav>
@@ -182,7 +183,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
       <AssessmentSession v-if="selectedSession" :key="selectedSession" :session-id="selectedSession" :identity="identity" :request="request" @dirty="childDirty = $event" @unknown="childUnknown = $event" />
       <template v-else-if="!denied">
         <div class="content-columns"><div class="field"><label for="learning-edition">教材版本（推荐必选）</label><select id="learning-edition" v-model="edition" :disabled="locked" @change="chooseEdition"><option value="">不限定教材 / 考试学科</option><option v-for="book in books" :key="book.id" :value="book.id">{{ book.title }} · {{ book.edition_code }}</option></select><button v-if="bookCursor" class="text-button" :disabled="locked" @click="catalogue('books')">加载更多真实教材</button></div><div class="field"><label for="learning-subject">学科</label><select id="learning-subject" v-model="subject" :disabled="locked || mode === 'recommendations'" @change="chooseSubject"><option value="">选择教材或考试学科</option><option v-for="id in subjects" :key="id" :value="id">{{ id === options?.subject_id ? '所选教材学科' : '学科' }} · {{ id }}</option></select><p class="field-help">学科来自真实教材与可见考试；没有教材的考试学科也可查阅学情。接口未提供名称时保留真实编号。</p><button v-if="quizCursor" class="text-button" :disabled="locked" @click="catalogue('quizzes')">加载更多考试学科</button></div></div>
-        <details v-if="mode !== 'recommendations'"><summary>按已知学科编号读取（含历史考试）</summary><form class="stack" @submit.prevent="subject = subjectInput; chooseSubject()"><label for="learning-subject-id">真实学科编号</label><input id="learning-subject-id" v-model="subjectInput" :disabled="locked" required pattern="[0-9a-fA-F-]{36}" /><p class="field-help">历史会话接口不返回学科编号；请使用已知真实编号，系统不推测考试归属。</p><button class="button secondary" :disabled="locked">读取学科</button></form></details>
+        <details v-if="mode !== 'recommendations'"><summary>按已知学科编号读取（含历史考试）</summary><form class="stack" @submit.prevent="subject = subjectInput; chooseSubject()"><label for="learning-subject-id">真实学科编号</label><input id="learning-subject-id" v-model="subjectInput" :disabled="locked" required pattern="[0-9a-f]{24}" /><p class="field-help">历史会话接口不返回学科编号；请使用已知真实编号，系统不推测考试归属。</p><button class="button secondary" :disabled="locked">读取学科</button></form></details>
         <button class="text-button" :disabled="locked" @click="catalogue()">重新读取教材与考试目录</button>
         <nav v-if="mode === 'mastery'" class="content-toolbar" aria-label="报告窗口"><button v-for="tab in (['mastery', '7d', '30d'] as const)" :key="tab" class="button secondary" :disabled="locked" :aria-pressed="period === tab" @click="period = tab; load()">{{ tab === 'mastery' ? '90天掌握度' : tab === '7d' ? '最近7天报告' : '最近30天报告' }}</button></nav>
         <div v-if="mode === 'mistakes'" class="field"><label for="mistake-status">错题状态</label><select id="mistake-status" v-model="status" :disabled="locked" @change="load()"><option value="active">待解决</option><option value="resolved">已解决</option><option value="all">全部</option></select></div>

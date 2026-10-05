@@ -424,3 +424,30 @@ code {
   .content-list > li { align-items: start; flex-direction: column; }
   .content-dialog { padding: var(--space-4); }
 }
+/* Workspace navigation and account settings; business pages own their content. */
+.workspace-header-tools { display: flex; align-items: center; justify-content: flex-end; gap: 1.25rem; min-width: 0; }
+.workspace-organization { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.workspace-organization > span { white-space: nowrap; }
+.workspace-organization select { width: min(18rem, 30vw); }
+.workspace-account-menu { position: relative; flex-shrink: 0; }
+.workspace-account-menu summary { display: flex; align-items: center; gap: .5rem; cursor: pointer; min-height: 2.75rem; list-style: none; }
+.workspace-account-menu summary > span:last-child { max-width: 9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-avatar { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--color-action); color: #fff; }
+.workspace-account-links { position: absolute; right: 0; top: calc(100% + .5rem); min-width: 11rem; z-index: 10; padding: .5rem; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: .75rem; box-shadow: 0 8px 24px #172a3a18; }
+.workspace-account-links a, .workspace-account-links button { display: block; width: 100%; padding: .75rem; border: 0; border-radius: .4rem; background: transparent; color: var(--color-text); text-decoration: none; text-align: left; }
+.workspace-account-links a:hover, .workspace-account-links button:hover { background: var(--color-selected); }
+.settings-section { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding-block: 1.25rem; border-top: 1px solid var(--color-border); }
+.settings-section h2 { font-size: 1.1rem; margin-bottom: .5rem; }
+.settings-link { display: inline-flex; align-items: center; text-decoration: none; }
+.account-diagnostics { border-top: 1px solid var(--color-border); padding-top: 1rem; }
+.account-diagnostics summary { cursor: pointer; color: var(--color-muted); padding-block: .5rem; }
+.account-diagnostics > p, .account-diagnostics > ul { margin-top: .75rem; }
+.settings-breadcrumb { display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+@media (max-width: 48rem) {
+  .app-header:has(.workspace-header-tools) { flex-wrap: wrap; }
+  .workspace-header-tools { width: 100%; justify-content: space-between; gap: .75rem; }
+  .workspace-organization { flex: 1; }
+  .workspace-organization > span { display: none; }
+  .workspace-organization select { width: 100%; }
+  .workspace-account-menu summary > span:last-child { display: none; }
+}

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BrandIcon from '../components/BrandIcon.vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiError, type BusinessRequest, type Identity } from '../session';
 import AssessmentAdmin from './AssessmentAdmin.vue';
@@ -7,7 +8,7 @@ import type { Page, PracticeOptions, StudentQuiz, Recovery, Resolution, Session 
 const props = defineProps<{ identity: Identity; request: BusinessRequest }>();
 const emit = defineEmits<{ dirty: [value: boolean]; unknown: [value: boolean] }>();
 const caps = props.identity.context?.capabilities || [];
-const learner = caps.includes('learning:self');
+const learner = caps.includes('learning:self') && !props.identity.context?.student_conflict && !caps.some(cap => ['content:edit', 'content:review', 'assessment:manage', 'assessment:review'].includes(cap));
 const admin = caps.some(c => ['assessment:manage', 'assessment:review'].includes(c));
 const mode = ref(learner ? 'practice' : 'admin');
 const busy = ref(false), error = ref(''), childDirty = ref(false), childUnknown = ref(false);
@@ -74,8 +75,8 @@ onMounted(() => { try { const value = JSON.parse(sessionStorage.getItem(storageK
 onBeforeUnmount(() => { alive = false; serial++; life.abort(); window.removeEventListener('beforeunload', beforeUnload); emit('dirty', false); emit('unknown', false); });
 </script>
 <template>
-  <section class="panel content-workspace stack" aria-labelledby="assessment-title">
-    <header class="page-heading"><p class="eyebrow">练习与测评</p><h2 id="assessment-title">从作答到反馈，每一步都有记录</h2><p class="muted">次数、截止与成绩由服务器确认。尚未保存的作答不会在刷新后恢复。</p></header>
+  <section class="panel content-workspace stack learning-surface" aria-labelledby="assessment-title">
+    <header class="page-heading"><p class="eyebrow"><BrandIcon name="notebook-pen" />练习与测评</p><h2 id="assessment-title">从作答到反馈，每一步都有记录</h2><p class="muted">次数、截止与成绩由服务器确认。尚未保存的作答不会在刷新后恢复。</p></header>
     <nav class="content-toolbar" aria-label="测评导航">
       <button v-if="learner" class="button secondary" :aria-pressed="mode === 'practice'" @click="navigate('practice')">开始练习</button>
       <button v-if="learner" class="button secondary" :aria-pressed="mode === 'quizzes'" @click="navigate('quizzes')">参加考试</button>

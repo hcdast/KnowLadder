@@ -75,7 +75,7 @@ async function upload(event: Event) {
   if (!file || busy.value || props.disabled || pending.value) return;
   if (!file.size || file.size > 10 * 1024 * 1024) { message.value = "请选择非空且不超过 10 MiB 的文件。"; return; }
   const mime = file.type || (/\.txt$/i.test(file.name) ? "text/plain" : "");
-  if (!["application/pdf", "image/png", "image/jpeg", "text/plain"].includes(mime)) { message.value = "仅支持 PDF、PNG、JPEG 或 UTF-8 文本。"; return; }
+  if (!["application/pdf", "image/png", "image/jpeg", "text/plain", "video/mp4", "audio/mpeg"].includes(mime)) { message.value = "支持 PDF、PNG、JPEG、UTF-8 文本；启用培训扩展后支持 MP4 与 MP3。"; return; }
   busy.value = true;
   try {
     message.value = "正在核对 SHA-256…";

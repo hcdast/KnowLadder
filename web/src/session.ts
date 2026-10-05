@@ -14,6 +14,7 @@ export class ApiError extends Error {
     public retryAfter = "",
     public requestId = "",
     public code = "",
+    public operationId = "",
   ) {
     super(message);
   }
@@ -54,6 +55,7 @@ export function useSession() {
   let pendingQuietCheck = false;
   let quietController: AbortController | undefined;
   let businessRetryAt = 0;
+  let identityTimer = 0;
 
   function begin() {
     quietController?.abort();
@@ -78,6 +80,7 @@ export function useSession() {
     return previous.user.id !== next.user.id ||
       previous.context?.org_id !== next.context?.org_id ||
       previous.must_change_password !== next.must_change_password ||
+      previous.context?.student_conflict !== next.context?.student_conflict ||
       JSON.stringify([...(previous.context?.capabilities || [])].sort()) !== JSON.stringify([...(next.context?.capabilities || [])].sort());
   }
   function broadcast() {
@@ -85,7 +88,7 @@ export function useSession() {
   }
   function report(error: unknown) {
     if (error instanceof ApiError) {
-      state.message = error.message;
+      state.message = error.operationId ? `${error.message} · 操作编号 ${error.operationId}` : error.message;
       state.fields = error.fields;
       state.requestId = error.requestId;
       state.retryAfter = error.retryAfter;
@@ -129,6 +132,7 @@ export function useSession() {
           response.headers.get("Retry-After") || "",
           payload?.request_id || "",
           payload?.error?.code || "",
+          payload?.error?.operation_id || "",
         );
       return payload?.data as T;
     } finally {
@@ -181,7 +185,7 @@ export function useSession() {
         method, credentials: "same-origin", cache: "no-store", headers, signal: abort.signal,
         body: options.body === undefined ? undefined : raw ? options.body as Blob : JSON.stringify(options.body),
       });
-      let payload: { data?: unknown; error?: { code?: string; message?: string; fields?: Record<string, string> }; request_id?: string } | null = null;
+      let payload: { data?: unknown; error?: { code?: string; message?: string; fields?: Record<string, string>; operation_id?: string }; request_id?: string } | null = null;
       let blob: Blob | undefined;
       try { if (response.ok && options.responseType === "blob") blob = await response.blob(); else if (response.status !== 204) payload = await response.json(); }
       catch (cause) { if (response.ok) throw cause; }
@@ -203,7 +207,7 @@ export function useSession() {
           controller.abort();
           state.message = "账号或权限需要重新确认，已清除内容视图。请重新查询会话。";
         }
-        throw new ApiError(response.status, payload?.error?.message || "请求失败", payload?.error?.fields, response.headers.get("Retry-After") || "", payload?.request_id || "", payload?.error?.code || "");
+        throw new ApiError(response.status, payload?.error?.message || "请求失败", payload?.error?.fields, response.headers.get("Retry-After") || "", payload?.request_id || "", payload?.error?.code || "", payload?.error?.operation_id || "");
       }
       return (options.responseType === "blob" ? blob : payload?.data) as T;
     } finally {
@@ -344,7 +348,7 @@ export function useSession() {
     writeInFlight = true;
     let notifyPeers = false;
     let recoveryMessage = "";
-    if (action === "logout") {
+    if (action === "logout" || action === "refresh") {
       clearIdentity();
       state.phase = "loading";
     }
@@ -403,7 +407,7 @@ export function useSession() {
         state.phase = "unknown";
         state.message += " 请重新查询身份与安全凭证后再操作。";
       } else {
-        state.phase = previousPhase;
+        state.phase = action === "refresh" ? "unknown" : previousPhase;
       }
     } finally {
       writeInFlight = false;
@@ -432,6 +436,13 @@ export function useSession() {
     )
       void quietIdentityCheck();
   }
+  function onPageShow(event: PageTransitionEvent) { if (event.persisted) onWake(); }
+  function onPageHide() {
+    quietController?.abort(); quietController = undefined;
+    generation += 1; controller.abort(); controller = new AbortController();
+    csrf = ""; lastChecked = 0; pendingResync = false; pendingQuietCheck = false;
+    clearIdentity(); state.phase = "unknown"; state.busy = false;
+  }
   function onBroadcast(event: MessageEvent) {
     if (event.data !== "identity-changed" || disposed) return;
     if (writeInFlight) {
@@ -452,6 +463,9 @@ export function useSession() {
       channel.addEventListener("message", onBroadcast);
     }
     window.addEventListener("focus", onWake);
+    window.addEventListener("pageshow", onPageShow);
+    window.addEventListener("pagehide", onPageHide);
+    identityTimer = window.setInterval(onWake, 30000);
     document.addEventListener("visibilitychange", onWake);
     void synchronize();
   });
@@ -462,6 +476,9 @@ export function useSession() {
     controller.abort();
     channel?.close();
     window.removeEventListener("focus", onWake);
+    window.removeEventListener("pageshow", onPageShow);
+    window.removeEventListener("pagehide", onPageHide);
+    window.clearInterval(identityTimer);
     document.removeEventListener("visibilitychange", onWake);
   });
   return { state, synchronize, mutate, businessRequest, globalRequest };
