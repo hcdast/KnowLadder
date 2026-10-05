@@ -1,0 +1,172 @@
+TAP version 13
+# Subtest: 三题型精确评分且多选不依赖顺序、不计部分分
+ok 1 - 三题型精确评分且多选不依赖顺序、不计部分分
+  ---
+  duration_ms: 2.0995
+  type: 'test'
+  ...
+# Subtest: 数值含受限指数精确等价，不经过浮点且规范化再次输入稳定
+ok 2 - 数值含受限指数精确等价，不经过浮点且规范化再次输入稳定
+  ---
+  duration_ms: 1.7824
+  type: 'test'
+  ...
+# Subtest: 百分之一分使用BigInt，冻结满分优先且未知规则不会假零分
+ok 3 - 百分之一分使用BigInt，冻结满分优先且未知规则不会假零分
+  ---
+  duration_ms: 0.3239
+  type: 'test'
+  ...
+# Subtest: 评分规则允许草稿null，限制版本、策略和精确满分范围
+ok 4 - 评分规则允许草稿null，限制版本、策略和精确满分范围
+  ---
+  duration_ms: 1.9893
+  type: 'test'
+  ...
+# Subtest: 三题型送审必须匹配策略与有效答案，不允许草稿缺项
+ok 5 - 三题型送审必须匹配策略与有效答案，不允许草稿缺项
+  ---
+  duration_ms: 0.8614
+  type: 'test'
+  ...
+# Subtest: 数值答案保留精确十进制文本，限制长度和指数而非浮点舍入
+ok 6 - 数值答案保留精确十进制文本，限制长度和指数而非浮点舍入
+  ---
+  duration_ms: 0.3202
+  type: 'test'
+  ...
+# Subtest: 知识点权重为正整数、无重复、集合精确匹配且总和10000
+ok 7 - 知识点权重为正整数、无重复、集合精确匹配且总和10000
+  ---
+  duration_ms: 0.3306
+  type: 'test'
+  ...
+# Subtest: 学生DTO仅暴露白名单，章节只有教材归属与冻结revision而无edition_id别名
+ok 8 - 学生DTO仅暴露白名单，章节只有教材归属与冻结revision而无edition_id别名
+  ---
+  duration_ms: 0.2123
+  type: 'test'
+  ...
+# Subtest: 授权撤销安全元数据禁止返回正文答案授权或资源引用
+ok 9 - 授权撤销安全元数据禁止返回正文答案授权或资源引用
+  ---
+  duration_ms: 0.2829
+  type: 'test'
+  ...
+# Subtest: ObjectId codec only converts declared references, leaves text/tokens intact
+ok 10 - ObjectId codec only converts declared references, leaves text/tokens intact
+  ---
+  duration_ms: 1.6515
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: v10 replicaSet: native IDs, auth, natural keys and strict UUID rejection
+ok 11 - v10 replicaSet: native IDs, auth, natural keys and strict UUID rejection
+  ---
+  duration_ms: 4107.7308
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: v10 standalone: native IDs, auth, natural keys and strict UUID rejection
+ok 12 - v10 standalone: native IDs, auth, natural keys and strict UUID rejection
+  ---
+  duration_ms: 2053.8378
+  type: 'test'
+  ...
+# Subtest: v10 replicaSet: initialization rejects legacy and resumes same-version failure
+ok 13 - v10 replicaSet: initialization rejects legacy and resumes same-version failure
+  ---
+  duration_ms: 2875.786
+  type: 'test'
+  ...
+# Subtest: v10 standalone: initialization rejects legacy and resumes same-version failure
+ok 14 - v10 standalone: initialization rejects legacy and resumes same-version failure
+  ---
+  duration_ms: 1762.5319
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: ObjectId chapters: server allocation, parent mapping, replay and ownership
+ok 15 - ObjectId chapters: server allocation, parent mapping, replay and ownership
+  ---
+  duration_ms: 5192.019
+  type: 'test'
+  ...
+# Subtest: v10 preserves historical v8 validators and refuses implicit conversion
+ok 16 - v10 preserves historical v8 validators and refuses implicit conversion
+  ---
+  duration_ms: 5734.8879
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+ok 17 - 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+  ---
+  duration_ms: 6738.8929
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+ok 18 - 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+  ---
+  duration_ms: 5580.8648
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+ok 19 - AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+  ---
+  duration_ms: 5390.6013
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+ok 20 - AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+  ---
+  duration_ms: 5262.6173
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+ok 21 - 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+  ---
+  duration_ms: 5909.0364
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+ok 22 - 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+  ---
+  duration_ms: 5373.5507
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：v11 备份登记、空库恢复约束与隐私分类
+ok 23 - 培训：v11 备份登记、空库恢复约束与隐私分类
+  ---
+  duration_ms: 7789.4285
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+ok 24 - AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+  ---
+  duration_ms: 5145.3456
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+ok 25 - AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+  ---
+  duration_ms: 4986.5432
+  type: 'test'
+  ...
+1..25
+# tests 25
+# suites 0
+# pass 25
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 75252.8083

@@ -1,0 +1,23 @@
+{
+  "scanner": "ClamAV 1.4.6/28141/Fri Oct  2 14:26:12 2026",
+  "database": [
+    {
+      "name": "bytecode.cvd",
+      "length": 281702,
+      "sha256": "6D4AA01F219E988060FC419F495D07F27E0CDF1A2CCCC065971DA922C76F7FFB"
+    },
+    {
+      "name": "daily.cvd",
+      "length": 23436775,
+      "sha256": "441E9585704BA74D0D75DCDAE36B467F09770901F855EF6AA4462992FE3ED41F"
+    },
+    {
+      "name": "main.cvd",
+      "length": 89072577,
+      "sha256": "0B2182D229F46981EC8F535382222F7C9DFDD656B250AD47988B910A8D302365"
+    }
+  ],
+  "update_log": "revision79-scanner-update-final.log",
+  "final_regression": "revision79-final-complete.log",
+  "cleaned": true
+}

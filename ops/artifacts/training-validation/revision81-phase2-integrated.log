@@ -1,0 +1,17 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 二期：v15隔离迁移、排课冲突、独立考勤/路径/证书、通知与撤权
+ok 1 - 二期：v15隔离迁移、排课冲突、独立考勤/路径/证书、通知与撤权
+  ---
+  duration_ms: 10126.1726
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10305.2458

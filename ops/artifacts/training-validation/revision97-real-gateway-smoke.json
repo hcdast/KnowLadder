@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "transport": "real-gateway-smoke",
+  "model": "gpt-5.5",
+  "corpus_sha256": "b29d6f49b53ba933a2238ef17b0d3ed76f4fa3fa5c1d0a59d34eecb6a77c5be9",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "started_at": "2026-10-04T14:49:06.960Z",
+  "request_attempts": 4,
+  "cost_usd": null,
+  "records": [
+    {
+      "case_id": "assist-01",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5431,
+      "usage": {
+        "prompt_tokens": 152,
+        "completion_tokens": 285,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"可以这样理解这个关键原则：\\n\\n当你收到一个不太清楚的任务或需求时，不要马上开始做。第一步应该是先确认自己有没有理解对方的意思。\\n\\n具体可以按这几个步骤来做：\\n\\n1. 先复述目标  \\n   用自己的话把任务说一遍，比如：“我的理解是，我们要完成……，对吗？”这样可以避免一开始方向就错了。\\n\\n2. 询问要交付什么  \\n   问清楚最后需要给对方什么东西，比如是一份文档、一个表格、一个方案，还是其他成果。\\n\\n3. 确认截止时间  \\n   问清楚什么时候需要完成，避免因为时间理解不同而耽误任务。\\n\\n4. 明确验收条件  \\n   问清楚做到什么程度才算完成，比如需要包含哪些内容、达到什么标准，对方才会认为任务合格。\\n\\n5. 记录确认结果  \\n   把双方已经确认好的内容记录下来，方便之后对照，也能减少误会。\\n\\n简单来说，就是：遇到模糊需求时，先问清楚，再开始做。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null
+    },
+    {
+      "case_id": "prepare-01",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7959,
+      "usage": {
+        "prompt_tokens": 157,
+        "completion_tokens": 376,
+        "reasoning_tokens": 44
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节：先说明在收到模糊需求时的处理目标——避免误解，形成双方确认的清晰需求。重点讲解四个步骤：第一，先复述对方目标；第二，询问交付物；第三，确认截止时间；第四，明确验收条件。最后强调要记录双方确认事项。\\n\\n2. 练习环节：设置一个“模糊需求”情境，请学员两人一组进行角色扮演。一人扮演提出需求者，一人扮演接收需求者。接收需求者需要按照讲解步骤完成复述目标、询问交付物、截止时间和验收条件，并在练习结束后写下确认记录。\\n\\n3. 反馈环节：练习结束后，讲师根据学员表现进行反馈。反馈重点包括：是否准确复述目标，是否问清交付物、截止时间和验收条件，是否形成双方确认事项记录。可先让学员自评，再由同伴补充，最后由讲师总结共性问题和改进建议。\\n\\n4. 衔接方式：讲解提供方法框架，练习让学员现场应用，反馈帮助学员发现遗漏并修正表达。最后可请学员根据反馈重新完善一次需求确认记录，完成从理解、实践到改进的闭环。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null
+    },
+    {
+      "case_id": "questions-01",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5536,
+      "usage": {
+        "prompt_tokens": 156,
+        "completion_tokens": 213,
+        "reasoning_tokens": 22
+      },
+      "response_json": "{\"text\":\"题目：当收到一个模糊需求时，以下哪种做法最符合需求澄清的流程？\\n\\nA. 立即开始执行，边做边猜测对方意图\\nB. 先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项\\nC. 只询问截止时间，其他内容根据经验自行判断\\nD. 等对方再次催促时再确认需求细节\\n\\n正确答案：B\\n\\n解析：收到模糊需求时，应先复述目标，确保双方对目标理解一致；再进一步询问交付物、截止时间与验收条件；最后记录双方确认事项，以减少误解和返工。A、C、D都没有完整完成需求澄清流程。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null
+    },
+    {
+      "case_id": "learning-report-01",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6613,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 296,
+        "reasoning_tokens": 78
+      },
+      "response_json": "{\"interpretation\":\"当前匿名有效学情仅能说明可用于判断掌握水平的证据不足，暂不宜据此判断整体掌握状况或学习成效分布。培训完成情况不可用，不能据此推断培训完成率。\",\"suggestions\":[\"先补充有效学习证据，例如课堂练习、阶段测验、任务提交或互动反馈，再进行学情判断。\",\"采用低门槛诊断活动了解学生对核心概念与关键技能的理解情况，避免直接依据不足数据作结论。\",\"教学上可先安排复习、示例讲解与基础巩固任务，为后续形成更可靠的学习证据做准备。\",\"后续收集数据时注意统一评价标准与提交要求，提升学情分析的可解释性。\",\"将AI生成内容作为辅助参考，具体教学决策应结合教师观察、课堂表现与系统独立展示的事实信息。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null
+    }
+  ],
+  "human_quality": "not_reviewed",
+  "production_system_http": "not_tested",
+  "finished_at": "2026-10-04T14:49:32.516Z"
+}

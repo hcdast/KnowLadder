@@ -1,0 +1,28 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件竞争：提交与到期清理互斥，任务取消与截止拒绝（非扫描验收）
+not ok 1 - 作业附件竞争：提交与到期清理互斥，任务取消与截止拒绝（非扫描验收）
+  ---
+  duration_ms: 8611.5909
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\training.integration.test.cjs:1591:1'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open 'C:\\Users\\Administrator\\knowladder-privacy-ledger-ZXSjzy\\race-files\\ready\\b4045afd-d17a-4fc5-921b-de49f7a51d92'"
+  code: 'ENOENT'
+  stack: |-
+    async open (node:internal/fs/promises:697:25)
+    async Object.writeFile (node:internal/fs/promises:1317:14)
+    async make (D:\my-workspace\KnowLadder\server\test\training.integration.test.cjs:1595:734)
+    async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\training.integration.test.cjs:1596:13)
+    async Test.run (node:internal/test_runner/test:1389:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 0
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8790.8008

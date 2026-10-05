@@ -1,0 +1,159 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+ok 1 - 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+  ---
+  duration_ms: 13368.1703
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+ok 2 - 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+  ---
+  duration_ms: 29310.0127
+  type: 'test'
+  ...
+# Subtest: 隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环
+    # Subtest: inspect 在未登记环境只读，未知集合拒绝且不产生任何DDL或状态
+    ok 1 - inspect 在未登记环境只读，未知集合拒绝且不产生任何DDL或状态
+      ---
+      duration_ms: 3002.6801
+      type: 'test'
+      ...
+    # Subtest: 批准、拒绝校验revision和plan，执行前再次拒绝过期plan
+    ok 2 - 批准、拒绝校验revision和plan，执行前再次拒绝过期plan
+      ---
+      duration_ms: 6185.364
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 多组织整账户删除保留共享内容及其他用户，身份不可重新启用
+    ok 3 - 多组织整账户删除保留共享内容及其他用户，身份不可重新启用
+      ---
+      duration_ms: 8781.7198
+      type: 'test'
+      ...
+    # Subtest: operations privacy-execute真实子进程正常退出，完成删除并清理writer与ledger锁
+    ok 4 - operations privacy-execute真实子进程正常退出，完成删除并清理writer与ledger锁
+      ---
+      duration_ms: 6917.1594
+      type: 'test'
+      ...
+    # Subtest: freeze前真实ledger故障后，failed重试仍校验源图并允许重批
+    ok 5 - freeze前真实ledger故障后，failed重试仍校验源图并允许重批
+      ---
+      duration_ms: 5690.3949
+      type: 'test'
+      ...
+    # Subtest: 真实pending阻止重批；维护abort后不同保留依据生成新intent并完成
+    ok 6 - 真实pending阻止重批；维护abort后不同保留依据生成新intent并完成
+      ---
+      duration_ms: 7927.4779
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: legal_hold保留完整评估依赖图，但仍删除学习证据并冻结身份
+    ok 7 - legal_hold保留完整评估依赖图，但仍删除学习证据并冻结身份
+      ---
+      duration_ms: 7441.7593
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: retention_until保留完整评估依赖图，但仍删除学习证据并冻结身份
+    ok 8 - retention_until保留完整评估依赖图，但仍删除学习证据并冻结身份
+      ---
+      duration_ms: 7472.2862
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 真实事务中途失败保持冻结，resume不重复删除计数和外部intent
+    ok 9 - 真实事务中途失败保持冻结，resume不重复删除计数和外部intent
+      ---
+      duration_ms: 9227.6188
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 源库已丢失且旧快照无request时，外部已提交proof仍恢复删除而不伤其他用户
+    ok 10 - 源库已丢失且旧快照无request时，外部已提交proof仍恢复删除而不伤其他用户
+      ---
+      duration_ms: 10573.4061
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: restore旧requested没有保留依据时先冻结，再阻止删除并要求review_retention
+    ok 11 - restore旧requested没有保留依据时先冻结，再阻止删除并要求review_retention
+      ---
+      duration_ms: 6450.9016
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: restore仅隔离态可重放，未知历史policy保持隔离且冻结而不误删
+    ok 12 - restore仅隔离态可重放，未知历史policy保持隔离且冻结而不误删
+      ---
+      duration_ms: 6701.0386
+      type: 'test'
+      ...
+    1..12
+ok 3 - 隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环
+  ---
+  duration_ms: 86378.3931
+  type: 'test'
+  ...
+# Subtest: 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+ok 4 - 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+  ---
+  duration_ms: 27672.7542
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+ok 5 - 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+  ---
+  duration_ms: 32318.968
+  type: 'test'
+  ...
+# Subtest: 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+ok 6 - 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+  ---
+  duration_ms: 16638.0546
+  type: 'test'
+  ...
+# Subtest: legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+ok 7 - legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+  ---
+  duration_ms: 2434.1008
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：v14隔离迁移、有效事实、独立审核、事实过期、并发与撤权
+ok 8 - 报告：v14隔离迁移、有效事实、独立审核、事实过期、并发与撤权
+  ---
+  duration_ms: 6699.8178
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：默认关闭，不新增v14集合或默认权限
+ok 9 - 报告：默认关闭，不新增v14集合或默认权限
+  ---
+  duration_ms: 4293.7685
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：真实评分与学情投影，未发布成绩排除，有效事实更新要求重审
+ok 10 - 报告：真实评分与学情投影，未发布成绩排除，有效事实更新要求重审
+  ---
+  duration_ms: 6876.5067
+  type: 'test'
+  ...
+1..10
+# tests 22
+# suites 0
+# pass 22
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 227053.5539
+An Process didnt exit with signal "SIGINT" within 10 seconds, using "SIGKILL"!
+Enable debug logs for more information

@@ -1,0 +1,15 @@
+{
+  "transport": "real-system-http",
+  "model": "gpt-5.5",
+  "request_attempts": 1,
+  "status": "succeeded",
+  "usage": {
+    "prompt_tokens": 183,
+    "completion_tokens": 216,
+    "reasoning_tokens": 35
+  },
+  "cost_usd": null,
+  "adoption": "draft_confirmed",
+  "human_quality": "not_reviewed",
+  "anonymous_payload": "verified"
+}

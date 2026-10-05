@@ -1,0 +1,2 @@
+ERROR: No DatabaseMirror or PrivateMirror servers set in freshclam config file.
+ERROR: Unable to find DatabaseMirror or PrivateMirror option(s) that specify database server FQDNs.

@@ -1,0 +1,119 @@
+TAP version 13
+# Subtest: 文件worker：删除租约、墓碑、保全与孤儿保护
+    # Subtest: 删除失败不写deleted_at，真实I/O恢复后重试保留墓碑与审计
+    not ok 1 - 删除失败不写deleted_at，真实I/O恢复后重试保留墓碑与审计
+      ---
+      duration_ms: 2931.6682
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\files-worker.integration.test.cjs:89:11'
+      failureType: 'testCodeFailure'
+      error: 'SAFETY_LEDGER_UNAVAILABLE'
+      code: 'ERR_TEST_FAILURE'
+      stack: |-
+        deny (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:35:25)
+        requireResourceId (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:39:5)
+        normalize (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:54:9)
+        reserveManagedSafetyIntent (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:512:5)
+        processDeletion (D:\my-workspace\KnowLadder\server\dist\files\worker.js:280:71)
+        process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\files-worker.integration.test.cjs:96:18)
+        async Test.run (node:internal/test_runner/test:1389:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\files-worker.integration.test.cjs:89:3)
+        async Test.run (node:internal/test_runner/test:1389:7)
+      ...
+    # Subtest: hold、未到期、无显式申请和有效独立租约均禁止删除
+    ok 2 - hold、未到期、无显式申请和有效独立租约均禁止删除
+      ---
+      duration_ms: 1089.0749
+      type: 'test'
+      ...
+    # Subtest: 所有版本和章节引用均阻断删除，包括其他组织及retired记录
+    ok 3 - 所有版本和章节引用均阻断删除，包括其他组织及retired记录
+      ---
+      duration_ms: 1134.8791
+      type: 'test'
+      ...
+    # Subtest: 中断删除租约到期可重领，两个worker仅一个完成，缺失文件视为成功
+    not ok 4 - 中断删除租约到期可重领，两个worker仅一个完成，缺失文件视为成功
+      ---
+      duration_ms: 1139.3974
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\files-worker.integration.test.cjs:156:11'
+      failureType: 'testCodeFailure'
+      error: 'SAFETY_LEDGER_UNAVAILABLE'
+      code: 'ERR_TEST_FAILURE'
+      stack: |-
+        deny (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:35:25)
+        requireResourceId (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:39:5)
+        normalize (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:54:9)
+        reserveManagedSafetyIntent (D:\my-workspace\KnowLadder\server\dist\operations\ledger.js:512:5)
+        processDeletion (D:\my-workspace\KnowLadder\server\dist\files\worker.js:280:71)
+        process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+        async Promise.all (index 0)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\files-worker.integration.test.cjs:159:21)
+        async Test.run (node:internal/test_runner/test:1389:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\files-worker.integration.test.cjs:156:3)
+      ...
+    # Subtest: 孤儿清理保留登记、有效上传/扫描租约及失败文件，只清理24小时外真正孤儿
+    ok 5 - 孤儿清理保留登记、有效上传/扫描租约及失败文件，只清理24小时外真正孤儿
+      ---
+      duration_ms: 9178.0359
+      type: 'test'
+      ...
+    # Subtest: rename后提交中断只重新排队扫描，过期token不得复活文件
+    ok 6 - rename后提交中断只重新排队扫描，过期token不得复活文件
+      ---
+      duration_ms: 5346.4826
+      type: 'test'
+      ...
+    # Subtest: 损坏ready与扫描重试耗尽均保持不可交付，活跃扫描不被恢复
+    ok 7 - 损坏ready与扫描重试耗尽均保持不可交付，活跃扫描不被恢复
+      ---
+      duration_ms: 5924.6337
+      type: 'test'
+      ...
+    1..7
+not ok 1 - 文件worker：删除租约、墓碑、保全与孤儿保护
+  ---
+  duration_ms: 26749.7337
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\files-worker.integration.test.cjs:86:1'
+  failureType: 'subtestsFailed'
+  error: '2 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Subtest: 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+ok 2 - 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+  ---
+  duration_ms: 29883.4488
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+ok 3 - 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+  ---
+  duration_ms: 31975.5523
+  type: 'test'
+  ...
+# Subtest: 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+ok 4 - 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+  ---
+  duration_ms: 16726.1888
+  type: 'test'
+  ...
+# Subtest: legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+ok 5 - legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+  ---
+  duration_ms: 2639.2429
+  type: 'test'
+  ...
+1..5
+# tests 12
+# suites 0
+# pass 9
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 108692.7992

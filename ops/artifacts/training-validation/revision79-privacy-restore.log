@@ -1,0 +1,24 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件隐私：真实私有字节物理擦除与墓碑幂等
+ok 1 - 作业附件隐私：真实私有字节物理擦除与墓碑幂等
+  ---
+  duration_ms: 40188.3447
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件隐私：真实私有字节保全留存
+ok 2 - 作业附件隐私：真实私有字节保全留存
+  ---
+  duration_ms: 9546.7933
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 49931.0445

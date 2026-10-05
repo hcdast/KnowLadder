@@ -1,0 +1,45 @@
+{
+  "revision": 78,
+  "date": "2026-10-02",
+  "environment": "Windows Node24.19.0 MongoDB8.0.17 disposable kl_test_* replicaSet; approved per-user temporary protected ledger roots",
+  "training": {
+    "pass": 14,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 90414.9143,
+    "phase": "before final ownership guard and CLI test addition",
+    "log": "revision78-training.log"
+  },
+  "final_retention": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 15537.1546,
+    "phase": "after review repair and actual CLI test addition",
+    "log": "revision78-retention-final.log"
+  },
+  "build": {
+    "server_tsc": 0,
+    "backup_node_check": 0
+  },
+  "verified": [
+    "Real encrypted primary/mirror safety ledger",
+    "Repeat hold operation advances head once",
+    "Hold release",
+    "Monotonic retention extension",
+    "Maintenance abort fences coursework head without access_revision",
+    "Subject erasing rejects hold",
+    "Actual coursework-retention CLI exits and releases running writer"
+  ],
+  "review": "Limited lifecycle review completed; restore physical branch remains awaiting end-to-end verification",
+  "not_covered": [
+    "Physical personal coursework erasure",
+    "Complete encrypted backup restore and physical deletion replay",
+    "Real coursework upload and scan",
+    "Hold/erase and cleanup/deadline/cancel concurrency",
+    "Web browser and AI quality not rerun"
+  ],
+  "default_enabled": false,
+  "no_commit_or_push": true,
+  "cleanup": "Both isolated test runners exited 0 and cleanup hooks completed"
+}

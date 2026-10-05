@@ -1,0 +1,2349 @@
+{
+  "model": "gpt-5.5",
+  "transport": "real-gateway-evaluation",
+  "corpus_sha256": "b29d6f49b53ba933a2238ef17b0d3ed76f4fa3fa5c1d0a59d34eecb6a77c5be9",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "cost_usd": null,
+  "records": [
+    {
+      "case_id": "assist-01",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5431,
+      "usage": {
+        "prompt_tokens": 152,
+        "completion_tokens": 285,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"可以这样理解这个关键原则：\\n\\n当你收到一个不太清楚的任务或需求时，不要马上开始做。第一步应该是先确认自己有没有理解对方的意思。\\n\\n具体可以按这几个步骤来做：\\n\\n1. 先复述目标  \\n   用自己的话把任务说一遍，比如：“我的理解是，我们要完成……，对吗？”这样可以避免一开始方向就错了。\\n\\n2. 询问要交付什么  \\n   问清楚最后需要给对方什么东西，比如是一份文档、一个表格、一个方案，还是其他成果。\\n\\n3. 确认截止时间  \\n   问清楚什么时候需要完成，避免因为时间理解不同而耽误任务。\\n\\n4. 明确验收条件  \\n   问清楚做到什么程度才算完成，比如需要包含哪些内容、达到什么标准，对方才会认为任务合格。\\n\\n5. 记录确认结果  \\n   把双方已经确认好的内容记录下来，方便之后对照，也能减少误会。\\n\\n简单来说，就是：遇到模糊需求时，先问清楚，再开始做。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "6d0f95e1db778f79870a4b3fa20d526044345af48fc4f3e37ef7a0d15410f582",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-01",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7959,
+      "usage": {
+        "prompt_tokens": 157,
+        "completion_tokens": 376,
+        "reasoning_tokens": 44
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节：先说明在收到模糊需求时的处理目标——避免误解，形成双方确认的清晰需求。重点讲解四个步骤：第一，先复述对方目标；第二，询问交付物；第三，确认截止时间；第四，明确验收条件。最后强调要记录双方确认事项。\\n\\n2. 练习环节：设置一个“模糊需求”情境，请学员两人一组进行角色扮演。一人扮演提出需求者，一人扮演接收需求者。接收需求者需要按照讲解步骤完成复述目标、询问交付物、截止时间和验收条件，并在练习结束后写下确认记录。\\n\\n3. 反馈环节：练习结束后，讲师根据学员表现进行反馈。反馈重点包括：是否准确复述目标，是否问清交付物、截止时间和验收条件，是否形成双方确认事项记录。可先让学员自评，再由同伴补充，最后由讲师总结共性问题和改进建议。\\n\\n4. 衔接方式：讲解提供方法框架，练习让学员现场应用，反馈帮助学员发现遗漏并修正表达。最后可请学员根据反馈重新完善一次需求确认记录，完成从理解、实践到改进的闭环。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "62d8a1b5650bc3715d7a834cf7a875012336ce70d4c79c7f46b160a76a4be2ad",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-01",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5536,
+      "usage": {
+        "prompt_tokens": 156,
+        "completion_tokens": 213,
+        "reasoning_tokens": 22
+      },
+      "response_json": "{\"text\":\"题目：当收到一个模糊需求时，以下哪种做法最符合需求澄清的流程？\\n\\nA. 立即开始执行，边做边猜测对方意图\\nB. 先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项\\nC. 只询问截止时间，其他内容根据经验自行判断\\nD. 等对方再次催促时再确认需求细节\\n\\n正确答案：B\\n\\n解析：收到模糊需求时，应先复述目标，确保双方对目标理解一致；再进一步询问交付物、截止时间与验收条件；最后记录双方确认事项，以减少误解和返工。A、C、D都没有完整完成需求澄清流程。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "f35361d2c34d125d1bd14190dad30197f68c2cd0759a885fbb4fdbb8549150a2",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-01",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6613,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 296,
+        "reasoning_tokens": 78
+      },
+      "response_json": "{\"interpretation\":\"当前匿名有效学情仅能说明可用于判断掌握水平的证据不足，暂不宜据此判断整体掌握状况或学习成效分布。培训完成情况不可用，不能据此推断培训完成率。\",\"suggestions\":[\"先补充有效学习证据，例如课堂练习、阶段测验、任务提交或互动反馈，再进行学情判断。\",\"采用低门槛诊断活动了解学生对核心概念与关键技能的理解情况，避免直接依据不足数据作结论。\",\"教学上可先安排复习、示例讲解与基础巩固任务，为后续形成更可靠的学习证据做准备。\",\"后续收集数据时注意统一评价标准与提交要求，提升学情分析的可解释性。\",\"将AI生成内容作为辅助参考，具体教学决策应结合教师观察、课堂表现与系统独立展示的事实信息。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "3e75b34d975677d1dcf4d0dd619d439dab92371c3ba9ad994b9949244001948b",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-02",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8124,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 314,
+        "reasoning_tokens": 30
+      },
+      "response_json": "{\"text\":\"职场小情境：\\n小林收到主管一句话：“帮我整理一下客户反馈，下午要用。”这句话比较模糊，小林没有立刻开始做，而是先向主管确认：“我理解您的目标是为了下午会议快速了解客户主要问题，对吗？您需要的是一页汇总表、PPT，还是详细文档？最晚几点前给您？您希望按问题类型、客户重要程度，还是紧急程度来整理？完成后以哪些标准算符合要求？”主管回复后，小林把确认内容记录下来，并发送给主管确认，避免后续返工。\\n\\n应用步骤：\\n1. 先复述目标：确认自己理解的工作目的是否正确。\\n2. 询问交付物：明确最终要提交的是表格、文档、PPT或其他形式。\\n3. 确认截止时间：问清楚具体完成时间，而不是只理解为“尽快”。\\n4. 明确验收条件：询问对方希望看到哪些内容、格式或判断标准。\\n5. 记录确认事项：把双方确认的目标、交付物、时间和标准记录下来，必要时发给对方再次确认。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "274705c1e8deb1e6aec536bfedbaf75d40436c2c9361bbb40399c9fcce9662d8",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-03",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 2521,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 108,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"跳过确认直接行动可能失败，是因为在需求模糊时，双方对目标、交付物、截止时间和验收条件的理解可能不一致。这样容易导致完成的内容不符合对方真正需要，或者遗漏关键要求。更稳妥的做法是先复述目标，询问需要交付什么、什么时候完成、按什么标准验收，并记录双方确认过的事项，再开始执行。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "13d71f38ddbff543cecc061885a4e3d9da3e3c90b7fc6909e67e62200971d3d6",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-04",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 3092,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 96,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"来源中没有提供该工具的价格信息，也没有说明可查询实时价格的渠道。因此无法基于给定来源回答该工具的实时价格。建议补充工具名称、官方定价页或最新报价来源后再确认。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "5a92b9db8085777bf0e45ade74c219b55e29abcb205fbd95b12cc43362452154",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-05",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5987,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 186,
+        "reasoning_tokens": 20
+      },
+      "response_json": "{\"text\":\"可以这样理解问题排查的关键原则：\\n\\n1. 先把问题写清楚：记录你看到了什么现象，以及在什么条件下会出现这个问题。\\n2. 对比“应该发生什么”和“实际发生了什么”：这样能帮助你找到差异在哪里。\\n3. 一次只改一个地方：如果同时改很多条件，就很难知道到底是哪一个因素造成了变化。\\n4. 用证据验证想法：不要只靠猜测，要通过测试结果、记录或现象来确认你的判断是否正确。\\n\\n简单说，就是先观察和记录，再提出假设，然后小步测试，用证据一步步找出原因。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "5f69e5b2447158fac1202d5b26fc7ef82bdb428305400d541a6f86b53584e8bc",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-06",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7506,
+      "usage": {
+        "prompt_tokens": 151,
+        "completion_tokens": 331,
+        "reasoning_tokens": 31
+      },
+      "response_json": "{\"text\":\"职场小情境：\\n某团队在每周一发送客户数据报表时，发现本周导出的报表金额合计比系统后台显示少了一部分。负责同事不确定是导出模板、筛选条件，还是数据同步出现了问题。\\n\\n应用步骤：\\n1. 先记录现象：报表金额合计偏低，并记录发现时间、使用的报表模板、导出账号、筛选条件等复现条件。\\n2. 对比预期与实际：预期结果是导出报表金额应与系统后台一致；实际结果是导出报表金额少于后台显示。\\n3. 提出假设：可能是筛选日期不一致、模板字段缺失、数据同步未完成等原因。\\n4. 每次只改变一个条件进行验证：例如先只调整日期范围，其他条件保持不变；再只更换导出模板；再只等待同步后重新导出。\\n5. 用证据核验假设：比较每次导出的金额变化，查看哪一个条件改变后结果恢复正常。\\n6. 得出结论并记录：如果发现是日期筛选条件少选了一天，就记录问题原因、验证过程和正确操作方式，方便下次避免同类问题。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "b0e34633db95ff020b447dd15e9f2bfe350134b8eaf57d5a0c61ddd3656bd444",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-07",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 4791,
+      "usage": {
+        "prompt_tokens": 148,
+        "completion_tokens": 126,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"跳过确认直接行动可能失败，因为还没有先记录清楚现象和复现条件，也没有比较预期与实际差异。这样容易在证据不足的情况下做出假设，导致行动方向不准确。更可靠的做法是每次只改变一个条件，并用证据核验假设，逐步确认问题原因后再采取行动。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "4d1370c1123f8aa561cf4af79769e85e88c51021cabc766e9005f2b5d1468417",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-08",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 3618,
+      "usage": {
+        "prompt_tokens": 152,
+        "completion_tokens": 108,
+        "reasoning_tokens": 42
+      },
+      "response_json": "{\"text\":\"来源中没有提供该工具的价格信息，也没有可用于查询实时价格的数据。因此无法基于给定来源回答该工具的实时价格。建议补充包含价格或官方定价页面内容的来源后再整理答案。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "511764268b17fc9474501ec4746455e24dafd5cce0a34002eb4acb8fa751ada4",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-09",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6625,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 270,
+        "reasoning_tokens": 24
+      },
+      "response_json": "{\"text\":\"可以这样理解任务交接的关键原则：\\n\\n1. 说清楚已经完成了什么\\n交接时先告诉对方，哪些事情已经做完了，避免别人重复劳动。\\n\\n2. 说明现在卡在哪里\\n如果任务遇到了问题或阻碍，要直接说明。这样接手的人能快速知道重点在哪里。\\n\\n3. 留下可以继续使用的证据或材料\\n比如记录、文件、数据、截图、结论等。这样接手的人不用从头开始找资料。\\n\\n4. 告诉对方下一步该做什么\\n交接不只是说明过去做了什么，还要让接手的人知道接下来最应该做哪件事。\\n\\n5. 接收者要复述并确认\\n接手的人听完后，应把关键内容用自己的话复述一遍，确认理解没有偏差。\\n\\n简单来说，好的交接就是：讲清楚“做了什么、卡在哪里、有什么资料、下一步做什么”，然后让对方复述确认。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "9064a9f40b88a424c2bf819401d5e2fb50c2d8aa9f963b538b062854858cbdc3",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-10",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 4545,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 292,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"职场小情境：\\n小李负责整理客户调研资料，但下午需要临时参加外出会议，于是将任务交接给同事小周。为了避免信息遗漏，小李没有只说“你帮我继续做一下”，而是按顺序说明：已经完成了30份问卷录入；目前的阻碍是还有5份纸质问卷字迹不清，需要向客户确认；可复用证据包括共享文件夹中的录入表、客户邮件截图和已标记的问题清单；下一项动作是先联系客户确认模糊内容，再继续补全表格。小周听完后，复述了一遍关键事项，并确认自己理解无误后接手。\\n\\n应用步骤：\\n1. 说明已完成事项：先告诉接收者任务已经做到哪一步。\\n2. 说明当前阻碍：明确目前卡在哪里，避免接收者重复试错。\\n3. 提供可复用证据：指出相关文件、记录或证明材料的位置。\\n4. 明确下一项动作：告诉接收者接下来最应该先做什么。\\n5. 接收者复述确认：由接收者复述关键事项，双方确认理解一致后再正式交接。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "48c8cf6ce348a270bf6686d4dd4326d3a8234e0c17a389954f1538842a6510a4",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-11",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 10278,
+      "usage": {
+        "prompt_tokens": 151,
+        "completion_tokens": 127,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"跳过确认直接行动可能失败，因为交接说明中包含已完成事项、当前阻碍、可复用证据及下一项动作等关键信息。如果接收者没有先复述关键事项并确认，就可能误解任务状态、忽略阻碍、重复已完成工作，或没有正确利用已有证据，导致下一步行动偏离预期。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "84760598da2a0327c2fb3116f46f2719ff09958b5f76dc068f256a3245da994d",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-12",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 4345,
+      "usage": {
+        "prompt_tokens": 155,
+        "completion_tokens": 108,
+        "reasoning_tokens": 35
+      },
+      "response_json": "{\"text\":\"来源中未提供该工具的价格信息，也未说明工具名称或可查询价格的依据。因此无法根据现有来源回答该工具的实时价格。建议补充工具名称、版本/套餐、购买渠道或官方报价来源后再撰写回答。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "d4be4c394c9c7ad3a4ae3bf1921c374594b027e8cb1039dbd1cae917ba495f67",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-13",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6723,
+      "usage": {
+        "prompt_tokens": 146,
+        "completion_tokens": 233,
+        "reasoning_tokens": 20
+      },
+      "response_json": "{\"text\":\"关键原则是：给反馈时，要先说清楚你看到或听到的具体行为，再说明这个行为带来的影响，最后提出对方可以实际去做的改进建议。\\n\\n比如，不要说“你不认真”这种评价人的话，因为这是把一次行为直接推断成个人能力或态度。更好的说法是：“这次讨论中，你有几次没有回应同伴的问题，导致小组很难继续推进。下次可以先简单回应对方的观点，再补充自己的想法。”\\n\\n简单来说，好的反馈应该做到三点：\\n1. 说具体行为：你观察到了什么。\\n2. 说实际影响：这个行为造成了什么结果。\\n3. 给可执行建议：对方下一步可以怎么做。\\n\\n同时，要避免给人贴标签，不要因为一次表现就判断一个人的能力或品质。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "8d289be7d89340bc45c50fc64fed98cb06d635700689ae05d4ecd02ca3609b64",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-14",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7975,
+      "usage": {
+        "prompt_tokens": 147,
+        "completion_tokens": 312,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"职场小情境：\\n在一次项目周会上，小李负责汇报进度。汇报时，他直接展示了结果，但没有说明数据来源和风险点，导致后续讨论中同事反复追问，会议时间延长了15分钟。\\n\\n应用步骤：\\n1. 描述可观察的行为：会后可以对小李说：“今天周会上，你汇报了项目进度结果，但没有提前说明数据来源和可能风险。”\\n2. 说明具体影响：“这让同事需要在会上临时追问细节，讨论时间因此变长，也影响了后面议题的推进。”\\n3. 避免给人贴标签：不要说“你准备不充分”或“你表达能力不行”，因为这会把一次行为推断成个人能力问题。\\n4. 提出可执行建议：“下次汇报前，可以在PPT中增加一页‘数据来源与风险提示’，并在开头用1分钟说明，这样大家能更快进入讨论。”\\n5. 鼓励后续改进：“如果你愿意，我可以帮你一起看一下下次汇报提纲，看看哪些信息适合提前说明。”\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "a666bad9c6f0466305b68cb361d907c2cddfa830707cd77bf874995618bb9870",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-15",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5439,
+      "usage": {
+        "prompt_tokens": 144,
+        "completion_tokens": 192,
+        "reasoning_tokens": 91
+      },
+      "response_json": "{\"text\":\"跳过确认而直接行动可能失败，因为没有先确认对方的可观察行为和实际影响，后续行动或建议就可能偏离事实依据。这样容易把一次行为误解为个人能力问题，导致反馈不准确，也让建议缺少可执行性。更稳妥的做法是先描述看到的行为及其影响，再提出具体、可执行的建议。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "9c3e640d0ab614f9c56d0d99d73ca7bdbc3f5d55b3d05f7fc2436fc25c955527",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-16",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 1841,
+      "usage": {
+        "prompt_tokens": 148,
+        "completion_tokens": 46,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"来源中没有提供该工具的价格信息，也没有可用于查询实时价格的数据。因此无法基于给定来源回答该工具的实时价格。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "6d1a156845161a07801d26e5366a144062aec53a922396356139a5371bc0ff59",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-17",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 3843,
+      "usage": {
+        "prompt_tokens": 149,
+        "completion_tokens": 251,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"关键原则可以这样理解：\\n\\n在判断一件事是否可靠时，要先把信息分成三类：\\n\\n1. **观察**：你直接看到、听到或记录到的事实。比如“这份记录上写着某个日期”。\\n2. **推断**：根据观察到的信息做出的判断。比如“因为记录比较旧，所以它可能不适合说明现在的情况”。\\n3. **未知信息**：目前没有证据能确认的内容。比如“现在的真实情况到底是什么”，如果没有最新资料，就不能确定。\\n\\n还要注意两点：\\n\\n- **核验来源**：看看信息来自哪里，是否可信。\\n- **确认适用条件**：有些信息只适用于某个时间、地点或背景，不能随便套用到别的情况。\\n\\n所以，不能把以前的旧记录直接当成现在的结论。更稳妥的做法是：先确认它是什么时候、在什么条件下产生的，再看看有没有更新、更直接的证据。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "7e6e8ea257e18f8f82b83b58b3e6d8c635552a96c419110952739d73478e6265",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-18",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 9907,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 457,
+        "reasoning_tokens": 36
+      },
+      "response_json": "{\"text\":\"职场小情境：\\n某项目组准备向客户汇报进度。小李看到共享文档里有一条两周前的记录：“客户已确认采用A方案。”于是他准备直接按A方案制作汇报材料。但在会前检查时，他发现最近几次会议纪要中没有再次提到该确认信息，也不清楚客户是否有新的调整。\\n\\n应用步骤：\\n1. 区分观察、推断和未知信息：\\n   - 观察：共享文档中确实存在“两周前客户已确认采用A方案”的记录。\\n   - 推断：客户目前仍然采用A方案。\\n   - 未知：客户是否在最近两周内改变过意见，A方案是否仍适用于当前汇报。\\n\\n2. 核验来源：\\n   - 查看这条记录是谁填写的、填写时间是什么时候、是否来自正式会议纪要或客户确认邮件。\\n   - 对比最近的会议纪要、任务更新和相关沟通记录。\\n\\n3. 核验适用条件：\\n   - 判断该记录是否适用于当前汇报场景。\\n   - 确认项目范围、客户需求或时间节点是否发生变化。\\n\\n4. 不把旧记录直接当作当前结论：\\n   - 在未核验前，不直接写成“客户当前已确认A方案”。\\n   - 可以暂时表述为：“根据两周前记录，客户曾确认A方案；目前仍需确认该信息是否有效。”\\n\\n5. 形成更稳妥的行动：\\n   - 向项目负责人或记录提供者确认信息是否仍然有效。\\n   - 若无法及时确认，在汇报材料中标注“待确认”，避免把未经核验的信息作为最终结论。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "c59ea95d5e86bdee19ff2cbf461ce2291eb8068814a71611f7477a5f579fad50",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-19",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6980,
+      "usage": {
+        "prompt_tokens": 147,
+        "completion_tokens": 114,
+        "reasoning_tokens": 15
+      },
+      "response_json": "{\"text\":\"跳过确认直接行动可能失败，因为行动所依据的信息不一定仍然准确或适用。应先区分观察到的事实、由事实作出的推断，以及仍未知的部分；同时核验信息来源和适用条件。如果把旧记录直接当作当前结论，可能会忽略情况变化或条件限制，导致判断错误，进而使行动失败。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "ae3e599ed520bdde55e1d3aad1a2967097f97a579189ea3d314e357a042e1f89",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-20",
+      "kind": "assist",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 3973,
+      "usage": {
+        "prompt_tokens": 151,
+        "completion_tokens": 107,
+        "reasoning_tokens": 37
+      },
+      "response_json": "{\"text\":\"无法回答该工具的实时价格：给定来源未提供任何工具价格信息，也没有可用于查询实时价格的数据。根据来源要求，应区分未知信息并核验适用条件，不能把未给出的信息当作当前结论。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "4203caed3a4ff9d309d60e0c322af107c4ec31dff7670131c97f06b5aa97573a",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-02",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 3641,
+      "usage": {
+        "prompt_tokens": 156,
+        "completion_tokens": 212,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"可参考的草稿：\\n\\n对于初学者，可以采用“结构化提示 + 分步骤练习”的方式。练习时先让学习者复述目标，再按照固定清单确认交付物、截止时间和验收条件，最后记录双方确认事项。反馈应以具体、直接为主，例如指出是否遗漏了关键信息、是否准确复述了需求，以及确认事项是否清楚完整。\\n\\n对于熟练者，可以采用“情境模拟 + 自我检查”的方式。练习时设置更模糊的需求场景，让学习者主动判断需要澄清的问题，并形成确认记录。反馈可侧重质量提升，例如需求复述是否精准、问题是否覆盖关键条件、确认事项是否便于后续执行。\\n\\n需要注意：以上建议仅基于给定来源整理，来源中没有提供更详细的分层训练标准或评价量表。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "917aa245a2911bf2b9d677a54bbb73c6a230dab18324c59e52de7e41d029f6b2",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-03",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5895,
+      "usage": {
+        "prompt_tokens": 155,
+        "completion_tokens": 249,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节：先说明问题排查的基本流程：记录现象和复现条件，明确预期结果与实际结果之间的差异；提出假设后，每次只改变一个条件，并用证据核验假设是否成立。\\n\\n2. 练习环节：给学员一个模拟问题场景，请学员按步骤完成记录：写出现象、复现条件、预期结果和实际结果；然后选择一个可能原因作为假设，只调整一个条件进行验证，并记录证据。\\n\\n3. 反馈环节：组织学员分享排查记录，重点反馈三点：是否完整记录了现象和复现条件；是否清楚比较了预期与实际；是否做到每次只改变一个条件，并用证据验证假设。最后根据反馈修正排查记录，形成更规范的排查思路。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "2b76731a2b78af9309d08da7f12ee8a035b316fbf1d50fb4137d94cae581506c",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-04",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7930,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 361,
+        "reasoning_tokens": 76
+      },
+      "response_json": "{\"text\":\"草稿：\\n\\n对初学者：练习时应先养成规范记录的习惯。每次遇到问题，先写下具体发生的现象、复现问题所需的条件，再把“预期结果”和“实际结果”进行对比。练习中不要一次修改多个因素，而是每次只改变一个条件，观察结果是否变化。反馈时，可以重点检查记录是否完整、预期与实际是否区分清楚、修改条件是否单一，以及结论是否有证据支持。\\n\\n对熟练者：练习可以更强调假设验证的效率。面对问题时，先根据现象和复现条件提出可能假设，再通过一次只改变一个条件的方式进行核验。熟练者还可以在每轮排查后总结：哪个证据支持或否定了假设，下一步应验证什么。反馈时，可以关注其假设是否基于证据、验证过程是否严谨、是否避免同时改变多个条件，以及最终判断是否由实际结果支撑。\\n\\n说明：以上仅根据给定来源整理，来源未提供更具体的学科或技能场景，因此内容以通用的问题排查练习与反馈方法为主。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "7764b7684eb31adf071166f873795f8045fbc53b7e3b2db5fe6d49c2520cf3bf",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-05",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6465,
+      "usage": {
+        "prompt_tokens": 158,
+        "completion_tokens": 249,
+        "reasoning_tokens": 28
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节：先说明任务交接的核心内容，包括四项要点：已完成事项、当前阻碍、可复用证据及下一项动作。同时强调交接不是单向说明，接收者需要复述关键事项后再确认。\\n\\n2. 练习环节：安排学员模拟一次任务交接。交接者按照四项要点进行说明；接收者在听完后复述关键事项，并确认自己理解的下一步动作。\\n\\n3. 反馈衔接：练习结束后，围绕以下问题进行反馈：是否说明了已完成事项；是否清楚表达当前阻碍；是否提供可复用证据；是否明确下一项动作；接收者是否完成关键事项复述并确认。根据反馈结果，再安排一次简短修正练习，帮助学员把反馈立即用于改进。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "59f11b2511890fdee330b02306aac273e2e6fcf8c430e8bdb7f7ff24ffe24ec1",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-06",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8813,
+      "usage": {
+        "prompt_tokens": 157,
+        "completion_tokens": 407,
+        "reasoning_tokens": 153
+      },
+      "response_json": "{\"text\":\"来源未直接区分初学者与熟练者，以下为基于“任务交接”要素拟定的练习与反馈草稿：\\n\\n初学者：\\n1. 练习方法：使用固定模板进行任务交接练习，逐项说明“已完成事项、当前阻碍、可复用证据、下一项动作”。\\n2. 反馈方法：教师或同伴根据这四项检查是否完整、清楚；接收者复述关键事项后，再确认是否理解一致。反馈重点放在是否遗漏信息、下一步是否明确。\\n\\n熟练者：\\n1. 练习方法：进行更接近真实情境的交接练习，要求在较简洁的表达中准确包含已完成事项、阻碍、证据和下一步动作。\\n2. 反馈方法：重点评价交接是否便于接收者立即接手、证据是否可复用、下一项动作是否具体。接收者仍需复述关键事项，通过复述结果检验交接质量。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "1a29a0a69b24a647e519e6b89636c00d5fb1d9b60e6dd9a114e87116507c1a41",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-07",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6443,
+      "usage": {
+        "prompt_tokens": 151,
+        "completion_tokens": 282,
+        "reasoning_tokens": 26
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节\\n先说明协作反馈的基本原则：反馈应描述“可观察的行为”和“该行为带来的影响”，然后提出“可执行的建议”。同时提醒学员，反馈时要避免把一次具体行为直接推断为对方的个人能力。\\n\\n2. 练习环节\\n给学员一段简短情境，请他们把反馈拆成三部分来写：\\n- 观察到的具体行为；\\n- 该行为造成的影响；\\n- 下一步可执行的改进建议。\\n随后让学员检查自己的表述中是否出现了对个人能力的概括性判断，并进行修改。\\n\\n3. 反馈衔接环节\\n练习后进行同伴反馈。反馈者先指出对方表述中哪些内容是具体、可观察的，再说明这些表述可能带来的效果，最后给出一条可执行的修改建议。培训者总结时强调：好的反馈应聚焦行为与影响，而不是给人贴能力标签。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "0d23862bf1083a68706d66b33aa097baa4bf59faabdd964dd80c243b02ee9e70",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-08",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5926,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 254,
+        "reasoning_tokens": 69
+      },
+      "response_json": "{\"text\":\"可作为草稿：\\n\\n对初学者：练习后，反馈应聚焦在具体、可观察的行为上，例如指出其在练习中做了什么，以及这些行为带来了什么影响；随后给出下一步可执行的改进建议。反馈时避免把一次表现直接归因于个人能力。\\n\\n对熟练者：练习后，同样应基于可观察行为和实际影响进行反馈，并提出更具体、可执行的调整建议。即使对方较熟练，也应避免用单次行为判断其整体能力。\\n\\n说明：来源只提供了协作反馈的原则，未具体区分初学者与熟练者的练习方法，因此以上内容是基于该原则整理的建议草稿。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "08bd480772392e43936796241e8ccfa2e206ff8fda2307ed8132de73cb6d19d0",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-09",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 9475,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 419,
+        "reasoning_tokens": 36
+      },
+      "response_json": "{\"text\":\"培训安排草稿：\\n\\n1. 讲解环节\\n先说明本次培训目标：学会区分“观察到的信息”“基于信息作出的推断”和“目前仍未知的信息”。强调在使用资料时，需要核验来源及其适用条件，不能把旧记录直接当作当前结论。\\n\\n2. 示例演示\\n展示一段信息材料，引导学员标注三类内容：\\n- 哪些是直接观察到的事实；\\n- 哪些是推断；\\n- 哪些信息还不足，属于未知。\\n随后说明：即使资料曾经有效，也需要确认其来源、时间和适用范围，避免直接沿用旧结论。\\n\\n3. 练习环节\\n让学员分组处理一段简短材料，完成三项任务：\\n- 列出观察信息；\\n- 写出可能的推断，并说明依据；\\n- 标出需要进一步核验或仍未知的部分。\\n每组还需判断材料中的旧记录是否可以作为当前结论，并说明理由。\\n\\n4. 反馈衔接\\n各组提交结果后，培训者围绕以下问题进行反馈：\\n- 是否把观察和推断混在一起；\\n- 是否明确指出未知信息；\\n- 是否检查了来源和适用条件；\\n- 是否避免把旧记录直接当作当前结论。\\n\\n5. 巩固总结\\n最后请学员根据反馈修改答案，并用一句话总结本次方法：先区分观察、推断和未知，再核验来源与适用条件，最后再形成当前判断。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "b97d1b2150e75c0168966ae4d031d1fafc01c837371c8b0afbc25ec0f29010b4",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-10",
+      "kind": "prepare",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7431,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 333,
+        "reasoning_tokens": 56
+      },
+      "response_json": "{\"text\":\"可参考以下草稿：\\n\\n**初学者**\\n- **练习方法**：从简单材料开始，练习把信息分成三类：观察到的事实、基于事实作出的推断、目前仍未知的信息。每次练习都要求标注信息来源，并说明该来源适用的条件。\\n- **反馈方法**：反馈时重点指出是否把“观察”和“推断”混在一起，是否遗漏了“未知信息”，以及是否未经核验就把旧记录当作当前结论。反馈应具体说明哪一句需要改为事实描述、哪一句只是推断。\\n\\n**熟练者**\\n- **练习方法**：使用更复杂或包含旧记录的材料，要求其核验不同来源，并判断信息是否仍适用于当前情境。练习中应特别关注来源的可靠性、适用条件和时间变化。\\n- **反馈方法**：反馈时重点检查其核验过程是否充分，是否说明了结论的适用范围，是否避免把过去记录直接当作当前结论。可要求其补充“依据是什么”“哪些条件下结论成立”“哪些信息仍未知”。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "17ef0a0fcbef2c2280f8be498da7754d1f5c99f2836b2a212aebf2cf5c764146",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-02",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6015,
+      "usage": {
+        "prompt_tokens": 155,
+        "completion_tokens": 253,
+        "reasoning_tokens": 31
+      },
+      "response_json": "{\"text\":\"多选题：\\n\\n当收到一个模糊需求时，以下哪些做法是合适的？\\n\\nA. 先复述对方的目标，确认自己理解是否一致\\nB. 直接开始执行，避免浪费沟通时间\\nC. 询问交付物、截止时间与验收条件\\nD. 在沟通后记录双方确认的事项\\n\\n正确选项：A、C、D\\n\\n逐项解析：\\nA. 正确。收到模糊需求时，应先复述目标，以确认双方对目标的理解一致。\\nB. 错误。需求模糊时不应直接开始执行，而应先进行澄清。\\nC. 正确。需要进一步询问交付物、截止时间与验收条件，这有助于明确需求。\\nD. 正确。沟通确认后，应记录双方确认事项，避免后续理解偏差。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "f83a55ba509ffc6dd6792b7a52d9ff931bb341364575a11d25980cdd81332dae",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-03",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7994,
+      "usage": {
+        "prompt_tokens": 152,
+        "completion_tokens": 371,
+        "reasoning_tokens": 25
+      },
+      "response_json": "{\"text\":\"情境判断题草稿：\\n\\n【题干】你收到一项新任务，对方只说“帮我尽快整理一下这个需求”，但没有说明具体要交付什么、什么时候完成、怎样算完成。以下哪种做法最合适？\\n\\nA. 先按自己的理解开始整理，完成后再让对方确认。\\nB. 直接回复“需求不清楚，无法处理”，等待对方补充。\\nC. 先复述自己理解的目标，再询问具体交付物、截止时间和验收条件，最后记录双方确认的事项。\\nD. 先整理一个大致版本，不设截止时间，等对方催促时再修改。\\n\\n【参考答案】C\\n\\n【评判依据】\\n收到模糊需求时，合适的处理方式不是立即凭个人理解执行，也不是简单拒绝，而是先澄清需求。具体应包括：第一，复述目标，确认自己对任务方向的理解是否正确；第二，询问交付物，明确最终需要提交什么；第三，询问截止时间，确认完成时限；第四，询问验收条件，明确怎样才算达标；第五，记录双方确认事项，避免后续理解不一致。因此，C项最符合规范做法。A和D都存在未充分澄清就开始执行的问题，可能导致返工；B虽然指出需求不清楚，但缺少主动澄清和推进任务的步骤。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "fdb2420478d0b4d361b59c13baebf0ddd4b7f4342ab42d6fdfffd909c09af385",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-04",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7095,
+      "usage": {
+        "prompt_tokens": 156,
+        "completion_tokens": 300,
+        "reasoning_tokens": 36
+      },
+      "response_json": "{\"text\":\"应用题：\\n你在工作中收到同事发来的一条消息：“帮我尽快整理一下这个材料。”但对方没有说明具体要整理成什么形式、什么时候需要、怎样算完成。请你根据这一情境，写出你接下来应该如何沟通和处理。\\n\\n参考作答方向：\\n可以先复述自己理解的目标，例如确认“你是希望我把现有材料整理成一份可提交的文档吗？”随后询问交付物形式、截止时间和验收条件，例如“需要整理成表格、文档还是汇报稿？”“最晚什么时候给你？”“完成后以什么标准确认符合要求？”最后，将双方确认的事项记录下来，避免后续理解不一致。\\n\\n评价要点：\\n1. 是否能先复述需求目标，而不是直接开始处理。\\n2. 是否能主动询问交付物的具体形式。\\n3. 是否能确认截止时间。\\n4. 是否能询问验收条件或完成标准。\\n5. 是否能记录双方确认事项，确保沟通结果清晰可追踪。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "1fa869a7050e680d36a63202c20a4a35184c0ec9de9e4ba93a4486ed555730a2",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-05",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5558,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 228,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"单选题：在进行问题排查时，以下哪种做法最符合规范？\\n\\nA. 同时改变多个条件，以便更快找到原因\\nB. 先记录现象和复现条件，再比较预期与实际，并用证据核验假设\\nC. 先根据经验直接修改问题，再观察是否解决\\nD. 只记录最终结果，不需要记录复现条件\\n\\n正确答案：B\\n\\n解析：问题排查应先记录现象和复现条件，再比较预期与实际；在验证假设时，每次只改变一个条件，并用证据进行核验。A“同时改变多个条件”不符合“每次只改变一个条件”的原则；C缺少记录、比较和证据核验；D忽略复现条件，也不符合排查要求。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "c45cdd2f0e2f04d4efc6f467ce8f25786328d4fb588caadad7b8dcafd94a0132",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-06",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 10505,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 246,
+        "reasoning_tokens": 23
+      },
+      "response_json": "{\"text\":\"多选题：关于问题排查的方法，下列做法正确的是哪些？\\n\\nA. 先记录问题现象和复现条件\\nB. 直接同时改变多个条件，以便更快找到原因\\nC. 比较预期结果与实际结果的差异\\nD. 每次只改变一个条件，并用证据核验假设\\n\\n正确选项：A、C、D\\n\\n逐项解析：\\nA. 正确。问题排查应先记录现象和复现条件，这有助于明确问题发生的背景。\\nB. 错误。来源指出“每次只改变一个条件”，同时改变多个条件不利于判断是哪一项变化导致结果改变。\\nC. 正确。排查时需要比较预期与实际，以发现偏差所在。\\nD. 正确。每次只改变一个条件，并用证据核验假设，是较规范的问题排查方法。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "8527efd9e0ab19c2951f3ce7c466c1972d7de4986aa3f31d5adb9924b09e6785",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-07",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7071,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 309,
+        "reasoning_tokens": 30
+      },
+      "response_json": "{\"text\":\"情境判断题草稿：\\n\\n你在排查一个系统问题时，发现某功能偶尔无法正常运行。以下哪种做法最合适？\\n\\nA. 先凭经验判断最可能的原因，同时修改多个配置，尽快观察结果。\\nB. 先记录问题现象和复现条件，再对比预期结果与实际结果；随后每次只改变一个条件，并用证据验证自己的假设。\\nC. 只记录最终解决方法，不需要记录复现过程，以免浪费时间。\\nD. 如果问题不能立即复现，就先忽略，等再次出现时再随机尝试不同方案。\\n\\n建议答案：B。\\n\\n评判依据：\\n根据来源材料，问题排查应先记录现象和复现条件，再比较预期与实际；在验证假设时，每次只改变一个条件，并用证据核验。选项B完整体现了这些步骤，因此最合适。选项A同时改变多个条件，难以判断哪个变化产生影响；选项C忽略复现条件和过程记录；选项D缺少有序排查和证据验证，因此均不符合要求。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "5752bc5922ea31dc76f2c2666826e511ceb797aa5994379c62cba36ac3e69bff",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-08",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 10508,
+      "usage": {
+        "prompt_tokens": 154,
+        "completion_tokens": 328,
+        "reasoning_tokens": 76
+      },
+      "response_json": "{\"text\":\"应用题：\\n你是某公司会议系统的管理员。最近有同事反馈：“每周一上午的视频会议经常出现声音断断续续，但下午会议基本正常。”请你设计一个排查方案，说明你会如何记录问题、设置验证步骤，并判断可能原因。\\n\\n参考作答要点：\\n1. 能先记录现象和复现条件，例如发生时间、参会人数、网络环境、设备型号、会议软件版本等。\\n2. 能区分预期与实际，例如预期应声音连续清晰，实际为周一上午声音断续。\\n3. 能提出假设并用证据验证，例如网络拥堵、设备麦克风问题、会议软件设置异常等。\\n4. 排查时每次只改变一个条件，例如只更换网络、不更换设备；或只更换麦克风、不改变会议时间。\\n5. 能根据测试结果比较不同条件下的表现，逐步缩小原因范围。\\n6. 结论应有证据支持，避免只凭猜测下判断。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "f2ca43ae0957eb1ebad1176018034af0c62e49cc4147f3e2d6654f98e4572627",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-09",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5385,
+      "usage": {
+        "prompt_tokens": 157,
+        "completion_tokens": 232,
+        "reasoning_tokens": 26
+      },
+      "response_json": "{\"text\":\"单选题：\\n\\n在进行任务交接时，以下哪一项最符合规范要求？\\n\\nA. 只说明已经完成的事项，其他内容由接收者自行判断\\nB. 交接说明应包括已完成事项、当前阻碍、可复用证据及下一项动作，接收者复述关键事项后确认\\nC. 交接时只需口头告知下一步动作，无需确认\\nD. 接收者无需复述，只要收到交接信息即可\\n\\n正确答案：B\\n\\n解析：根据交接说明要求，任务交接应包括已完成事项、当前阻碍、可复用证据及下一项动作；同时，接收者需要复述关键事项后再确认，以确保双方理解一致。A、C、D均遗漏了交接内容或确认环节。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "b9c6f409188f5f3b3425f9f40b19002764c12707685d5374e9dfb51e4471da96",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-10",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7114,
+      "usage": {
+        "prompt_tokens": 156,
+        "completion_tokens": 262,
+        "reasoning_tokens": 24
+      },
+      "response_json": "{\"text\":\"多选题：关于任务交接说明，下列哪些内容或做法是正确的？\\n\\nA. 说明已完成事项\\nB. 说明当前阻碍\\nC. 提供可复用证据\\nD. 明确下一项动作\\nE. 接收者无需复述，直接确认即可\\n\\n正确选项：A、B、C、D\\n\\n逐项解析：\\nA. 正确。任务交接说明应包括已完成事项，便于接收者了解当前进展。\\nB. 正确。当前阻碍是交接说明的重要内容，有助于接收者判断后续处理重点。\\nC. 正确。可复用证据应在交接中说明，方便后续继续使用或核查。\\nD. 正确。交接说明应包括下一项动作，使接收者明确接下来需要做什么。\\nE. 错误。接收者应复述关键事项后再确认，而不是不复述就直接确认。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "d0da7d6784b37cbb71cb766c0743b612ac878ceb77a6c777bbf2f238bc0d10af",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-11",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7245,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 275,
+        "reasoning_tokens": 30
+      },
+      "response_json": "{\"text\":\"情境判断题：\\n\\n你正在把一个项目任务交接给同事。以下哪种做法最符合规范？\\n\\nA. 只告诉同事“任务基本完成了”，让对方自己查看资料。\\nB. 说明已完成事项、当前遇到的阻碍、可复用的证据材料，并明确下一步动作；随后请接收者复述关键事项，确认理解一致。\\nC. 只交代下一步要做什么，不需要说明之前做过什么。\\nD. 把所有资料发给同事即可，不需要口头或书面确认。\\n\\n参考答案：B。\\n\\n评判依据：根据任务交接要求，完整的交接说明应包括四个方面：已完成事项、当前阻碍、可复用证据及下一项动作。同时，接收者需要复述关键事项后再确认，以确保双方理解一致。因此，B项最符合要求。A、C、D项都存在信息不完整或缺少确认环节的问题。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "87a7f187f0879c391c4586b49f103c61f24040d0d32b6a2783b7fffa9f48a860",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-12",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8006,
+      "usage": {
+        "prompt_tokens": 157,
+        "completion_tokens": 356,
+        "reasoning_tokens": 37
+      },
+      "response_json": "{\"text\":\"应用题：\\n\\n情境：某团队正在筹备一场线上客户说明会。负责人小林因临时出差，需要把后续准备工作交接给同事小周。请你根据规范，帮助小林设计一份交接说明，并说明小周在接收交接时应如何确认。\\n\\n要求：\\n1. 交接说明中应写清楚已经完成的事项；\\n2. 说明当前仍存在的阻碍；\\n3. 提供可复用的证据或材料；\\n4. 明确下一步需要采取的动作；\\n5. 接收者需要复述关键事项后再确认接收。\\n\\n评价要点：\\n1. 是否包含“已完成事项”，例如已确认会议时间、已准备初版材料等；\\n2. 是否说明“当前阻碍”，例如客户名单尚未最终确认、资料仍待补充等；\\n3. 是否提到“可复用证据”，例如会议邀请记录、材料文档、沟通记录等；\\n4. 是否明确“下一项动作”，例如继续确认客户名单、完善材料、发送提醒等；\\n5. 是否体现接收者复述关键事项后确认，避免交接信息遗漏；\\n6. 表达是否清晰，是否适合实际工作交接场景。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "7dfaae93336b934d360e5114cbc97e07397ddabc8a766d1d56b214e091f672ba",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-13",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8897,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 294,
+        "reasoning_tokens": 25
+      },
+      "response_json": "{\"text\":\"单选题：关于协作中的反馈，以下哪种做法最符合有效反馈的要求？\\n\\nA. “你这次没做好，说明你的能力不太行。”\\nB. “你总是拖后腿，以后要注意。”\\nC. “在今天的讨论中，你两次打断同伴发言，导致对方没有完整表达观点。建议下次先记录想法，等对方说完后再补充。”\\nD. “我觉得你态度有问题，希望你自己反思。”\\n\\n正确答案：C\\n\\n解析：有效反馈应描述可观察的行为及其影响，并提出可执行的建议，同时避免把一次行为直接推断为个人能力。C项指出了具体可观察的行为“打断同伴发言”，说明了影响“对方没有完整表达观点”，并提出了可执行建议“先记录想法，等对方说完后再补充”。A项把一次表现推断为能力问题，B项使用“总是”等笼统评价，D项评价态度但缺少具体行为和建议，均不符合要求。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "d87e75a090be82ec74c27b31262272d1f33e1a5886c234c962c53a14c5c41d40",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-14",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8336,
+      "usage": {
+        "prompt_tokens": 149,
+        "completion_tokens": 268,
+        "reasoning_tokens": 33
+      },
+      "response_json": "{\"text\":\"多选题：关于协作中的反馈，以下哪些做法是恰当的？\\n\\nA. 先描述对方可观察到的具体行为，再说明该行为带来的影响。\\nB. 根据对方一次表现，直接判断其个人能力不足。\\nC. 在指出问题后，提出下一步可以执行的改进建议。\\nD. 反馈时尽量使用笼统评价，例如“你不够认真”。\\n\\n正确选项：A、C\\n\\n逐项解析：\\nA. 正确。有效反馈应描述可观察的行为和影响，而不是泛泛评价。\\nB. 错误。不能把一次行为直接推断为个人能力，应避免以偏概全。\\nC. 正确。反馈不仅要指出行为和影响，还应提出可执行的建议，帮助改进。\\nD. 错误。“你不够认真”属于笼统评价，缺少具体行为描述，也不利于对方改进。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "bcac1d1e1c363c4bf1494c20b42bfc8e8f04ddda856b9d699400d4478d8eabe1",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-15",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 9255,
+      "usage": {
+        "prompt_tokens": 146,
+        "completion_tokens": 362,
+        "reasoning_tokens": 29
+      },
+      "response_json": "{\"text\":\"情境判断题草稿：\\n\\n你在一次小组协作中发现，同伴在汇报时遗漏了一项关键数据，导致大家需要重新核对材料。会后你需要给对方反馈。以下哪种做法最合适？\\n\\nA. “你总是不够细心，这说明你不适合负责汇报。”\\nB. “今天汇报中第3部分少提了一项关键数据，结果我们会后多花了20分钟重新核对。下次汇报前可以按清单逐项检查数据是否完整。”\\nC. “这次问题挺严重的，希望你以后别再犯。”\\nD. “你这次表现不好，大家都受影响了。”\\n\\n参考答案：B。\\n\\n评判依据：合适的协作反馈应当描述可观察到的具体行为和造成的影响，并提出可执行的改进建议；同时应避免把一次行为直接推断为个人能力或品质。选项B指出了具体行为“第3部分少提了一项关键数据”，说明了影响“会后多花了20分钟重新核对”，并提出了可执行建议“按清单逐项检查”。A把一次遗漏推断为“不够细心”“不适合负责汇报”，不符合要求；C缺少具体行为和可执行建议；D表述笼统，也偏向评价个人表现而非具体行为。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "328ce99cfbc885517a1117281f7caee1e53e4d1bc2bd6e1df89a86e7e4757717",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-16",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6896,
+      "usage": {
+        "prompt_tokens": 150,
+        "completion_tokens": 305,
+        "reasoning_tokens": 35
+      },
+      "response_json": "{\"text\":\"应用题：\\n你是一名项目组成员。一次跨部门会议中，同事小李在介绍进度时多次打断其他成员发言，导致会议时间延长，部分问题没有讨论完。会后，负责人请你给小李提供一次协作反馈。请你写出一段反馈内容，要求：描述可观察到的行为及其影响，并提出可执行的改进建议，避免把一次行为直接推断为个人能力或性格。\\n\\n评价要点：\\n1. 是否描述了具体、可观察的行为，例如“多次打断他人发言”，而不是笼统评价。\\n2. 是否说明了该行为带来的影响，例如“会议时间延长”“部分问题未能讨论完”。\\n3. 是否提出了可执行的建议，例如“等他人说完后再补充”“先记录问题，集中提问”。\\n4. 是否避免将一次行为上升为对个人能力或品质的判断，例如避免说“你不懂协作”“你表达能力差”。\\n5. 反馈语气是否聚焦协作改进，而不是指责个人。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "c8039b423b2097af96b7e146ac1e192146b338810bae7ef0fe0f310327167da5",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-17",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6163,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 208,
+        "reasoning_tokens": 20
+      },
+      "response_json": "{\"text\":\"题目：在进行信息核验时，以下哪种做法最恰当？\\n\\nA. 只要是旧记录中出现过的信息，就可以直接作为当前结论使用\\nB. 将观察到的事实、基于事实的推断以及尚不确定的信息区分开来\\nC. 如果信息来源看起来可靠，就不需要考虑其适用条件\\nD. 对无法确认的信息，可以直接按自己的判断写成事实\\n\\n正确答案：B\\n\\n解析：信息核验时，应区分观察、推断和未知信息，并核验来源及其适用条件。旧记录不能直接当作当前结论使用，来源可靠也仍需确认适用条件；无法确认的信息不应写成确定事实。因此，B项最符合要求。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "b1832112de89119a2c73dd693fec740acba9398525dda5544d450af2fdc6cc0a",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-18",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7375,
+      "usage": {
+        "prompt_tokens": 152,
+        "completion_tokens": 286,
+        "reasoning_tokens": 30
+      },
+      "response_json": "{\"text\":\"【多选题】\\n在进行信息核验时，以下哪些做法是恰当的？\\n\\nA. 区分已经观察到的事实、基于事实作出的推断，以及目前仍未知的信息。\\nB. 只要某条记录曾经正确，就可以直接把它当作当前结论使用。\\nC. 核验信息来源，并注意该来源适用的条件和范围。\\nD. 对旧记录进行复核，确认其是否仍适用于当前情境。\\n\\n【正确选项】A、C、D\\n\\n【逐项解析】\\nA. 正确。信息核验时应区分观察、推断和未知信息，避免把推断当成事实。\\nB. 错误。旧记录不能直接当作当前结论使用，需要核验其是否仍然适用。\\nC. 正确。核验来源及其适用条件，是判断信息可靠性的重要步骤。\\nD. 正确。旧记录可能因时间、条件变化而不再适用，因此需要结合当前情况复核。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "7c3f8ce404781ab5a938941b1bcbef951ce0e98318b70e5bb028e02b8956b46a",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-19",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8309,
+      "usage": {
+        "prompt_tokens": 149,
+        "completion_tokens": 353,
+        "reasoning_tokens": 31
+      },
+      "response_json": "{\"text\":\"情境判断题：\\n\\n你在整理一份学生近期学习状态报告时，发现系统里有一条两年前的记录写着：“该生经常迟交作业。”同时，你本周只观察到该生有一次作业提交较晚。此时，以下哪种做法最恰当？\\n\\nA. 直接在当前报告中写：“该生经常迟交作业。”\\nB. 根据两年前记录推断该生现在仍然学习态度不端正。\\nC. 写明：“本周观察到一次作业提交较晚；两年前曾有迟交作业记录，但需进一步核验其是否仍适用于当前情况。”\\nD. 不参考任何已有记录，只写“无法判断”。\\n\\n参考答案：C。\\n\\n评判依据：\\n本题考查是否能区分观察、推断和未知信息。选项C把“本周观察到一次作业提交较晚”作为当前观察事实，把“两年前曾有迟交记录”作为历史信息，并明确指出需要核验其是否仍适用于当前情况，避免把旧记录直接当作当前结论。A和B都把旧信息或有限观察过度推广为当前判断，依据不足；D虽然避免了误判，但完全忽视已有信息，也不符合合理核验来源与适用条件的要求。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "c1291f3e075b9ca44d779e01015dd7c78a3d981696d4e60c9d796b226b058bb3",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-20",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 8571,
+      "usage": {
+        "prompt_tokens": 153,
+        "completion_tokens": 360,
+        "reasoning_tokens": 28
+      },
+      "response_json": "{\"text\":\"应用题草稿：\\n\\n某项目组正在评估一台设备是否适合继续用于本周的重要生产任务。组员甲查看到一份两个月前的设备巡检记录，记录显示“运行正常”。组员乙观察到今天设备运行时有轻微异响，但不确定是否影响生产。组员丙推断设备可能存在磨损风险，建议暂停使用。请你作为项目负责人，说明应如何区分观察、推断和未知信息，并提出信息核验步骤，避免把旧记录直接当作当前结论。\\n\\n评价要点：\\n1. 能正确区分信息类型：\\n   - 观察：如“今天设备运行时有轻微异响”。\\n   - 推断：如“设备可能存在磨损风险”。\\n   - 未知信息：如“异响是否会影响生产”“设备当前是否仍然运行正常”。\\n2. 能说明旧记录的局限：两个月前的巡检记录不能直接作为当前设备状态的结论。\\n3. 能提出核验来源：例如进一步查看最新巡检记录、询问负责人员、安排现场检查等。\\n4. 能关注适用条件：判断历史记录是否仍适用于当前任务、当前环境和当前设备状态。\\n5. 能形成谨慎结论：在核验完成前，不把推断当事实，也不把旧信息直接用于当前决策。\",\"source_keys\":[\"original-source\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "64c6de1b4acb5edb13e17edf2e72d08f1afb02fecd24d537f9a6b335c6c1b13e",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-02",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6984,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 271,
+        "reasoning_tokens": 69
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，当前可用证据主要集中在“薄弱”掌握层级，尚不足以支持学生已达到发展中或掌握水平的判断。培训完成情况不可用，因此不能据此推断培训完成率或学习参与完成情况。\",\"suggestions\":[\"围绕当前薄弱点进行针对性讲解，优先澄清核心概念、常见误区和关键步骤。\",\"安排低门槛的形成性练习或随堂检测，用于补充有效证据并观察学生是否能从薄弱状态向更高掌握水平推进。\",\"采用示例讲解、分步演示和即时反馈，帮助学生建立正确解题或应用路径。\",\"后续教学中持续收集匿名有效学习证据，再根据证据变化调整教学节奏与补救内容。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "be298275538b6a5ffd554860341b629a28c63b42f53fa24431e59deb1eea751a",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-03",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7091,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 304,
+        "reasoning_tokens": 91
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，当前学习表现主要处于“发展中”水平，说明学习者可能已具备一定基础理解，但知识掌握的稳定性、迁移应用能力和综合运用能力仍需进一步巩固。培训完成情况不可用，因此不对完成率作判断。\",\"suggestions\":[\"围绕核心知识点安排针对性巩固练习，帮助学习者从理解走向稳定掌握。\",\"增加情境化应用任务，引导学习者将所学内容用于解决实际问题。\",\"通过课堂提问、小测或学习单收集更多形成性证据，以判断具体薄弱环节。\",\"对容易混淆或关键概念进行再讲解，并配合示例、反例和即时反馈。\",\"设置分层任务：基础题用于巩固，提升题用于促进迁移，拓展题用于挑战高阶理解。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "9bac47a1c1e5d48941983dbd3af6e601bae7b09356591b4d70e8c3323e569ca6",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-04",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6061,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 239,
+        "reasoning_tokens": 41
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，当前有证据的学习表现集中在“已掌握”层级，未见薄弱或发展中层级的有效证据。培训完成情况不可用，因此不能据此判断培训完成率或参与完成情况。\",\"suggestions\":[\"可围绕已掌握内容安排综合应用、迁移练习或开放性任务，帮助学习者巩固并提升运用能力。\",\"继续通过课堂提问、随堂练习、作品展示等方式收集有效证据，确认掌握是否稳定。\",\"若后续出现薄弱或发展中证据，再针对具体知识点设计小步练习、示范讲解和个别支持。\",\"不要依据当前数据推断培训完成情况；如需了解完成状态，应结合独立的培训记录或考勤数据。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "ac3a8b044226025c705435bcedc84c219358074b09e37558b6ec43fe2269df22",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-05",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 9015,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 242,
+        "reasoning_tokens": 56
+      },
+      "response_json": "{\"interpretation\":\"当前匿名有效学情显示，可用于判断学习掌握情况的证据不足，因此不宜对学生掌握水平作结论；培训完成情况未提供，不能据此推断完成率或参与情况。\",\"suggestions\":[\"先补充可验证的学习证据，例如课堂练习、随堂测验、作业表现或学习过程记录，再进行掌握水平分析。\",\"设计低门槛诊断任务，覆盖核心知识点，用于区分学生是否已理解、正在发展或需要重点支持。\",\"在教学中增加形成性反馈环节，及时收集学生的疑问、错误类型和解题过程。\",\"避免基于当前数据进行自动评分、分层分组或发布结论，应由教师结合更多证据进行判断。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "21aad99cd33e2dc653b69b72c2a965150dde09686af8f1c145cca07bf1343284",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-06",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7537,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 293,
+        "reasoning_tokens": 51
+      },
+      "response_json": "{\"interpretation\":\"当前匿名有效学情显示，学习证据整体偏不足，且已有证据更多指向掌握较弱；暂未看到能够支持较稳定掌握的表现。培训完成情况不可用，因此不应据此判断完成率或参与覆盖情况。\",\"suggestions\":[\"先进行低压力的诊断性回顾，确认学习者在哪些关键概念、步骤或应用场景上缺少证据。\",\"将后续教学目标拆分为更小的可观察任务，增加随堂练习、即时反馈和短周期复测。\",\"针对掌握较弱的内容安排示范讲解、例题对比和分层练习，优先巩固基础概念与核心操作。\",\"补充多样化学习证据，例如课堂问答、练习提交、情境任务或小测结果，以便后续更准确判断学习进展。\",\"避免根据当前数据自动评分、分组或发布结论，需结合教师观察和后续有效证据进行教学决策。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "e9a7c44b7ec035ed836226c4162347c9f132fb2adfd807f76e63d4dc2c106daa",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-07",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6063,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 265,
+        "reasoning_tokens": 26
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，目前可用于判断的学习表现主要集中在“薄弱”和“发展中”两个层级，尚未形成明显的稳定掌握证据；同时也存在证据不足的情况，说明部分学习结果还需要通过后续任务或测评进一步验证。培训完成情况不可用，因此不应据此推断完成率或参与情况。\",\"suggestions\":[\"围绕薄弱与发展中的知识点安排针对性讲解，优先澄清核心概念、常见误区和关键步骤。\",\"增加低压力的形成性练习，如随堂小题、案例辨析或分步任务，用于补充学习证据。\",\"对发展中的内容设计进阶练习，帮助学习者从理解过渡到稳定应用。\",\"对薄弱内容采用示范—练习—反馈的循环方式，及时纠正错误并强化迁移。\",\"后续学情解读应继续基于匿名有效数据，不依据缺失的培训完成信息作判断。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "d757feabe19556b454930fa2e10f50086b574286b02307757878f4e9503f92b3",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-08",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7837,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 310,
+        "reasoning_tokens": 34
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，当前有学习者处于“发展中”和“已掌握”两个层级，未见“证据不足”或“薄弱”层级的有效记录。培训完成情况不可用，因此不能据此判断完成率或参与完成状况。整体上可理解为：已形成一定学习成效，但仍存在需要继续巩固与提升的群体。\",\"suggestions\":[\"针对“发展中”层级，安排针对性巩固练习、错因分析和分步示范，帮助其从理解走向稳定应用。\",\"针对“已掌握”层级，提供拓展任务、综合应用或同伴讲解机会，促进迁移运用与高阶表达。\",\"教学中可采用分层任务：基础巩固、情境应用、挑战提升并行，避免同一难度无法兼顾不同掌握状态。\",\"后续继续收集有效学习证据，如课堂表现、练习结果、作品或测验反馈，以便动态调整教学支持。\",\"由于培训完成情况不可用，建议不要据此评价培训完成率或学习投入程度，仅将其作为掌握状态的辅助参考。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "3e5bfd002def8d75acf0124be810063f6edf034c1487592d79349b3b368dcc78",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-09",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7297,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 323,
+        "reasoning_tokens": 56
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，当前可见证据中既有已达到掌握水平的学习表现，也存在证据不足、暂不宜判断掌握情况的部分；未见薄弱或发展中表现的有效证据。培训完成情况不可用，因此不应据此推断完成率或参与完成状态。\",\"suggestions\":[\"对已显示掌握的内容，可安排巩固性练习、迁移应用或同伴讲解，帮助学生保持并深化理解。\",\"对证据不足的部分，应优先补充低压力的形成性评价，例如随堂小测、课堂提问、学习单或作品展示，以获得更充分的判断依据。\",\"教学反馈应区分“尚无足够证据”和“确实存在困难”，避免把缺少数据直接解释为学习薄弱。\",\"后续教学可设计分层任务：掌握较好的学生进行综合应用，证据不足的学生完成关键概念回顾与基础任务。\",\"由于培训完成情况不可用，相关教学决策应主要依据课堂表现、作业证据和后续形成性评价，而不是推断完成状态。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "e460c9d38c8f10f55cbd4dbc5bbe7132b51c0d38d31e0e77c4ce2af088ab6d52",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-10",
+      "kind": "learning-report",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 7802,
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 336,
+        "reasoning_tokens": 83
+      },
+      "response_json": "{\"interpretation\":\"匿名有效学情显示，学习掌握状态覆盖从证据不足到已掌握的多个层级，说明班级内可能存在不同程度的理解差异。由于培训完成情况不可用，不能据此判断学习进度或完成情况。该信息仅适合用于辅助教师了解整体学习状态分布方向，不应用于自动评分、个人归因或发布结论。\",\"suggestions\":[\"针对证据不足的学习表现，优先补充形成性检测或课堂观察，确认是否因参与不足、作答缺失或知识未掌握导致。\",\"对掌握较弱和发展中的学习表现，安排分层练习、关键概念回顾和针对性讲解，帮助学生巩固基础并纠正常见误解。\",\"对已掌握的学习表现，可提供拓展任务、应用型问题或同伴讲解机会，促进迁移与深化理解。\",\"后续教学中建议结合课堂提问、作业质量和小测反馈进行综合判断，避免仅依据单一匿名汇总信息作出教学决策。\"],\"source_keys\":[\"effective-learning\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "response_sha256": "5d04d03516b11ccbd2bb203403630078f2b0f5ef974b8432a1a0cf737babcef7",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

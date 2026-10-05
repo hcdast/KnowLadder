@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-03",
+  "environment": "Windows Node22.19.0/MongoDB8.0.17 independent test replica set",
+  "scope": "TRN-11-C02 phase2 location-create browser response loss, refresh receipt and same-key retry",
+  "beforeRefresh": {
+    "transport": {
+      "dropped": 1,
+      "writeCount": 1,
+      "lastKey": "35ec9e66-f500-4737-8d3c-77d5ec044924"
+    },
+    "db": {
+      "locations": 1,
+      "receipts": 1
+    }
+  },
+  "afterRefresh": {
+    "transport": {
+      "dropped": 1,
+      "writeCount": 1,
+      "lastKey": "35ec9e66-f500-4737-8d3c-77d5ec044924"
+    },
+    "db": {
+      "locations": 1,
+      "receipts": 1
+    }
+  },
+  "beforeRetry": {
+    "transport": {
+      "dropped": 2,
+      "writeCount": 2,
+      "lastKey": "0bc61b00-7412-48da-afe8-6db51cda79a5"
+    },
+    "db": {
+      "locations": 2,
+      "receipts": 2
+    }
+  },
+  "afterRetry": {
+    "transport": {
+      "dropped": 2,
+      "writeCount": 3,
+      "lastKey": "0bc61b00-7412-48da-afe8-6db51cda79a5"
+    },
+    "db": {
+      "locations": 2,
+      "receipts": 2
+    }
+  },
+  "fixtureExit": {
+    "code": 0,
+    "signal": null
+  },
+  "agentTabClosed": true,
+  "userTabsPreserved": true,
+  "businessSourceChanged": false,
+  "notCovered": [
+    "certificate issuance receipt UI",
+    "other phase2 write routes",
+    "both transaction interleavings",
+    "screen reader",
+    "migration fault and multi-version upgrade (user deferred)"
+  ],
+  "ipcDisconnectCleanup": {
+    "code": 0,
+    "signal": null
+  }
+}

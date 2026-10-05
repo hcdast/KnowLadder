@@ -1,0 +1,48 @@
+TAP version 13
+# Subtest: AI学情发送边界：4人、4份有效证据与无证据均不合格
+ok 1 - AI学情发送边界：4人、4份有效证据与无证据均不合格
+  ---
+  duration_ms: 1.4056
+  type: 'test'
+  ...
+# Subtest: AI学情发送边界：小分类及两种补集均隐藏整个维度
+ok 2 - AI学情发送边界：小分类及两种补集均隐藏整个维度
+  ---
+  duration_ms: 0.1871
+  type: 'test'
+  ...
+# Subtest: AI学情发送边界：不发送身份、正文、重叠薄弱点或缺分母的任务人数
+ok 3 - AI学情发送边界：不发送身份、正文、重叠薄弱点或缺分母的任务人数
+  ---
+  duration_ms: 0.1522
+  type: 'test'
+  ...
+# Subtest: AI学情发送边界：不接受非法、旧规则或不一致统计
+ok 4 - AI学情发送边界：不接受非法、旧规则或不一致统计
+  ---
+  duration_ms: 0.3081
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI有效学情：真实评分/投影、4与5人、匿名派发、采纳审核、过期与unknown
+ok 5 - AI有效学情：真实评分/投影、4与5人、匿名派发、采纳审核、过期与unknown
+  ---
+  duration_ms: 22547.5037
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI学情：默认不迁移v16，缺少金额策略时拒绝启用
+ok 6 - AI学情：默认不迁移v16，缺少金额策略时拒绝启用
+  ---
+  duration_ms: 2578.9943
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25352.7755

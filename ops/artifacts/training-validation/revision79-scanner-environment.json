@@ -1,0 +1,45 @@
+{
+  "scanner": "ClamAV 1.4.6",
+  "database": [
+    {
+      "name": "bytecode.cvd",
+      "length": 281702,
+      "sha256": "6D4AA01F219E988060FC419F495D07F27E0CDF1A2CCCC065971DA922C76F7FFB"
+    },
+    {
+      "name": "daily.cld",
+      "length": 86186496,
+      "sha256": "6EA67D8C8BACD2D89A83B1D88A91AE7C6876D0CC22071FFE9F5ECB5FAECBF6A3"
+    },
+    {
+      "name": "freshclam.dat",
+      "length": 90,
+      "sha256": "13EB88D125C4FD85C8F69158061148AF136E67BAA2305B9216DAAD3223DCAEED"
+    },
+    {
+      "name": "main.cvd",
+      "length": 89072577,
+      "sha256": "0B2182D229F46981EC8F535382222F7C9DFDD656B250AD47988B910A8D302365"
+    }
+  ],
+  "defender_events": [
+    {
+      "id": 1117,
+      "time": "2026-10-02T21:54:00.4663310+08:00",
+      "signature": "Virus:DOS/EICAR_Test_File",
+      "test_directory": "kl-scanner-*"
+    },
+    {
+      "id": 1116,
+      "time": "2026-10-02T21:53:48.8133831+08:00",
+      "signature": "Virus:DOS/EICAR_Test_File",
+      "test_directory": "kl-scanner-*"
+    }
+  ],
+  "policy_hours": "168 only for disposable test",
+  "version_check": {
+    "command": "clamscan.exe --version",
+    "exit_code": 0
+  },
+  "initial_database_version_command": "PowerShell argument parse failed; not evidence of scanner health"
+}

@@ -1,0 +1,138 @@
+{
+  "date": "2026-10-02",
+  "environment": {
+    "platform": "Windows",
+    "node": "24.14.0",
+    "mongo": "8.0.17",
+    "data": "isolated synthetic fixtures"
+  },
+  "regression": {
+    "pass": 22,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 227053.5539,
+    "exit": 0,
+    "log": "revision80-final-regression.log",
+    "teardown": "owned Mongo SIGINT timeout followed by SIGKILL"
+  },
+  "focused": {
+    "pass": 5,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 66708.3403,
+    "exit": 0,
+    "log": "revision80-focused-reviewed.log"
+  },
+  "build": [
+    {
+      "kind": "server",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "kind": "web",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "generatedOpenApi": {
+    "exit": 0,
+    "stdout": "已从 OpenAPI 生成 src/api/schema.d.ts\n",
+    "stderr": ""
+  },
+  "finalWebChecks": [
+    {
+      "check": "vue-tsc-final",
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "check": "vite-final",
+      "exit": 0,
+      "stdout": "\u001b[36mvite v7.3.6 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\ntransforming...\n\u001b[32m✓\u001b[39m 112 modules transformed.\nrendering chunks...\ncomputing gzip size...\n\u001b[2mdist/\u001b[22m\u001b[32mindex.html                            \u001b[39m\u001b[1m\u001b[2m  0.46 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.32 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[35massets/ConsoleWorkspace-Bqgp_KHL.css  \u001b[39m\u001b[1m\u001b[2m 15.66 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   3.66 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[35massets/index-DxrrCpZZ.css             \u001b[39m\u001b[1m\u001b[2m 30.64 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   6.79 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[36massets/ConsoleWorkspace-rcNjy-E9.js   \u001b[39m\u001b[1m\u001b[2m177.51 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:  51.75 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[36massets/index-Ctu6cLC1.js              \u001b[39m\u001b[1m\u001b[2m425.84 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip: 136.60 kB\u001b[22m\n\u001b[32m✓ built in 1.96s\u001b[39m\n",
+      "stderr": ""
+    },
+    {
+      "check": "git-diff",
+      "exit": 0,
+      "stdout": "",
+      "stderr": "warning: in the working copy of 'AGENTS.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'docs/UIUX设计方案.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'docs/开发计划.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'docs/技术架构方案.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'docs/项目方案.md', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'ops/system-backup.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/.env.example', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/app.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/access.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/assessment-files.controller.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/assessment-openapi.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/assessment.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/contracts.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/dto.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/management.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/student-evidence.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/subject-access.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/submission.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/assessment/worker.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/auth.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/cli/admin-operations.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/cli/main.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/config.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/access.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/assessment-sources.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/catalogue-cli.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/content-openapi.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/content.controller.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/content.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/content/dto.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/database/contracts.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/database/database.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/dto.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/errors.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/config.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/files.controller.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/files.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/references.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/scanner.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/stream.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/files/worker.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/access.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/learning-openapi.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/manifest.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/projection.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/reading-cleanup.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/reading.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/recommendations.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/tracking.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/view.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/learning/worker.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/main.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/migrations/schema.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/openapi.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/operations/cli.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/operations/contracts.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/operations/control.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/operations/ledger.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/privacy/cli.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/privacy/execution.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/privacy/privacy-openapi.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/src/privacy/privacy.service.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/assessment-boundaries.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/assessment-helpers.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/assessment.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/auth.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/content-contracts.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/content.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/files-worker.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/files.config.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/helpers.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/learning-api.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/learning-tracking.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/migration-v3.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/migration-v4.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/migration-v5.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/migration-v6.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/migration-v7.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/operations-resources.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/privacy-execution.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/reading-progress.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'server/test/system-backup.integration.test.cjs', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/package-lock.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/package.json', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/App.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/api/schema.d.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/assessment/AssessmentAdmin.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/assessment/AssessmentWorkspace.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/content/ContentWorkspace.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/content/FileUpload.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/learning/LearningWorkspace.vue', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/main.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/session.ts', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/src/styles.css', LF will be replaced by CRLF the next time Git touches it\nwarning: in the working copy of 'web/vite.config.ts', LF will be replaced by CRLF the next time Git touches it\n"
+    }
+  ],
+  "missingLinks": [],
+  "review": "Scoped review and repaired-code review completed; unresolved acceptance listed",
+  "browser": {
+    "draftAndReview": "Initial actual draft and request-review succeeded before UI review fixes",
+    "final": "Blocked by original temporary native confirmation; awaiting user cancellation",
+    "remaining": [
+      "dual-account publish",
+      "unknown response recovery",
+      "narrow viewport",
+      "keyboard",
+      "inline leave confirmation"
+    ]
+  },
+  "uncovered": [
+    "real provider/60 case quality/fees",
+    "infection",
+    "hold two-order races",
+    "shared-resource negative test",
+    "v13+v14 combination and migration interruption",
+    "all authenticated cache and full end-to-end",
+    "production admission"
+  ],
+  "changes": "No real environment/accounts/databases/PM2, commit or push",
+  "cleanup": {
+    "current": [
+      {
+        "kind": "api",
+        "exit": 0,
+        "signal": null
+      },
+      {
+        "kind": "vite",
+        "exit": 0,
+        "signal": null
+      }
+    ],
+    "previous": {
+      "apiExit": 0,
+      "viteExit": 0
+    },
+    "ports": [
+      {
+        "port": 5184,
+        "listening": false,
+        "code": "ECONNREFUSED"
+      },
+      {
+        "port": 55050,
+        "listening": false,
+        "code": "ECONNREFUSED"
+      },
+      {
+        "port": 59686,
+        "listening": false,
+        "code": "ECONNREFUSED"
+      }
+    ],
+    "runtimeRemoved": true,
+    "tempLoginTabClosed": true,
+    "blockedReportTab": "retained for user cancellation",
+    "userTabs": "preserved"
+  },
+  "documentConsistency": {
+    "revisionHeader": true,
+    "snapshot": true,
+    "history": true,
+    "pendingCleanup": false,
+    "taskRows": 3
+  },
+  "finalDiffCheck": {
+    "exit": 0,
+    "errors": ""
+  }
+}

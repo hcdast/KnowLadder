@@ -1,0 +1,116 @@
+TAP version 13
+# Subtest: 隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环
+    # Subtest: inspect 在未登记环境只读，未知集合拒绝且不产生任何DDL或状态
+    ok 1 - inspect 在未登记环境只读，未知集合拒绝且不产生任何DDL或状态
+      ---
+      duration_ms: 3139.407
+      type: 'test'
+      ...
+    # Subtest: 批准、拒绝校验revision和plan，执行前再次拒绝过期plan
+    ok 2 - 批准、拒绝校验revision和plan，执行前再次拒绝过期plan
+      ---
+      duration_ms: 6681.9636
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 多组织整账户删除保留共享内容及其他用户，身份不可重新启用
+    ok 3 - 多组织整账户删除保留共享内容及其他用户，身份不可重新启用
+      ---
+      duration_ms: 9435.1774
+      type: 'test'
+      ...
+    # Subtest: operations privacy-execute真实子进程正常退出，完成删除并清理writer与ledger锁
+    ok 4 - operations privacy-execute真实子进程正常退出，完成删除并清理writer与ledger锁
+      ---
+      duration_ms: 7753.5732
+      type: 'test'
+      ...
+    # Subtest: freeze前真实ledger故障后，failed重试仍校验源图并允许重批
+    ok 5 - freeze前真实ledger故障后，failed重试仍校验源图并允许重批
+      ---
+      duration_ms: 5732.2302
+      type: 'test'
+      ...
+    # Subtest: 真实pending阻止重批；维护abort后不同保留依据生成新intent并完成
+    ok 6 - 真实pending阻止重批；维护abort后不同保留依据生成新intent并完成
+      ---
+      duration_ms: 7955.3992
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: legal_hold保留完整评估依赖图，但仍删除学习证据并冻结身份
+    ok 7 - legal_hold保留完整评估依赖图，但仍删除学习证据并冻结身份
+      ---
+      duration_ms: 8114.789
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: retention_until保留完整评估依赖图，但仍删除学习证据并冻结身份
+    ok 8 - retention_until保留完整评估依赖图，但仍删除学习证据并冻结身份
+      ---
+      duration_ms: 8179.2251
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 真实事务中途失败保持冻结，resume不重复删除计数和外部intent
+    ok 9 - 真实事务中途失败保持冻结，resume不重复删除计数和外部intent
+      ---
+      duration_ms: 10079.1642
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: 源库已丢失且旧快照无request时，外部已提交proof仍恢复删除而不伤其他用户
+    not ok 10 - 源库已丢失且旧快照无request时，外部已提交proof仍恢复删除而不伤其他用户
+      ---
+      duration_ms: 10308.3839
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\privacy-execution.integration.test.cjs:509:11'
+      failureType: 'testCodeFailure'
+      error: 'Document failed validation'
+      code: 121
+      name: 'MongoServerError'
+      stack: |-
+        InsertOneOperation.handleOk (D:\my-workspace\KnowLadder\server\node_modules\mongodb\lib\operations\insert.js:51:19)
+        tryOperation (D:\my-workspace\KnowLadder\server\node_modules\mongodb\lib\operations\execute_operation.js:214:34)
+        process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+        async executeOperation (D:\my-workspace\KnowLadder\server\node_modules\mongodb\lib\operations\execute_operation.js:78:16)
+        async Collection.insertOne (D:\my-workspace\KnowLadder\server\node_modules\mongodb\lib\collection.js:154:16)
+        async D:\my-workspace\KnowLadder\server\dist\operations\control.js:251:13
+        async ClientSession.withTransaction (D:\my-workspace\KnowLadder\server\node_modules\mongodb\lib\sessions.js:503:30)
+        async runInTxn (D:\my-workspace\KnowLadder\server\dist\database\txn.js:31:16)
+        async quarantineRestore (D:\my-workspace\KnowLadder\server\dist\operations\control.js:246:9)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\privacy-execution.integration.test.cjs:543:5)
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: restore旧requested没有保留依据时先冻结，再阻止删除并要求review_retention
+    ok 11 - restore旧requested没有保留依据时先冻结，再阻止删除并要求review_retention
+      ---
+      duration_ms: 7284.1033
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: restore仅隔离态可重放，未知历史policy保持隔离且冻结而不误删
+    ok 12 - restore仅隔离态可重放，未知历史policy保持隔离且冻结而不误删
+      ---
+      duration_ms: 7205.1465
+      type: 'test'
+      ...
+    1..12
+not ok 1 - 隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环
+  ---
+  duration_ms: 91878.9677
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\privacy-execution.integration.test.cjs:181:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..1
+# tests 13
+# suites 0
+# pass 11
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 92242.5229

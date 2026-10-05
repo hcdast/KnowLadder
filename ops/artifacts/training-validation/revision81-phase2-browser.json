@@ -1,0 +1,38 @@
+{
+  "scope": "isolated synthetic identities and original local data",
+  "scheduleCreatePublish": true,
+  "rescheduleKeyboardConfirm": true,
+  "cancelDefaultFocus": "取消",
+  "cancelEscape": true,
+  "pathIndependentPublish": true,
+  "qualificationMissingBlocksCertificate": true,
+  "studentNotificationRead": true,
+  "widths": [
+    {
+      "overflow": false,
+      "qualification": true,
+      "scrollWidth": 305,
+      "width": 320
+    },
+    {
+      "overflow": false,
+      "qualification": true,
+      "scrollWidth": 375,
+      "width": 390
+    },
+    {
+      "overflow": false,
+      "qualification": true,
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "overflow": false,
+      "qualification": true,
+      "scrollWidth": 1425,
+      "width": 1440
+    }
+  ],
+  "unknownTransport": false,
+  "screenReader": false
+}

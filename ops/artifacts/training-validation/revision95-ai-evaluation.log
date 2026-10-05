@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: 60 original cases have exact ability distribution and safe anonymous groups
+ok 1 - 60 original cases have exact ability distribution and safe anonymous groups
+  ---
+  duration_ms: 2.2921
+  type: 'test'
+  ...
+# Subtest: structure pass never substitutes human pedagogical review
+ok 2 - structure pass never substitutes human pedagogical review
+  ---
+  duration_ms: 0.4068
+  type: 'test'
+  ...
+# Subtest: malformed responses and unknown citations fail closed
+ok 3 - malformed responses and unknown citations fail closed
+  ---
+  duration_ms: 0.2688
+  type: 'test'
+  ...
+# Subtest: learning report rejects numbers, invalid shape and empty suggestions
+ok 4 - learning report rejects numbers, invalid shape and empty suggestions
+  ---
+  duration_ms: 0.3954
+  type: 'test'
+  ...
+# Subtest: preflight does not leak key or claim paid budget readiness
+ok 5 - preflight does not leak key or claim paid budget readiness
+  ---
+  duration_ms: 0.2386
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 65.1069

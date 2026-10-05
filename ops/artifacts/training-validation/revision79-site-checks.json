@@ -1,0 +1,203 @@
+{
+  "checks": [
+    {
+      "canonical": "http://127.0.0.1:5184/",
+      "description": true,
+      "h1": 1,
+      "path": "/",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "AI 教学培训平台 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/features",
+      "description": true,
+      "h1": 1,
+      "path": "/features",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "产品功能 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/ai-teaching",
+      "description": true,
+      "h1": 1,
+      "path": "/ai-teaching",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "AI 教学 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/solutions",
+      "description": true,
+      "h1": 1,
+      "path": "/solutions",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "解决方案 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/help",
+      "description": true,
+      "h1": 1,
+      "path": "/help",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "使用帮助 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/about",
+      "description": true,
+      "h1": 1,
+      "path": "/about",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "关于知阶 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/contact",
+      "description": true,
+      "h1": 1,
+      "path": "/contact",
+      "robots": "index,follow",
+      "scrollWidth": 305,
+      "title": "联系咨询 | 知阶 KnowLadder",
+      "width": 320
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/",
+      "description": true,
+      "h1": 1,
+      "path": "/",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/features",
+      "description": true,
+      "h1": 1,
+      "path": "/features",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/ai-teaching",
+      "description": true,
+      "h1": 1,
+      "path": "/ai-teaching",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/solutions",
+      "description": true,
+      "h1": 1,
+      "path": "/solutions",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/help",
+      "description": true,
+      "h1": 1,
+      "path": "/help",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/about",
+      "description": true,
+      "h1": 1,
+      "path": "/about",
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/contact",
+      "description": true,
+      "h1": 1,
+      "path": "/contact",
+      "scrollWidth": 768,
+      "width": 768
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/",
+      "description": true,
+      "h1": 1,
+      "path": "/",
+      "scrollWidth": 1425,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/features",
+      "description": true,
+      "h1": 1,
+      "path": "/features",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/ai-teaching",
+      "description": true,
+      "h1": 1,
+      "path": "/ai-teaching",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/solutions",
+      "description": true,
+      "h1": 1,
+      "path": "/solutions",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/help",
+      "description": true,
+      "h1": 1,
+      "path": "/help",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/about",
+      "description": true,
+      "h1": 1,
+      "path": "/about",
+      "scrollWidth": 1440,
+      "width": 1440
+    },
+    {
+      "canonical": "http://127.0.0.1:5184/contact",
+      "description": true,
+      "h1": 1,
+      "path": "/contact",
+      "scrollWidth": 1440,
+      "width": 1440
+    }
+  ],
+  "keyboard": {
+    "skip": {
+      "hash": "#main-content",
+      "id": "main-content"
+    },
+    "routeFocus": {
+      "path": "/features",
+      "tag": "H1",
+      "text": "从课程到反馈，让培训形成闭环"
+    }
+  },
+  "privateMeta": {
+    "canonical": false,
+    "og": false,
+    "path": "/login",
+    "robots": "noindex,nofollow"
+  }
+}

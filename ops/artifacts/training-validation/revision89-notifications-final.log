@@ -1,0 +1,17 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 通知容量：50项分批、200项截断、并发去重与来源撤权
+ok 1 - 通知容量：50项分批、200项截断、并发去重与来源撤权
+  ---
+  duration_ms: 10800.1097
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10981.9231

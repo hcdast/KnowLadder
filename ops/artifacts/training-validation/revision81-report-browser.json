@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-03",
+  "dualAccountPublish": true,
+  "refreshPublished": true,
+  "selfReviewHidden": true,
+  "inlineLeaveEscape": true,
+  "defaultFocusCancel": true,
+  "keyboardPublish": true,
+  "widths": [
+    {
+      "disabledBody": true,
+      "published": true,
+      "scrollWidth": 305,
+      "width": 320
+    },
+    {
+      "disabledBody": true,
+      "published": true,
+      "scrollWidth": 375,
+      "width": 390
+    },
+    {
+      "disabledBody": true,
+      "published": true,
+      "scrollWidth": 753,
+      "width": 768
+    },
+    {
+      "disabledBody": true,
+      "published": true,
+      "scrollWidth": 1425,
+      "width": 1440
+    }
+  ],
+  "unknownTransport": "not tested"
+}

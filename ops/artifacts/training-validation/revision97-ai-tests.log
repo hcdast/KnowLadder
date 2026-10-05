@@ -1,0 +1,118 @@
+TAP version 13
+# Subtest: blank and partial packs preserve per-capability unrun counts and pending verification
+ok 1 - blank and partial packs preserve per-capability unrun counts and pending verification
+  ---
+  duration_ms: 3.2893
+  type: 'test'
+  ...
+# Subtest: unreconciled unknown charges remain reserved; token counts never become supplier fees
+ok 2 - unreconciled unknown charges remain reserved; token counts never become supplier fees
+  ---
+  duration_ms: 1.6179
+  type: 'test'
+  ...
+# Subtest: five dollar aggregate cap and per-request reservations fail closed
+ok 3 - five dollar aggregate cap and per-request reservations fail closed
+  ---
+  duration_ms: 1.8149
+  type: 'test'
+  ...
+# Subtest: review binds exact output and requires two distinct reviewers with complete scores
+ok 4 - review binds exact output and requires two distinct reviewers with complete scores
+  ---
+  duration_ms: 1.238
+  type: 'test'
+  ...
+# Subtest: disagreements and invalid outputs cannot be hidden by aggregate averages
+ok 5 - disagreements and invalid outputs cannot be hidden by aggregate averages
+  ---
+  duration_ms: 1.3697
+  type: 'test'
+  ...
+# Subtest: duplicate cases, stale corpus and impossible reasoning usage are rejected
+ok 6 - duplicate cases, stale corpus and impossible reasoning usage are rejected
+  ---
+  duration_ms: 1.2354
+  type: 'test'
+  ...
+# Subtest: complete controlled declarations cannot claim real model or production admission
+ok 7 - complete controlled declarations cannot claim real model or production admission
+  ---
+  duration_ms: 2.3212
+  type: 'test'
+  ...
+# Subtest: CLI consumes real files, emits stable errors and never echoes malformed payloads
+ok 8 - CLI consumes real files, emits stable errors and never echoes malformed payloads
+  ---
+  duration_ms: 129.5219
+  type: 'test'
+  ...
+# Subtest: 60 original cases have exact ability distribution and safe anonymous groups
+ok 9 - 60 original cases have exact ability distribution and safe anonymous groups
+  ---
+  duration_ms: 2.0129
+  type: 'test'
+  ...
+# Subtest: structure pass never substitutes human pedagogical review
+ok 10 - structure pass never substitutes human pedagogical review
+  ---
+  duration_ms: 0.3956
+  type: 'test'
+  ...
+# Subtest: malformed responses and unknown citations fail closed
+ok 11 - malformed responses and unknown citations fail closed
+  ---
+  duration_ms: 0.2552
+  type: 'test'
+  ...
+# Subtest: learning report rejects numbers, invalid shape and empty suggestions
+ok 12 - learning report rejects numbers, invalid shape and empty suggestions
+  ---
+  duration_ms: 0.394
+  type: 'test'
+  ...
+# Subtest: preflight does not leak key or claim paid budget readiness
+ok 13 - preflight does not leak key or claim paid budget readiness
+  ---
+  duration_ms: 0.2329
+  type: 'test'
+  ...
+# Subtest: smoke matches production request parameters and sends original source only
+ok 14 - smoke matches production request parameters and sends original source only
+  ---
+  duration_ms: 1.1707
+  type: 'test'
+  ...
+# Subtest: success retains structured output and supplier usage without claiming a fee
+ok 15 - success retains structured output and supplier usage without claiming a fee
+  ---
+  duration_ms: 18.592
+  type: 'test'
+  ...
+# Subtest: rejected or lost responses invoke transport once and do not expose secrets
+ok 16 - rejected or lost responses invoke transport once and do not expose secrets
+  ---
+  duration_ms: 0.3404
+  type: 'test'
+  ...
+# Subtest: numeric learning output is rejected and not retained
+ok 17 - numeric learning output is rejected and not retained
+  ---
+  duration_ms: 0.5155
+  type: 'test'
+  ...
+# Subtest: continuation excludes four completed cases and rejects unknown prior outcomes
+ok 18 - continuation excludes four completed cases and rejects unknown prior outcomes
+  ---
+  duration_ms: 1.8101
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 210.8641

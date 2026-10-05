@@ -1,0 +1,99 @@
+{
+  "revision": 75,
+  "date": "2026-10-02",
+  "environment": {
+    "os": "Windows",
+    "node": "24.19.0",
+    "mongodb": "8.0.17",
+    "database": "disposable replicaSet",
+    "browser": "Codex IAB",
+    "origin": "http://localhost:5184"
+  },
+  "checks": [
+    {
+      "command": "node test/object-id-runtime.cjs test/training.integration.test.cjs",
+      "cwd": "server",
+      "exit_code": 0,
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "duration_ms": 63180.4918
+    },
+    {
+      "command": "vue-tsc --noEmit",
+      "cwd": "web",
+      "exit_code": 0
+    },
+    {
+      "command": "vite build",
+      "cwd": "web",
+      "exit_code": 0
+    },
+    {
+      "command": "tsc",
+      "cwd": "server",
+      "exit_code": 0
+    },
+    {
+      "command": "actual Vue component browser boundary harness",
+      "passed": 15,
+      "failed": 0
+    },
+    {
+      "command": "git diff --check (cr-at-eol)",
+      "exit_code": 0
+    },
+    {
+      "command": "four core document local links",
+      "checked": 142,
+      "missing": 0
+    }
+  ],
+  "real_browser": {
+    "response_loss": "proxy discarded actual HTTP200 after upstream write",
+    "reload": "same original key restored; receipt confirmed",
+    "database_before_and_after_receipt": {
+      "submission_count": 1,
+      "head_revision": 2,
+      "has_current_submission": true,
+      "coursework_receipts": 1
+    },
+    "proxy": {
+      "writes": 1,
+      "unique_keys": 1,
+      "dropped": true
+    },
+    "offboard": "actual404 cleared task and body",
+    "teacher_report": "actual24hex report returned insufficient evidence",
+    "teacher_revocation": "actual404 cleared class and report"
+  },
+  "review": {
+    "status": "completed with limitations",
+    "scope": [
+      "recovery metadata",
+      "uncertain response retention",
+      "authorization view clearing",
+      "late read suppression",
+      "explicit reload confirmation",
+      "test-only isolation"
+    ],
+    "remaining": "service graceful-stop verification and broader end-to-end remain open"
+  },
+  "cleanup": {
+    "browser_tabs": "owned tabs closed",
+    "port5184": "no listener after tool session reclamation",
+    "graceful_process_exit": "not verified; first IPC cleanup issue fixed with disconnect"
+  },
+  "limits": [
+    "Component harness rejects business calls; not simulated business success",
+    "No full quiz/recommendation/assessment end-to-end",
+    "No real provider quality/cost validation",
+    "No media scanning/full backup rerun",
+    "No full responsive/accessibility verification",
+    "No production, commit or push"
+  ],
+  "historical_failures": [
+    "Native confirmation blocked browser; user closed it",
+    "Persistent IPC initially prevented fixture exit; disconnect added; graceful-stop rerun pending"
+  ]
+}

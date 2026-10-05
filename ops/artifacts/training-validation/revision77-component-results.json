@@ -1,0 +1,101 @@
+{
+  "passed": 19,
+  "failed": 0,
+  "entries": [
+    {
+      "name": "R08-1 教师24hex学科报告到达请求边界",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "R08-2 教师24hex学科通过出卷校验",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "R08-3 教师24hex题目版本到达出卷请求边界",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "R08-4 学习24hex推荐卡恢复及原键重放",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "R08-5 学习24hex测评会话恢复",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "教师报告404清空名册和报告",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训不确定409保留原键 IDEMPOTENCY_CONFLICT",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训不确定409保留原键 IDEMPOTENCY_RESULT_INVALID",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训不确定409保留原键 IDENTITY_CHANGED",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训AI来源409清空旧正文",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训失权后的迟到读取不能回填",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训确定422允许修正后新请求",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "教师恢复元数据拒绝非法键和额外正文",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训恢复元数据拒绝额外正文",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "培训周期复核AI来源变化清空正文",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "作业截止相等只读且不发送写入",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "任务取消须确认且作业状态区分反馈",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "附件丢响应仅存声明原key并刷新恢复",
+      "passed": true,
+      "detail": "PASS"
+    },
+    {
+      "name": "附件非法恢复元数据冻结",
+      "passed": true,
+      "detail": "PASS"
+    }
+  ]
+}

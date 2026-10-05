@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-03",
+  "node": "22.19.0",
+  "interpreter": "E:/nvm/nodejs/node.exe",
+  "mongodb": "8.0.17",
+  "authWorkerFile": {
+    "pass": 38,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 136720.1518,
+    "exit": 0,
+    "log": "revision85-node22-final.log"
+  },
+  "phase2Reports": {
+    "pass": 8,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 79558.5235,
+    "exit": 0,
+    "log": "revision85-node22-phase2.log"
+  },
+  "serverBuild": 0,
+  "webAndPrototype": [
+    {
+      "folder": "web",
+      "bin": "node_modules/vue-tsc/bin/vue-tsc.js",
+      "code": 0
+    },
+    {
+      "folder": "web",
+      "bin": "node_modules/vite/bin/vite.js",
+      "code": 0
+    },
+    {
+      "folder": "prototype",
+      "bin": "node_modules/vite/bin/vite.js",
+      "code": 0
+    }
+  ],
+  "prototypeTypeCheck": 0,
+  "diffCheck": {
+    "code": 0,
+    "output": "",
+    "warnings": 0
+  },
+  "documentLinks": [],
+  "review": "PASS bounded review and rereview; no identified unresolved Critical/High",
+  "history": {
+    "firstNodeRepl": "exit1 incomplete TAP",
+    "firstReviewed": {
+      "pass": 35,
+      "fail": 3,
+      "skip": 0,
+      "exit": 1
+    }
+  },
+  "notCovered": [
+    "Linux optional dependency and build",
+    "migration fault and multi-version upgrade",
+    "full concurrency and unknown browser",
+    "capacity and cross-process certificate rate limit",
+    "real model quality and infection scanning"
+  ],
+  "realConfigurationChanged": false,
+  "commit": false,
+  "push": false
+}

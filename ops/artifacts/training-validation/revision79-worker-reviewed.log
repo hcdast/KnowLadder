@@ -1,0 +1,59 @@
+TAP version 13
+# Subtest: 文件worker：删除租约、墓碑、保全与孤儿保护
+    # Subtest: 删除失败不写deleted_at，真实I/O恢复后重试保留墓碑与审计
+    ok 1 - 删除失败不写deleted_at，真实I/O恢复后重试保留墓碑与审计
+      ---
+      duration_ms: 8850.3013
+      type: 'test'
+      ...
+    # Subtest: hold、未到期、无显式申请和有效独立租约均禁止删除
+    ok 2 - hold、未到期、无显式申请和有效独立租约均禁止删除
+      ---
+      duration_ms: 1069.6427
+      type: 'test'
+      ...
+    # Subtest: 所有版本和章节引用均阻断删除，包括其他组织及retired记录
+    ok 3 - 所有版本和章节引用均阻断删除，包括其他组织及retired记录
+      ---
+      duration_ms: 1124.0643
+      type: 'test'
+      ...
+    # Subtest: 中断删除租约到期可重领，两个worker仅一个完成，缺失文件视为成功
+    ok 4 - 中断删除租约到期可重领，两个worker仅一个完成，缺失文件视为成功
+      ---
+      duration_ms: 2679.9121
+      type: 'test'
+      ...
+    # Subtest: 孤儿清理保留登记、有效上传/扫描租约及失败文件，只清理24小时外真正孤儿
+    ok 5 - 孤儿清理保留登记、有效上传/扫描租约及失败文件，只清理24小时外真正孤儿
+      ---
+      duration_ms: 8879.5564
+      type: 'test'
+      ...
+    # Subtest: rename后提交中断只重新排队扫描，过期token不得复活文件
+    ok 6 - rename后提交中断只重新排队扫描，过期token不得复活文件
+      ---
+      duration_ms: 5254.7447
+      type: 'test'
+      ...
+    # Subtest: 损坏ready与扫描重试耗尽均保持不可交付，活跃扫描不被恢复
+    ok 7 - 损坏ready与扫描重试耗尽均保持不可交付，活跃扫描不被恢复
+      ---
+      duration_ms: 5738.8209
+      type: 'test'
+      ...
+    1..7
+ok 1 - 文件worker：删除租约、墓碑、保全与孤儿保护
+  ---
+  duration_ms: 33599.2729
+  type: 'test'
+  ...
+1..1
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 33938.2903

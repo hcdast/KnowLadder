@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-02",
+  "environment": "Windows / Node 24.19.0 / isolated MongoMemoryReplSet",
+  "checks": [
+    {
+      "name": "earlier focused regression",
+      "passed": 25,
+      "failed": 0,
+      "skipped": 0,
+      "log": "integration-regression.log"
+    },
+    {
+      "name": "final training integration after receipt authorization and deadline fixes",
+      "command": "node test/object-id-runtime.cjs test/training.integration.test.cjs",
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "log": "training-final.log"
+    },
+    {
+      "name": "server build",
+      "exitCode": 0
+    },
+    {
+      "name": "Vue typecheck and Vite build",
+      "exitCode": 0
+    },
+    {
+      "name": "OpenAPI types generated from isolated HTTP server",
+      "exitCode": 0
+    },
+    {
+      "name": "real browser course draft and teacher/student feedback flow",
+      "result": "passed"
+    }
+  ],
+  "limitations": [
+    "Test counts overlap; not 35 distinct cases",
+    "AI transport fixtures do not validate real model quality",
+    "Media scanner and complete encrypted backup/deletion checks blocked by private ancestor ACL",
+    "TRN-02 through TRN-10 remain in progress; see development plan"
+  ],
+  "review": "Static review and regression re-review completed; remaining scope and environment gaps retained",
+  "productionChanges": false,
+  "commit": false,
+  "push": false
+}

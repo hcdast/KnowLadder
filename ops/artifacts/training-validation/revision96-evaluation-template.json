@@ -1,0 +1,610 @@
+{
+  "version": 1,
+  "corpus_sha256": "b29d6f49b53ba933a2238ef17b0d3ed76f4fa3fa5c1d0a59d34eecb6a77c5be9",
+  "run_ref": "pending",
+  "model": "gpt-5.5",
+  "currency": "USD",
+  "transport": "not_run",
+  "records": [
+    {
+      "case_id": "assist-01",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-02",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-03",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-04",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-05",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-06",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-07",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-08",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-09",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-10",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-11",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-12",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-13",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-14",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-15",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-16",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-17",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-18",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-19",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "assist-20",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-01",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-02",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-03",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-04",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-05",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-06",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-07",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-08",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-09",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "prepare-10",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-01",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-02",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-03",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-04",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-05",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-06",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-07",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-08",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-09",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-10",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-11",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-12",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-13",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-14",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-15",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-16",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-17",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-18",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-19",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "questions-20",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-01",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-02",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-03",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-04",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-05",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-06",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-07",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-08",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-09",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    },
+    {
+      "case_id": "learning-report-10",
+      "status": "not_run",
+      "response_json": null,
+      "usage": null,
+      "reserved_micro": 0,
+      "billed_micro": null,
+      "provider_receipt_ref": null,
+      "reviews": []
+    }
+  ]
+}

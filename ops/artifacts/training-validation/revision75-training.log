@@ -1,0 +1,87 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+ok 1 - 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+  ---
+  duration_ms: 6793.2517
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+ok 2 - 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+  ---
+  duration_ms: 5296.7848
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+ok 3 - AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+  ---
+  duration_ms: 5105.1653
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+ok 4 - AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+  ---
+  duration_ms: 5221.3656
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+ok 5 - 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+  ---
+  duration_ms: 5813.8449
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+ok 6 - 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+  ---
+  duration_ms: 5126.8882
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：v11 备份登记、空库恢复约束与隐私分类
+ok 7 - 培训：v11 备份登记、空库恢复约束与隐私分类
+  ---
+  duration_ms: 6974.6258
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+ok 8 - AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+  ---
+  duration_ms: 5065.2457
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+ok 9 - AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+  ---
+  duration_ms: 4865.5432
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业：跨越截止的最终 head 写入被 DB 时间条件拒绝并整体回滚
+ok 10 - 作业：跨越截止的最终 head 写入被 DB 时间条件拒绝并整体回滚
+  ---
+  duration_ms: 6656.7775
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI管理恢复：来源失效队列最小披露、跨组织拒绝、预算释放和幂等竞争
+ok 11 - AI管理恢复：来源失效队列最小披露、跨组织拒绝、预算释放和幂等竞争
+  ---
+  duration_ms: 6071.1685
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 63180.4918

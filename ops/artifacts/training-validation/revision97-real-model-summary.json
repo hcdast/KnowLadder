@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "model": "gpt-5.5",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "request_attempts": 61,
+  "cost_usd": null,
+  "gateway_cases": {
+    "assist": {
+      "total": 20,
+      "structure_pass": 20,
+      "unknown": 0,
+      "human_reviewed": 0
+    },
+    "prepare": {
+      "total": 10,
+      "structure_pass": 10,
+      "unknown": 0,
+      "human_reviewed": 0
+    },
+    "questions": {
+      "total": 20,
+      "structure_pass": 20,
+      "unknown": 0,
+      "human_reviewed": 0
+    },
+    "learning-report": {
+      "total": 10,
+      "structure_pass": 10,
+      "unknown": 0,
+      "human_reviewed": 0
+    }
+  },
+  "system_http": {
+    "transport": "real-system-http",
+    "model": "gpt-5.5",
+    "request_attempts": 1,
+    "status": "succeeded",
+    "usage": {
+      "prompt_tokens": 183,
+      "completion_tokens": 216,
+      "reasoning_tokens": 35
+    },
+    "cost_usd": null,
+    "adoption": "draft_confirmed",
+    "human_quality": "not_reviewed",
+    "anonymous_payload": "verified"
+  },
+  "usage": {
+    "prompt_tokens": {
+      "reported_total": 9668,
+      "missing_records": 0
+    },
+    "completion_tokens": {
+      "reported_total": 16109,
+      "missing_records": 0
+    },
+    "reasoning_tokens": {
+      "reported_total": 2254,
+      "missing_records": 6
+    }
+  },
+  "human_quality": "pending_two_independent_reviewers",
+  "production_admission": "not_approved"
+}

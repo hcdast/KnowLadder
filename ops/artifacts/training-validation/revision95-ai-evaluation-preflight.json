@@ -1,0 +1,1586 @@
+{
+  "cases": 60,
+  "distribution": {
+    "assist": 20,
+    "prepare": 10,
+    "questions": 20,
+    "learning-report": 10
+  },
+  "sha256": "b29d6f49b53ba933a2238ef17b0d3ed76f4fa3fa5c1d0a59d34eecb6a77c5be9",
+  "config": {
+    "model_matches": true,
+    "endpoint_matches": true,
+    "key_configured": true,
+    "amount_policy_enabled": false,
+    "external_requests": 0,
+    "spent_usd": 0,
+    "paid_execution": "unavailable_in_offline_tool",
+    "remaining": [
+      "网关实际计费及可证明的5美元费用上界",
+      "真实系统HTTP派发、usage及账单核对",
+      "两名独立人工教学质量评审"
+    ]
+  },
+  "reviews": [
+    {
+      "case_id": "assist-01",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-02",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-03",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-04",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-05",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-06",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-07",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-08",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-09",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-10",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-11",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-12",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-13",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-14",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-15",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-16",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-17",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-18",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-19",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "assist-20",
+      "kind": "assist",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-01",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-02",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-03",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-04",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-05",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-06",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-07",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-08",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-09",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "prepare-10",
+      "kind": "prepare",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-01",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-02",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-03",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-04",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-05",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-06",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-07",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-08",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-09",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-10",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-11",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-12",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-13",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-14",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-15",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-16",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-17",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-18",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-19",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "questions-20",
+      "kind": "questions",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-01",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-02",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-03",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-04",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-05",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-06",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-07",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-08",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-09",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "learning-report-10",
+      "kind": "learning-report",
+      "response": null,
+      "structure": "not_run",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer": null,
+          "source_fidelity": null,
+          "teaching_usefulness": null,
+          "boundary_awareness": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

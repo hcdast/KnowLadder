@@ -1,0 +1,71 @@
+{
+  "revision": 76,
+  "date": "2026-10-02",
+  "environment": {
+    "node": "24.19.0",
+    "mongodb": "8.0.17",
+    "os": "Windows",
+    "database": "isolated disposable replicaSet",
+    "browser": "Codex IAB"
+  },
+  "checks": {
+    "training": {
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "exit_code": 0,
+      "duration_ms": 69620.8022,
+      "command": "node test/object-id-runtime.cjs test/training.integration.test.cjs"
+    },
+    "server_tsc": 0,
+    "vue_tsc": 0,
+    "vite_build": 0,
+    "openapi_generation": 0,
+    "diff_check": 0,
+    "core_document_local_links": 148,
+    "missing_links": 0
+  },
+  "browser": {
+    "verified": [
+      "not submitted -> draft -> waiting feedback",
+      "refresh preserves unsaved draft",
+      "cancel confirmation before write",
+      "keep task cancels confirmation without write",
+      "actual cancel shows cancelled"
+    ],
+    "unverified": [
+      "deadline read-only UI",
+      "published feedback label",
+      "two added component cases",
+      "full accessibility and responsive checks"
+    ]
+  },
+  "review": {
+    "status": "completed with notes",
+    "fixes": [
+      "server time plus monotonic clock; backend deadline remains authoritative",
+      "state refresh preserves local draft",
+      "cancel explicit confirmation and metadata recovery"
+    ],
+    "remaining": [
+      "two component tests pending after browser interruption",
+      "attachment cross-module design awaiting user confirmation"
+    ]
+  },
+  "cleanup": {
+    "owned_browser_close": "close call interrupted; final tab state not confirmed",
+    "port5184": "no listener after tool session reclamation",
+    "graceful_exit": "not verified"
+  },
+  "scope": {
+    "attachments": "design proposal only; no implementation",
+    "production": "untouched",
+    "commit": false,
+    "push": false
+  },
+  "limits": [
+    "old 15 component passes are revision75 historical results",
+    "real provider/media/full backup not rerun",
+    "no real credentials or production data used"
+  ]
+}

@@ -1,0 +1,136 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+ok 1 - 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+  ---
+  duration_ms: 6874.9318
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+ok 2 - 培训：任务快照、作业重交、旧反馈拒绝、截止及AI未配置
+  ---
+  duration_ms: 6763.1692
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+ok 3 - AI：预算并发、引用检查、教师采纳与禁止自动发布（受控传输夹具，非模型质量验收）
+  ---
+  duration_ms: 5569.3858
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+ok 4 - AI：取消围栏与过期调用恢复，不重复派发（受控传输夹具）
+  ---
+  duration_ms: 5589.7775
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+ok 5 - 网站：独立审核、匿名咨询回执、最小披露与默认关闭
+  ---
+  duration_ms: 6083.1228
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+ok 6 - 培训：同一提交只呈现当前发布反馈；时区与发布目标重新校验
+  ---
+  duration_ms: 5519.4736
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：v11 备份登记、空库恢复约束与隐私分类
+ok 7 - 培训：v11 备份登记、空库恢复约束与隐私分类
+  ---
+  duration_ms: 7271.9413
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+ok 8 - AI：人工题目建议采纳复用真实题库草稿与幂等事务（传输夹具）
+  ---
+  duration_ms: 5549.2662
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+ok 9 - AI 报告：确定性任务汇总，无身份明文，事实变化后拒绝旧建议（传输夹具）
+  ---
+  duration_ms: 5105.0682
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业：跨越截止的最终 head 写入被 DB 时间条件拒绝并整体回滚
+ok 10 - 作业：跨越截止的最终 head 写入被 DB 时间条件拒绝并整体回滚
+  ---
+  duration_ms: 6921.9087
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI管理恢复：来源失效队列最小披露、跨组织拒绝、预算释放和幂等竞争
+ok 11 - AI管理恢复：来源失效队列最小披露、跨组织拒绝、预算释放和幂等竞争
+  ---
+  duration_ms: 7052.5335
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训任务：草稿取消、原键回执、发布取消后只读访问拒绝与服务端时间
+ok 12 - 培训任务：草稿取消、原键回执、发布取消后只读访问拒绝与服务端时间
+  ---
+  duration_ms: 5628.684
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件v12：元数据权限、冻结引用、隔离扫描拒绝及旧迁移不变（非落盘扫描验收）
+ok 13 - 作业附件v12：元数据权限、冻结引用、隔离扫描拒绝及旧迁移不变（非落盘扫描验收）
+  ---
+  duration_ms: 5532.3558
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件保留：真实独立加密账本、head栅栏、单调延期与冻结后拒绝（元数据夹具）
+ok 14 - 作业附件保留：真实独立加密账本、head栅栏、单调延期与冻结后拒绝（元数据夹具）
+  ---
+  duration_ms: 14734.4058
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件隐私：真实私有字节物理擦除与墓碑幂等
+ok 15 - 作业附件隐私：真实私有字节物理擦除与墓碑幂等
+  ---
+  duration_ms: 41338.6652
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件隐私：真实私有字节保全留存
+ok 16 - 作业附件隐私：真实私有字节保全留存
+  ---
+  duration_ms: 9491.6207
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 作业附件真实扫描：登记原key、上传丢响应、实际clean交付、冻结引用与退班拒绝
+ok 17 - 作业附件真实扫描：登记原key、上传丢响应、实际clean交付、冻结引用与退班拒绝
+  ---
+  duration_ms: 37895.8971
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: AI v13：逐能力、金额并发预留、取消释放、未知保守占用与币种锁定（传输夹具）
+ok 18 - AI v13：逐能力、金额并发预留、取消释放、未知保守占用与币种锁定（传输夹具）
+  ---
+  duration_ms: 5909.9852
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 189035.0526

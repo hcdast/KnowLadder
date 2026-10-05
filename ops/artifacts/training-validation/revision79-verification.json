@@ -1,0 +1,135 @@
+{
+  "revision": 79,
+  "date": "2026-10-02",
+  "environment": "Windows Node24.19.0 Mongo8.0.17 isolated replicaSet; disposable protected per-user roots",
+  "training": {
+    "pass": 18,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 189035.0526,
+    "phase": "before final currency and worker audit review repairs",
+    "log": "revision79-training.log"
+  },
+  "ai_final": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 7778.1634,
+    "log": "revision79-ai-policy-reviewed.log"
+  },
+  "privacy_final": {
+    "pass": 13,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 96500.9882,
+    "log": "revision79-privacy-regression-complete.log"
+  },
+  "worker": {
+    "pass": 8,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 33938.2903,
+    "phase": "before final coursework audit fix; textbook branch",
+    "log": "revision79-worker-reviewed.log"
+  },
+  "backup": {
+    "pass": 4,
+    "fail": 0,
+    "skip": 0,
+    "log": "revision79-worker-backup-regression.log",
+    "combined_file_result": {
+      "pass": 9,
+      "fail": 3,
+      "skip": 0,
+      "duration_ms": 108692.7992,
+      "explanation": "4 backup cases pass; old worker resource UUID fixture causes 2 child and 1 parent failures; worker corrected and rerun separately"
+    }
+  },
+  "media": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "log": "revision79-media.log"
+  },
+  "scanner": {
+    "pass": 6,
+    "fail": 2,
+    "skip": 0,
+    "duration_ms": 48672.338,
+    "log": "revision79-scanner.log",
+    "environment": "revision79-scanner-environment.json",
+    "explanation": "Defender EICAR detection and remediation; ClamAV exit2 prevents infected verdict, no protection disabled; WSL command stalled",
+    "final_environment": "revision79-scanner-final-environment.json"
+  },
+  "components": {
+    "pass": 19,
+    "fail": 0,
+    "log": "revision79-component-results.json"
+  },
+  "site": {
+    "checks": 21,
+    "widths": [
+      320,
+      768,
+      1440
+    ],
+    "pages": 7,
+    "overflow": 0,
+    "keyboard": "skip main and Enter route h1 focus",
+    "private_metadata": "noindex and public canonical/OG removed",
+    "log": "revision79-site-checks.json"
+  },
+  "build": {
+    "server_tsc": 0,
+    "vue_tsc": 0,
+    "vite": 0,
+    "actual_http_openapi_generation": 0
+  },
+  "review": "Bounded review and repair re-review completed; currency idle switch, audit NaN, frozen/misowned subjects fail closed; full27 regression passed after final repairs",
+  "pending_design": [
+    "24.19 report draft independent publishing",
+    "24.19 erased subject held file reprocessing plus controlled cleanup entry",
+    "TRN11/12 phase2 scope"
+  ],
+  "not_covered": [
+    "Real provider model quality and billing reconciliation",
+    "EICAR confirmed infection on Windows",
+    "Hold erase competition two commit orders",
+    "Full authenticated workspaces screenreader/cache and end-to-end",
+    "Production admission"
+  ],
+  "cleanup": "Final runner exits0 and fixture hooks complete; policy API IPC stop exits0; cache API/Vite tool-recycled and port5184 verified closed (graceful exit unknown); both explicit scanner roots removed; only stranded empty fixture structure verified and removed",
+  "no_commit_or_push": true,
+  "logout_cache": {
+    "log": "revision79-logout-cache.json",
+    "passed": true,
+    "scope": "real login course list then logout browser back and forward; no course data restored"
+  },
+  "interrupted_final": {
+    "log": "revision79-final-regression.log",
+    "result": "tool session recycled before TAP summary; not counted as complete pass"
+  },
+  "attachment_race": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 11769.6226,
+    "phase": "before final owner mismatch negative case added",
+    "log": "revision79-attachment-race-verified.log",
+    "scope": "explicit cleanup blocks submission; post-submit malformed request blocked by references; cancel/deadline rejected; clean verdict metadata fixture"
+  },
+  "final_regression": {
+    "pass": 27,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 225049.2477,
+    "training": 19,
+    "worker_including_parent": 8,
+    "exit_code": 0,
+    "log": "revision79-final-complete.log"
+  },
+  "documentation_checks": {
+    "core_local_links_missing": 0,
+    "diff_check": 0
+  }
+}

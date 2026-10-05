@@ -1,0 +1,34 @@
+{
+  "revision": 74,
+  "date": "2026-10-02",
+  "scope": "AI organization recovery queue",
+  "environment": "Windows / Node24.19.0 / isolated Mongo8.0.17 replica set",
+  "checks": {
+    "serverBuild": 0,
+    "vueTypecheck": 0,
+    "viteBuild": 0,
+    "actualHttpOpenApiGeneration": 0,
+    "trainingIntegration": {
+      "command": "node test/object-id-runtime.cjs test/training.integration.test.cjs",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 64507.2581
+    },
+    "browser": "Source retired; queued job cancelled, reservation 1 to 0, queue empty"
+  },
+  "failureHistory": [
+    "Initial integration run: 10 pass, 1 fail; missing mandatory retirement note in new fixture; fixed and complete suite rerun",
+    "Initial browser fixture: reset credential invalidated earlier session; fixture re-login fixed"
+  ],
+  "review": "Scoped static review and post-fix re-review completed",
+  "temporaryServicesStopped": true,
+  "externalModelCalls": 0,
+  "limitations": [
+    "No real model quality evaluation",
+    "No media scanner or complete backup/deletion rerun",
+    "No R-08 five-path component recovery rerun"
+  ],
+  "commit": false,
+  "push": false
+}

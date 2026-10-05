@@ -1,0 +1,14 @@
+[
+  {
+    "kind": "server",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "kind": "web",
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

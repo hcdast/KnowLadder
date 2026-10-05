@@ -1,0 +1,144 @@
+{
+  "revision": 77,
+  "date": "2026-10-02",
+  "environment": "Windows Node24.19.0 MongoDB8.0.17 disposable replicaSet kl_test_*",
+  "training": {
+    "pass": 13,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 78177.6906,
+    "log": "revision77-training.log"
+  },
+  "final_attachment_target": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "duration_ms": 7373.57,
+    "log": "revision77-target-final.log"
+  },
+  "components": {
+    "passed": 19,
+    "failed": 0,
+    "entries": [
+      {
+        "name": "R08-1 教师24hex学科报告到达请求边界",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "R08-2 教师24hex学科通过出卷校验",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "R08-3 教师24hex题目版本到达出卷请求边界",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "R08-4 学习24hex推荐卡恢复及原键重放",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "R08-5 学习24hex测评会话恢复",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "教师报告404清空名册和报告",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训不确定409保留原键 IDEMPOTENCY_CONFLICT",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训不确定409保留原键 IDEMPOTENCY_RESULT_INVALID",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训不确定409保留原键 IDENTITY_CHANGED",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训AI来源409清空旧正文",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训失权后的迟到读取不能回填",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训确定422允许修正后新请求",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "教师恢复元数据拒绝非法键和额外正文",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训恢复元数据拒绝额外正文",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "培训周期复核AI来源变化清空正文",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "作业截止相等只读且不发送写入",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "任务取消须确认且作业状态区分反馈",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "附件丢响应仅存声明原key并刷新恢复",
+        "passed": true,
+        "detail": "PASS"
+      },
+      {
+        "name": "附件非法恢复元数据冻结",
+        "passed": true,
+        "detail": "PASS"
+      }
+    ]
+  },
+  "checks": {
+    "server_tsc": 0,
+    "vue_tsc_generated": 0,
+    "vite_build": 0,
+    "actual_openapi_generation": 0
+  },
+  "browser": [
+    "Real isolated API: save original synthetic coursework draft",
+    "Attachment panel visible, scanner closed/unconfirmed, choose-file disabled"
+  ],
+  "cleanup": {
+    "first_api_exit": 0,
+    "latest_api_exit": 0,
+    "preview_stopped": true
+  },
+  "review": "Limited review and repaired re-review; lifecycle integration remains incomplete; default-off candidate feature only",
+  "not_covered": [
+    "Real coursework bytes upload/clean/infected scan",
+    "Physical privacy erasure",
+    "Hold/retention ledger and complete encrypted restore",
+    "Cleanup/deadline/cancel races and full HTTP lost-response recovery",
+    "AI provider quality and production admission"
+  ],
+  "no_commit_or_push": true
+}

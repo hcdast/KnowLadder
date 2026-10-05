@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-03",
+  "environment": "Windows Node 24.14.0; distinct from revision82 Node22 results",
+  "serverTypeScript": 0,
+  "actualHttpOpenApi": 0,
+  "web": [
+    {
+      "name": "types",
+      "code": 0
+    },
+    {
+      "name": "build",
+      "code": 0
+    }
+  ],
+  "schemaFixtureExit": {
+    "code": 0,
+    "signal": null
+  },
+  "earlierBrowserFixture": "tool-session-reclaimed; graceful exit not observed",
+  "documentRevision": 83
+}
