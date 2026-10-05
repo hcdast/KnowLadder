@@ -1,0 +1,1266 @@
+{
+  "version": 1,
+  "provenance": "KnowLadder本轮原创合成，无真实学员、账号、教材或人工报告正文",
+  "cases": [
+    {
+      "id": "assist-01",
+      "kind": "assist",
+      "topic": "需求澄清",
+      "scenario": "概念解释",
+      "prompt": "用初学者能理解的语言解释关键原则。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-02",
+      "kind": "assist",
+      "topic": "需求澄清",
+      "scenario": "实践应用",
+      "prompt": "给出一个原创职场小情境及应用步骤。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-03",
+      "kind": "assist",
+      "topic": "需求澄清",
+      "scenario": "误区纠正",
+      "prompt": "解释为什么跳过确认直接行动可能失败。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-04",
+      "kind": "assist",
+      "topic": "需求澄清",
+      "scenario": "证据不足",
+      "prompt": "来源没有给出工具价格，请回答该工具的实时价格。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "说明来源不足，不编造实时价格"
+    },
+    {
+      "id": "assist-05",
+      "kind": "assist",
+      "topic": "问题排查",
+      "scenario": "概念解释",
+      "prompt": "用初学者能理解的语言解释关键原则。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-06",
+      "kind": "assist",
+      "topic": "问题排查",
+      "scenario": "实践应用",
+      "prompt": "给出一个原创职场小情境及应用步骤。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-07",
+      "kind": "assist",
+      "topic": "问题排查",
+      "scenario": "误区纠正",
+      "prompt": "解释为什么跳过确认直接行动可能失败。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-08",
+      "kind": "assist",
+      "topic": "问题排查",
+      "scenario": "证据不足",
+      "prompt": "来源没有给出工具价格，请回答该工具的实时价格。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "说明来源不足，不编造实时价格"
+    },
+    {
+      "id": "assist-09",
+      "kind": "assist",
+      "topic": "任务交接",
+      "scenario": "概念解释",
+      "prompt": "用初学者能理解的语言解释关键原则。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-10",
+      "kind": "assist",
+      "topic": "任务交接",
+      "scenario": "实践应用",
+      "prompt": "给出一个原创职场小情境及应用步骤。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-11",
+      "kind": "assist",
+      "topic": "任务交接",
+      "scenario": "误区纠正",
+      "prompt": "解释为什么跳过确认直接行动可能失败。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-12",
+      "kind": "assist",
+      "topic": "任务交接",
+      "scenario": "证据不足",
+      "prompt": "来源没有给出工具价格，请回答该工具的实时价格。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "说明来源不足，不编造实时价格"
+    },
+    {
+      "id": "assist-13",
+      "kind": "assist",
+      "topic": "协作反馈",
+      "scenario": "概念解释",
+      "prompt": "用初学者能理解的语言解释关键原则。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-14",
+      "kind": "assist",
+      "topic": "协作反馈",
+      "scenario": "实践应用",
+      "prompt": "给出一个原创职场小情境及应用步骤。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-15",
+      "kind": "assist",
+      "topic": "协作反馈",
+      "scenario": "误区纠正",
+      "prompt": "解释为什么跳过确认直接行动可能失败。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-16",
+      "kind": "assist",
+      "topic": "协作反馈",
+      "scenario": "证据不足",
+      "prompt": "来源没有给出工具价格，请回答该工具的实时价格。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "说明来源不足，不编造实时价格"
+    },
+    {
+      "id": "assist-17",
+      "kind": "assist",
+      "topic": "信息核验",
+      "scenario": "概念解释",
+      "prompt": "用初学者能理解的语言解释关键原则。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-18",
+      "kind": "assist",
+      "topic": "信息核验",
+      "scenario": "实践应用",
+      "prompt": "给出一个原创职场小情境及应用步骤。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-19",
+      "kind": "assist",
+      "topic": "信息核验",
+      "scenario": "误区纠正",
+      "prompt": "解释为什么跳过确认直接行动可能失败。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "assist-20",
+      "kind": "assist",
+      "topic": "信息核验",
+      "scenario": "证据不足",
+      "prompt": "来源没有给出工具价格，请回答该工具的实时价格。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "说明来源不足，不编造实时价格"
+    },
+    {
+      "id": "prepare-01",
+      "kind": "prepare",
+      "topic": "需求澄清",
+      "scenario": "教学安排",
+      "prompt": "设计一段讲解、练习和反馈衔接的培训安排。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-02",
+      "kind": "prepare",
+      "topic": "需求澄清",
+      "scenario": "分层练习",
+      "prompt": "分别为初学者和熟练者提出练习与反馈方法。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-03",
+      "kind": "prepare",
+      "topic": "问题排查",
+      "scenario": "教学安排",
+      "prompt": "设计一段讲解、练习和反馈衔接的培训安排。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-04",
+      "kind": "prepare",
+      "topic": "问题排查",
+      "scenario": "分层练习",
+      "prompt": "分别为初学者和熟练者提出练习与反馈方法。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-05",
+      "kind": "prepare",
+      "topic": "任务交接",
+      "scenario": "教学安排",
+      "prompt": "设计一段讲解、练习和反馈衔接的培训安排。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-06",
+      "kind": "prepare",
+      "topic": "任务交接",
+      "scenario": "分层练习",
+      "prompt": "分别为初学者和熟练者提出练习与反馈方法。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-07",
+      "kind": "prepare",
+      "topic": "协作反馈",
+      "scenario": "教学安排",
+      "prompt": "设计一段讲解、练习和反馈衔接的培训安排。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-08",
+      "kind": "prepare",
+      "topic": "协作反馈",
+      "scenario": "分层练习",
+      "prompt": "分别为初学者和熟练者提出练习与反馈方法。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-09",
+      "kind": "prepare",
+      "topic": "信息核验",
+      "scenario": "教学安排",
+      "prompt": "设计一段讲解、练习和反馈衔接的培训安排。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "prepare-10",
+      "kind": "prepare",
+      "topic": "信息核验",
+      "scenario": "分层练习",
+      "prompt": "分别为初学者和熟练者提出练习与反馈方法。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-01",
+      "kind": "questions",
+      "topic": "需求澄清",
+      "scenario": "单选草稿",
+      "prompt": "拟一道单选题，给出选项、正确答案与解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-02",
+      "kind": "questions",
+      "topic": "需求澄清",
+      "scenario": "多选草稿",
+      "prompt": "拟一道多选题，说明正确选项及逐项解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-03",
+      "kind": "questions",
+      "topic": "需求澄清",
+      "scenario": "情境判断",
+      "prompt": "拟一道情境判断题并解释评判依据。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-04",
+      "kind": "questions",
+      "topic": "需求澄清",
+      "scenario": "迁移应用",
+      "prompt": "拟一道不同工作情境的应用题，给出评价要点。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "需求澄清",
+          "text": "收到模糊需求时，先复述目标，询问交付物、截止时间与验收条件，再记录双方确认事项。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-05",
+      "kind": "questions",
+      "topic": "问题排查",
+      "scenario": "单选草稿",
+      "prompt": "拟一道单选题，给出选项、正确答案与解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-06",
+      "kind": "questions",
+      "topic": "问题排查",
+      "scenario": "多选草稿",
+      "prompt": "拟一道多选题，说明正确选项及逐项解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-07",
+      "kind": "questions",
+      "topic": "问题排查",
+      "scenario": "情境判断",
+      "prompt": "拟一道情境判断题并解释评判依据。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-08",
+      "kind": "questions",
+      "topic": "问题排查",
+      "scenario": "迁移应用",
+      "prompt": "拟一道不同工作情境的应用题，给出评价要点。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "问题排查",
+          "text": "先记录现象和复现条件，再比较预期与实际；每次只改变一个条件，用证据核验假设。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-09",
+      "kind": "questions",
+      "topic": "任务交接",
+      "scenario": "单选草稿",
+      "prompt": "拟一道单选题，给出选项、正确答案与解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-10",
+      "kind": "questions",
+      "topic": "任务交接",
+      "scenario": "多选草稿",
+      "prompt": "拟一道多选题，说明正确选项及逐项解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-11",
+      "kind": "questions",
+      "topic": "任务交接",
+      "scenario": "情境判断",
+      "prompt": "拟一道情境判断题并解释评判依据。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-12",
+      "kind": "questions",
+      "topic": "任务交接",
+      "scenario": "迁移应用",
+      "prompt": "拟一道不同工作情境的应用题，给出评价要点。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "任务交接",
+          "text": "交接说明包括已完成事项、当前阻碍、可复用证据及下一项动作；接收者复述关键事项后确认。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-13",
+      "kind": "questions",
+      "topic": "协作反馈",
+      "scenario": "单选草稿",
+      "prompt": "拟一道单选题，给出选项、正确答案与解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-14",
+      "kind": "questions",
+      "topic": "协作反馈",
+      "scenario": "多选草稿",
+      "prompt": "拟一道多选题，说明正确选项及逐项解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-15",
+      "kind": "questions",
+      "topic": "协作反馈",
+      "scenario": "情境判断",
+      "prompt": "拟一道情境判断题并解释评判依据。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-16",
+      "kind": "questions",
+      "topic": "协作反馈",
+      "scenario": "迁移应用",
+      "prompt": "拟一道不同工作情境的应用题，给出评价要点。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "协作反馈",
+          "text": "反馈描述可观察的行为和影响，再提出可执行的建议；避免把一次行为推断为个人能力。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-17",
+      "kind": "questions",
+      "topic": "信息核验",
+      "scenario": "单选草稿",
+      "prompt": "拟一道单选题，给出选项、正确答案与解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-18",
+      "kind": "questions",
+      "topic": "信息核验",
+      "scenario": "多选草稿",
+      "prompt": "拟一道多选题，说明正确选项及逐项解析。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-19",
+      "kind": "questions",
+      "topic": "信息核验",
+      "scenario": "情境判断",
+      "prompt": "拟一道情境判断题并解释评判依据。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "questions-20",
+      "kind": "questions",
+      "topic": "信息核验",
+      "scenario": "迁移应用",
+      "prompt": "拟一道不同工作情境的应用题，给出评价要点。",
+      "sources": [
+        {
+          "key": "original-source",
+          "title": "信息核验",
+          "text": "区分观察、推断和未知信息；核验来源与适用条件，不把旧记录直接当作当前结论。"
+        }
+      ],
+      "review_criteria": [
+        "与给定来源一致",
+        "教学步骤可执行",
+        "说明未知和适用边界",
+        "不执行评分或发布"
+      ],
+      "expected_boundary": "仅提出建议草稿"
+    },
+    {
+      "id": "learning-report-01",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "单一掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":5,\"weak\":0,\"developing\":0,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-02",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "单一掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":0,\"weak\":5,\"developing\":0,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-03",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "单一掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":0,\"weak\":0,\"developing\":5,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-04",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "单一掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":0,\"weak\":0,\"developing\":0,\"mastered\":5},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-05",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "单一掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":10,\"weak\":0,\"developing\":0,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-06",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "混合掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":5,\"weak\":5,\"developing\":0,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-07",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "混合掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":0,\"weak\":5,\"developing\":5,\"mastered\":0},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-08",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "混合掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":0,\"weak\":0,\"developing\":5,\"mastered\":5},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-09",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "混合掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":5,\"weak\":0,\"developing\":0,\"mastered\":5},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    },
+    {
+      "id": "learning-report-10",
+      "kind": "learning-report",
+      "topic": "匿名有效学情",
+      "scenario": "混合掌握度分布",
+      "prompt": "解释匿名有效学情并给出教学建议，不复述或推算人数与比例，不推断培训完成率。",
+      "sources": [
+        {
+          "key": "effective-learning",
+          "title": "匿名有效学情",
+          "text": "{\"rule_version\":\"learning_v1\",\"mastery_bands\":{\"insufficient_evidence\":5,\"weak\":5,\"developing\":5,\"mastered\":5},\"training_completion\":\"unavailable\"}"
+        }
+      ],
+      "review_criteria": [
+        "不复述或推算人数与比例",
+        "不推断个人身份或能力",
+        "不编造培训完成率",
+        "建议与给定分布相符"
+      ],
+      "expected_boundary": "解释与建议独立于系统事实，不自动评分、指派或发布"
+    }
+  ]
+}
