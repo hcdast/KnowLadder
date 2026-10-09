@@ -1,0 +1,102 @@
+import { resolveFeatureFlags } from "./feature-flags";
+/** PM2 IPC on Windows; signals remain supported for ordinary CLI/Unix launches. */
+export function installShutdown(stop: () => void | Promise<void>) {
+  let requested = false;
+  const request = () => {
+    if (requested) return;
+    requested = true;
+    void Promise.resolve()
+      .then(stop)
+      .catch((error) => {
+        reportFailure("shutdown", error);
+        process.exitCode = 1;
+      });
+  };
+  const message = (value: unknown) => {
+    if (value === "shutdown") request();
+  };
+  process.on("SIGINT", request);
+  process.on("SIGTERM", request);
+  process.on("message", message);
+  return () => {
+    process.off("SIGINT", request);
+    process.off("SIGTERM", request);
+    process.off("message", message);
+    if (requested && process.connected) process.disconnect();
+  };
+}
+export function notifyReady() {
+  if (
+    process.env.KL_PM2_PROTOCOL === "1" &&
+    process.send &&
+    process.connected
+  ) {
+    process.send({
+      type: "process:msg",
+      data: {
+        event: "kl-ready",
+        pid: process.pid,
+        token: process.env.KL_WRITER_LAUNCH_TOKEN,
+      },
+    });
+    process.send("ready");
+  }
+}
+export function validateRuntimeFlags() {
+  resolveFeatureFlags();
+}
+const nodeCodes = new Set([
+  "EADDRINUSE",
+  "EACCES",
+  "ENOENT",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+]);
+export function safeErrorCode(error: unknown): string {
+  const e = error as { code?: unknown; message?: unknown; name?: unknown };
+  if (
+    [
+      "RUNTIME_CHECK_FAILED",
+      "MONGO_UNREACHABLE",
+      "NODE_VERSION_REQUIRED",
+      "LOCAL_PM2_NONPRODUCTION_REQUIRED",
+      "FEATURE_RESOLUTION_FAILED",
+      "WORKER_REGISTRATION_REQUIRED",
+    ].includes(String(e?.message))
+  )
+    return String(e.message);
+  if (typeof e?.message === "string") {
+    if (e.message.startsWith("ObjectId validator mismatch:")) return "SCHEMA_VALIDATOR_MISMATCH";
+    if (e.message.startsWith("ObjectId index mismatch:")) return "SCHEMA_INDEX_MISMATCH";
+    if (e.message === "UNKNOWN_COLLECTION") return "SCHEMA_UNKNOWN_COLLECTION";
+    const schema = e.message.match(
+      /\bv(1[0-9]|20|21)\b.*(?:migration|required|incomplete)/i,
+    );
+    if (schema) return "SCHEMA_V" + schema[1] + "_REQUIRED";
+    const field = e.message.match(
+      /\b(MONGODB_URI|APP_ORIGIN|AUTH_RATE_LIMIT_KEY|PORT|KL_MONGO_TOPOLOGY|SESSION_[A-Z_]+|SCAN_[A-Z_]+|FILE_STORAGE_ROOT|CLAMSCAN_PATH|CLAMAV_DATABASE)\b/,
+    );
+    if (field) return "INVALID_CONFIG_" + field[1];
+  }
+  if (typeof e?.code === "string" && nodeCodes.has(e.code)) return e.code;
+  if (typeof e?.message === "string" && nodeCodes.has(e.message))
+    return e.message;
+  if (
+    typeof e?.message === "string" &&
+    /^(?:INVALID_FLAG_|INVALID_CONFIG_|SCHEMA_|FEATURE_|MANAGED_|RECOVERY_|STANDALONE_|OPERATIONS_)[A-Z0-9_]{1,90}$/.test(
+      e.message,
+    )
+  )
+    return e.message;
+  if (e?.name === "MongoServerSelectionError") return "MONGO_UNREACHABLE";
+  return "RUNTIME_CHECK_FAILED";
+}
+export function reportFailure(component: string, error: unknown) {
+  console.error(
+    JSON.stringify({
+      event: "runtime.failed",
+      component,
+      code: safeErrorCode(error),
+    }),
+  );
+}

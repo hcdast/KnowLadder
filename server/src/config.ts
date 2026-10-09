@@ -1,4 +1,6 @@
+import { resolveFeatureFlags } from './runtime/feature-flags';
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
+  resolveFeatureFlags(env);
   const production = env.NODE_ENV === "production";
   const mongoUri = env.MONGODB_URI;
   if (!mongoUri || !/^mongodb(?:\+srv)?:\/\//.test(mongoUri))

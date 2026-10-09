@@ -8,6 +8,7 @@ import { currentLearningManifest } from "../learning/manifest";
 import { TrainingService } from "./training.service";
 import * as v from "./validation";
 import {sanitizeAiLearningFacts} from "./ai-learning-source";
+import { quizTaskCompletion } from "./quiz-completion";
 @Injectable()
 export class TrainingReportService {
   constructor(
@@ -126,6 +127,14 @@ export class TrainingReportService {
       ? task.recipients.filter((x: string) => rosterIds.includes(x))
       : [];
     let completed = 0;
+    let quizSource: unknown = null;
+    if (task?.target_type === "quiz") {
+      const completion = await quizTaskCompletion(this.training.db, ctx, task.target_id,
+        subjectId, recipients, factNow);
+      completed = completion.count;
+      quizSource = completion.source;
+      if (completion.next && completion.next < data.validUntil) data.validUntil = completion.next;
+    }
     if (task?.target_type === "coursework")
       completed = await this.training.col("coursework_heads").countDocuments(
         {
@@ -174,9 +183,8 @@ export class TrainingReportService {
         ? {
             title: task.title,
             target_type: task.target_type,
-            completion_count: task.target_type === "quiz" ? null : completed,
-            completion_status:
-              task.target_type === "quiz" ? "unavailable" : "available",
+            completion_count: completed,
+            completion_status: "available",
             completion_is_mastery: false,
           }
         : null,
@@ -187,6 +195,7 @@ export class TrainingReportService {
           data.source,
           semantics,
           facts,
+          quizSource,
           task ? { revision: task.revision, status: task.status } : null,
         ]),
       )

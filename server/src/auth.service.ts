@@ -103,7 +103,8 @@ export class AuthService {
       { session: transaction },
     );
   }
-  async rate(scope: string, key: string, limit: number) {
+  async rate(scope: string, key: string, limit: number, windowMs = 300000) {
+    if (!Number.isSafeInteger(windowMs) || windowMs < 1000 || windowMs > 300000) throw new Error("RATE_WINDOW_INVALID");
     await assertOperationalAccess(this.database.db);
     const id = createHmac("sha256", this.config.rateLimitKey)
       .update(`${scope}:${key}`)
@@ -118,7 +119,7 @@ export class AuthService {
           count: { $cond: [fresh, 1, { $add: ["$count", 1] }] },
           window_start: { $cond: [fresh, "$$NOW", "$window_start"] },
           expires_at: {
-            $cond: [fresh, { $add: ["$$NOW", 300000] }, "$expires_at"],
+            $cond: [fresh, { $add: ["$$NOW", windowMs] }, "$expires_at"],
           },
         },
       },

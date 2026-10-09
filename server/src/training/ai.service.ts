@@ -6,12 +6,14 @@ import { ContentService } from "../content/content.service";
 import { TrainingService } from "./training.service";
 import * as v from "./validation";
 import {TrainingReportService} from "./report.service";
+import { KnowledgeService } from "./knowledge.service";
 @Injectable()
 export class TrainingAiService {
   constructor(
     readonly training: TrainingService,
     readonly content: ContentService,
     readonly reports: TrainingReportService,
+    readonly knowledge: KnowledgeService,
   ) {}
   policyEnabled(){return process.env.KL_AI_POLICY_ENABLED==='true';}
   policyInput(o:any){
@@ -146,7 +148,7 @@ export class TrainingAiService {
       };
     });
   }
-  view(j: any) {
+  view(j: any, resource?: any) {
     return {
       id: j._id,
       kind: j.kind,
@@ -157,12 +159,20 @@ export class TrainingAiService {
       citations: j.status === "succeeded" ? j.citations : [],
       error_code: j.error_code,
       created_at: j.created_at,
+      ...(j.knowledge_scope ? {knowledge_scope:j.knowledge_scope,
+        knowledge_evidence:resource?.knowledge?.citations??[]} : {}),
     };
   }
   async contextMatches(ctx: any, job: any, resource: any) {
-    return resource.revision === job.context_revision && (job.kind !== "learning-report" ||
+    return (!job.knowledge_scope || resource.knowledge?.fingerprint === job.knowledge_fingerprint) &&
+      resource.revision === job.context_revision && (job.kind !== "learning-report" ||
       (resource.ai_watermark === job.learning_source_watermark && job.learning_valid_until instanceof Date &&
        job.learning_valid_until > await this.training.access.now(ctx)));
+  }
+  async authorizeJob(ctx:any,job:any,write=false){
+    const resource=await this.authorize(ctx,job.kind,job.context_id,write);
+    if(job.knowledge_scope) resource.knowledge=await this.knowledge.ground(ctx,job.prompt,job.knowledge_scope,write);
+    return resource;
   }
   async acceptReport(req: ApiRequest, key: string, input: unknown) {
     const o = v.object(input, ["expected_revision"]);
@@ -181,14 +191,23 @@ export class TrainingAiService {
     });
   }
   async create(req: ApiRequest, input: unknown) {
-    const o = v.object(input, ["kind", "context_id", "prompt"]);
+    const o = v.object(input, ["kind", "context_id", "prompt", "knowledge_scope", "knowledge_fingerprint"]);
     const kind = v.text(o.kind, 20),
       context = v.id(o.context_id),
       prompt = v.text(o.prompt, 4000);
     if (!["assist", "prepare", "questions", "report", "learning-report"].includes(kind))
       fail(422, "INVALID_KIND", "AI场景无效");
+    if((o.knowledge_scope !== undefined || o.knowledge_fingerprint !== undefined) && !["assist","prepare"].includes(kind))
+      fail(422,"INVALID_KIND","多来源知识生成仅允许答疑或备课场景");
+    if(o.knowledge_scope === undefined && o.knowledge_fingerprint !== undefined)
+      fail(422,"KNOWLEDGE_SCOPE_LIMIT","知识证据指纹必须包含范围");
     return this.training.run(req, true, async (ctx) => {
       const resource = await this.authorize(ctx, kind, context, true);
+      const knowledgeScope=o.knowledge_scope === undefined ? undefined : this.knowledge.scope(o.knowledge_scope);
+      const grounded=knowledgeScope ? await this.knowledge.ground(ctx,prompt,knowledgeScope,true) : undefined;
+      if(grounded?.status === "insufficient-evidence")fail(422,"KNOWLEDGE_EVIDENCE_INSUFFICIENT","证据不足，未创建AI任务或占用预算");
+      if(grounded && o.knowledge_fingerprint !== grounded.fingerprint)
+        fail(409,"CONTEXT_CHANGED","检索证据已变化，请重新预览后生成");
       return this.training.idem(ctx, req, "ai.create", context, o, async () => {
         const profile = await this.training
           .col("training_profiles")
@@ -244,6 +263,7 @@ export class TrainingAiService {
           kind,
           context_id: context,
           context_revision: resource.revision,
+          ...(knowledgeScope ? {knowledge_scope:knowledgeScope,knowledge_fingerprint:grounded!.fingerprint} : {}),
           ...(kind === "learning-report" ? {learning_source_watermark:resource.ai_watermark,learning_valid_until:resource.ai_valid_until}:{}),
           prompt: kind === "learning-report" ? "请根据匿名有效学情提供解释和教学建议，不复述或推算任何数值。" : prompt,
           status: "queued",
@@ -276,7 +296,7 @@ export class TrainingAiService {
       const items = [];
       for (const row of rows) {
         try {
-          const source = await this.authorize(ctx, row.kind, row.context_id);
+          const source = await this.authorizeJob(ctx, row);
           items.push(
             row.status === "succeeded" &&
               !await this.contextMatches(ctx, row, source)
@@ -286,10 +306,10 @@ export class TrainingAiService {
                   citations: [],
                   error_code: "CONTEXT_CHANGED",
                 }
-              : this.view(row),
+              : this.view(row,source),
           );
         } catch (e) {
-          if (![404,403,...(row.kind === "learning-report" ? [409,422,503] : [])].includes((e as any).status)) throw e;
+          if (![404,403,...((row.kind === "learning-report" || row.knowledge_scope) ? [409,422,503] : [])].includes((e as any).status)) throw e;
         }
       }
       return { items };
@@ -399,8 +419,8 @@ export class TrainingAiService {
         ["assist", "learning-report"].includes(job.kind)
       )
         fail(403, "AI_DRAFT_REQUIRED", "只有本人已完成的教师草稿可采纳");
-      const source = await this.authorize(ctx, job.kind, job.context_id, true);
-      if (source.revision !== job.context_revision)
+      const source = await this.authorizeJob(ctx, job, true);
+      if (!await this.contextMatches(ctx,job,source))
         fail(409, "CONTEXT_CHANGED", "来源已变化");
       const course = await this.training.courseAccess(ctx, target, true, true);
       if (
@@ -481,10 +501,10 @@ export class TrainingAiService {
     return this.training.run(req, false, async (ctx) => {
       const j = await this.training.row(ctx, "ai_jobs", key);
       if (j.user_id !== ctx.userId) fail(404, "NOT_FOUND", "任务不存在");
-      const resource = await this.authorize(ctx, j.kind, j.context_id);
+      const resource = await this.authorizeJob(ctx, j);
       if (j.status === "succeeded" && !await this.contextMatches(ctx, j, resource))
         fail(409, "CONTEXT_CHANGED", "来源已变化，结果不可采纳");
-      return this.view(j);
+      return this.view(j,resource);
     });
   }
   async cancel(req: ApiRequest, key: string, input: unknown) {
@@ -517,10 +537,10 @@ export class TrainingAiService {
     const claim = await this.training.run(req, true, async (ctx) => {
       const j = await this.training.row(ctx, "ai_jobs", key);
       if (j.user_id !== ctx.userId) fail(404, "NOT_FOUND", "任务不存在");
-      const resource = await this.authorize(ctx, j.kind, j.context_id, true);
+      const resource = await this.authorizeJob(ctx, j, true);
       if (j.status !== "queued") {
         if(j.status === "succeeded" && !await this.contextMatches(ctx,j,resource)) fail(409,"CONTEXT_CHANGED","来源已变化，结果不可采纳");
-        return {skip:true,job:this.view(j)};
+        return {skip:true,job:this.view(j,resource)};
       }
       if (!await this.contextMatches(ctx, j, resource))
         fail(409, "CONTEXT_CHANGED", "来源已变化，请取消后重新生成");
@@ -552,7 +572,9 @@ export class TrainingAiService {
         },
       );
       let sources: { key: string; title: string; text: string }[] = [];
-      if (j.kind === "learning-report") {
+      if (j.knowledge_scope) {
+        sources=resource.knowledge.citations.map((citation:any)=>({key:citation.key,title:citation.title,text:citation.text}));
+      } else if (j.kind === "learning-report") {
         sources = [{key:"effective-learning",title:"匿名有效学情",text:JSON.stringify(resource.ai_source)}];
       } else if (j.kind === "report") {
         const total = await this.training
@@ -670,11 +692,17 @@ export class TrainingAiService {
     return this.training.run(req, true, async (ctx) => {
       const j = await this.training.row(ctx, "ai_jobs", key);
       if (j.user_id !== ctx.userId) fail(404, "NOT_FOUND", "任务不存在");
-      if (j.status !== "running" || j.revision !== claim.row!.revision)
+      if (j.status !== "running" || j.revision !== claim.row!.revision) {
+        if(j.knowledge_scope && j.status === "succeeded") {
+          const current=await this.authorizeJob(ctx,j);
+          if(!await this.contextMatches(ctx,j,current))fail(409,"CONTEXT_CHANGED","知识来源已变化");
+          return this.view(j,current);
+        }
         return this.view(j);
+      }
       let resource: any = null;
-      try {resource = await this.authorize(ctx, j.kind, j.context_id, true);}
-      catch(e) {if(j.kind !== "learning-report" || ![409,422].includes((e as any).status))throw e;}
+      try {resource = await this.authorizeJob(ctx, j, true);}
+      catch(e) {if(!(j.knowledge_scope && [403,404,409,422,503].includes((e as any).status)) && !(j.kind === "learning-report" && [409,422].includes((e as any).status)))throw e;}
       if (!resource || !await this.contextMatches(ctx, j, resource)) {
         status = "failed";
         error_code = "CONTEXT_CHANGED";
@@ -691,7 +719,7 @@ export class TrainingAiService {
       });
       await this.settle(ctx,j,status==='unknown'?'unknown':'spent');
       await this.training.audit(ctx, "ai_job", row, "ai.finalize");
-      return this.view(row);
+      return this.view(row,resource);
     });
   }
 }

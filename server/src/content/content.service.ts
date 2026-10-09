@@ -9,6 +9,7 @@ import { BaseVersion, ChapterRecord, ContentKind, CONTENT_COLLECTIONS, QuestionV
 import { object, text, id, ids, integer, license, dto, Input, canonical, scoringRule, knowledgeWeights, validateQuestion, safeVersion, studentEdition, studentChapter } from './dto';
 import { recordLearningFeedback, touchContentLearningScope } from '../learning/tracking';
 import { confirmSafetyIntent } from '../operations/ledger';
+import { enqueueKnowledge } from '../training/knowledge-events';
 const questionKeys=['title','subject_id','question_type','prompt','options','answer','explanation','knowledge_point_ids','difficulty','license','resource_ids','scoring_rule','knowledge_weights','difficulty_basis'];
 @Injectable()
 export class ContentService {
@@ -20,6 +21,7 @@ export class ContentService {
     const proof = ctx.platform?.grants.find(grant => grant.capability === proofCapability);
     if(ctx.platform && !proof) fail(403,'FORBIDDEN','操作授权依据无效');
     const after=await this.collection(kind).findOne({_id:resource,org_id:ctx.orgId},{session:ctx.session});
+    if(kind==='textbook')await enqueueKnowledge(this.database.db,ctx,'textbook',resource);
     if(after)await touchContentLearningScope(this.database.db,ctx,kind,after,true);
     if(before&&kind==='question'&&before.subject_id!==after?.subject_id)await touchContentLearningScope(this.database.db,ctx,kind,before,true);
     await this.database.db.collection('audit_events').insertOne({_id:newId(),actor_id:ctx.userId,org_id:ctx.orgId,...(ctx.platform?{actor_org_id:ctx.platform.actorOrgId,target_org_id:ctx.orgId,grant_id:proof!.id,grant_ids:ctx.platform.grantIds,grant_revision:proof!.revision}:{}),action:`content.${kind}.${action}`,resource_type:kind,resource_id:resource,owner_type:kind,owner_version_id:resource,revision_before:before?.revision??null,revision_after:after?.revision??null,access_revision_before:before?.access_revision??null,access_revision_after:after?.access_revision??null,reason:reason.trim()||`内容操作：${action}`,request_id:ctx.requestId,created_at:new Date()} as never,{session:ctx.session});
@@ -127,8 +129,16 @@ export class ContentService {
   }
   async chapters(req:ApiRequest,key:string,raw:unknown){
     const body=object(raw,['expected_revision','chapters']);
-    return this.access.run(req,true,ctx=>this.access.idempotent(ctx,req,'textbook.chapters',key,body,async()=>{
+    return this.access.run(req,true,ctx=>this.access.idempotent(ctx,req,'textbook.chapters',key,body,()=>this.chaptersInside(ctx,key,body)));
+  }
+  private async chaptersInside(ctx:ContentContext,key:string,body:Input,importOptions?:{permission:TextbookVersion['license'];fileId:string}){
       const before=await this.access.owner(ctx,'textbook',key,'edit');const version=await this.access.touchOwner(ctx,'textbook',key,integer(body.expected_revision,'expected_revision')) as TextbookVersion;
+      if(importOptions){
+        if(!licensed({...version,license:importOptions.permission}))fail(422,'LICENSE_INVALID','导入授权无效');
+        const resources=[...new Set([...version.resource_ids,importOptions.fileId])];if(resources.length>20)fail(422,'RESOURCE_LIMIT','附件数量超限');
+        await this.resources(ctx,'textbook',key,resources,true);
+        await this.collection('textbook').updateOne({_id:key,revision:version.revision},{$set:{license:importOptions.permission,resource_ids:resources}},{session:ctx.session});
+      }
       if(!Array.isArray(body.chapters)||body.chapters.length>100)fail(422,'CHAPTER_LIMIT','章节最多100个');
       const root=await this.database.db.collection<Document & {_id:string}>('textbooks').findOne({_id:version.textbook_id,org_id:ctx.orgId},{session:ctx.session});if(!root)fail(404,'NOT_FOUND','教材不存在');
       const sourceChapters = body.chapters.map(rawChapter=>object(rawChapter,['id','client_key','parent_id','parent_client_key','position','title','body','knowledge_point_ids','resource_ids']));
@@ -152,7 +162,13 @@ export class ContentService {
       const foreign=await this.database.db.collection<ChapterRecord>('chapters').findOne({_id:{$in:[...byId.keys()]},textbook_edition_id:{$ne:key}},{session:ctx.session});if(foreign)fail(422,'CHAPTER_ID_CONFLICT','章节id已被使用');
       await this.database.db.collection<ChapterRecord>('chapters').deleteMany({org_id:ctx.orgId,textbook_edition_id:key},{session:ctx.session});if(chapters.length)await this.database.db.collection<ChapterRecord>('chapters').insertMany(chapters,{session:ctx.session});
       await this.audit(ctx,'textbook',key,'chapters','',before);return {...await this.detailInside(ctx,'textbook',key,'manage'),chapter_id_map:[...clientIds].map(([client_key,id])=>({client_key,id}))};
-    }));
+
+  }
+  async importAuditInside(ctx:ContentContext,key:string,reason:string){await this.audit(ctx,"textbook",key,"edit",reason);}
+  async importChaptersInside(ctx:ContentContext,key:string,body:Input,permission:TextbookVersion['license'],fileId:string){
+    const result=await this.chaptersInside(ctx,key,body,{permission,fileId});
+    const chapters=await this.database.db.collection<ChapterRecord>('chapters').find({org_id:ctx.orgId,textbook_edition_id:key},{session:ctx.session}).toArray();
+    const version=await this.collection("textbook").findOne({_id:key,org_id:ctx.orgId},{session:ctx.session});return {revision:version!.revision,chapter_ids:chapters.map(ch=>ch._id)};
   }
   async transition(req:ApiRequest,kind:ContentKind,key:string,action:'submit-review'|'return'|'publish',raw:unknown){
     const body=object(raw,['expected_revision','reason']);const revision=integer(body.expected_revision,'expected_revision');const reason=body.reason===undefined?'':text(body.reason,'reason',1000,true);

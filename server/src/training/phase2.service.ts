@@ -1559,7 +1559,7 @@ export class TrainingPhase2Service {
       return { items };
     });
   }
-  private async notificationVisible(ctx: Context, row: Row) {
+  async notificationVisible(ctx: Context, row: Row) {
     if (row.user_id !== ctx.userId || row.member_id !== ctx.memberId)
       return false;
     const table: Record<string, string> = {

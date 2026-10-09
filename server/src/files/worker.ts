@@ -1,3 +1,4 @@
+import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
 import {isCourseworkFile,fileOwnerCollection} from './owner';
 import {requireEvidenceSubject} from '../assessment/subject-access';
 import { objectIdDatabase } from "../database/object-id";
@@ -344,40 +345,79 @@ export async function usage(db: Db) {
 }
 
 async function main() {
+  validateRuntimeFlags();
   const command = process.argv[2];
-  if (process.argv.length !== 3 || !['once', 'run', 'reconcile', 'cleanup', 'usage'].includes(command)) throw new Error('用法：worker.js once|run|reconcile|cleanup|usage');
+  if (
+    process.argv.length !== 3 ||
+    !["once", "run", "reconcile", "cleanup", "usage"].includes(command)
+  )
+    throw new Error("用法：worker.js once|run|reconcile|cleanup|usage");
   const scanEnabled = fileScanEnabled();
-  if ((command === 'once' || command === 'run') && !scanEnabled) {
-    console.log('文件扫描已关闭；跳过文件worker扫描与周期维护');
+  if ((command === "once" || command === "run") && !scanEnabled) {
+    console.log("文件扫描已关闭；跳过文件worker扫描与周期维护");
     return;
   }
   await storageRoot();
-  if (command === 'once' || command === 'run') await assertScanner();
-  if (!process.env.MONGODB_URI) throw new Error('必须配置MONGODB_URI');
-  const client = new MongoClient(process.env.MONGODB_URI, { readPreference: 'primary', writeConcern: { w: 'majority' } }); await client.connect();
-  let stopping = false; const stop = () => { stopping = true; }; process.on('SIGTERM', stop); process.on('SIGINT', stop);
-  let writer:WriterRegistration|undefined;
+  if (command === "once" || command === "run") await assertScanner();
+  if (!process.env.MONGODB_URI) throw new Error("必须配置MONGODB_URI");
+  const client = new MongoClient(process.env.MONGODB_URI, {
+    readPreference: "primary",
+    writeConcern: { w: "majority" },
+  });
+  await client.connect();
+  let stopping = false;
+  const stop = () => {
+    stopping = true;
+  };
+  const dispose = installShutdown(stop);
+  let writer: WriterRegistration | undefined;
   try {
-    const db = objectIdDatabase(client.db()); await assertSchema(db);
-    writer=await acquireWriter(db,'files');
-    if (command === 'reconcile') { console.log(JSON.stringify(await reconcile(db))); return; }
-    if (command === 'cleanup') { console.log(JSON.stringify({ processed: await processDeletion(db) })); return; }
-    if (command === 'usage') { console.log(JSON.stringify(await usage(db))); return; }
+    const db = objectIdDatabase(client.db());
+    await assertSchema(db);
+    writer = await acquireWriter(db, "files");
+    if (command === "reconcile") {
+      console.log(JSON.stringify(await reconcile(db)));
+      return;
+    }
+    if (command === "cleanup") {
+      console.log(JSON.stringify({ processed: await processDeletion(db) }));
+      return;
+    }
+    if (command === "usage") {
+      console.log(JSON.stringify(await usage(db)));
+      return;
+    }
+    notifyReady();
     let lastReconcile = 0;
     do {
-      if(stopping || await writer.stopRequested())break;
-      if (Date.now() - lastReconcile > 60000) { await reconcile(db); lastReconcile = Date.now(); }
-      const deleted = await processDeletion(db); const processed = await processOne(db);
-      if (command === 'once') { console.log(JSON.stringify({ processed, deleted })); break; }
+      if (stopping || (await writer.stopRequested())) break;
+      if (Date.now() - lastReconcile > 60000) {
+        await reconcile(db);
+        lastReconcile = Date.now();
+      }
+      const deleted = await processDeletion(db);
+      const processed = await processOne(db);
+      if (command === "once") {
+        console.log(JSON.stringify({ processed, deleted }));
+        break;
+      }
       if (!processed && !deleted) await sleep(1000);
     } while (!stopping);
   } finally {
-    process.removeListener('SIGTERM', stop); process.removeListener('SIGINT', stop);
-    try { await writer?.release(); } finally { await client.close(); }
+    try {
+      await writer?.release();
+    } finally {
+      try {
+        await client.close();
+      } finally {
+        dispose();
+      }
+    }
   }
 }
-if (require.main === module) main().catch((error: unknown) => {
-  const invalidFlag = error instanceof Error && error.message === 'FILE_SCAN_ENABLED 必须为 true 或 false';
-  console.error(invalidFlag ? 'FILE_SCAN_ENABLED 必须为 true 或 false' : '文件worker失败；请检查数据库、私有存储权限及官方ClamAV引擎/病毒库');
-  process.exitCode = 1;
-});
+if (require.main === module)
+  main().catch((error) => {
+    reportFailure("files-worker", error);
+    process.exitCode = 1;
+    if (process.connected) process.disconnect();
+  });

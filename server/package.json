@@ -27,7 +27,11 @@
     "operations": "node --env-file-if-exists=.env dist/operations/cli.js",
     "system:backup": "node --env-file-if-exists=.env ../ops/system-backup.cjs",
     "test:integration": "node --test --test-concurrency=1 test/*.test.cjs",
-    "format": "prettier --write src test package.json tsconfig.json"
+    "format": "prettier --write src test package.json tsconfig.json",
+    "knowledge:worker": "node --env-file-if-exists=.env dist/training/knowledge-worker.js run",
+    "knowledge:once": "node --env-file-if-exists=.env dist/training/knowledge-worker.js once",
+    "imports:worker": "node --env-file-if-exists=.env dist/training/import-worker.js run",
+    "imports:once": "node --env-file-if-exists=.env dist/training/import-worker.js once"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.3",
@@ -40,17 +44,27 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "helmet": "^8.1.0",
-    "mongoose": "^8.19.0",
+    "mammoth": "1.13.0",
     "mongodb": "^6.20.0",
+    "mongoose": "^8.19.0",
+    "pdfjs-dist": "5.4.296",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "yauzl": "3.4.0"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.9",
     "@types/express": "^5.0.0",
     "@types/node": "^22.20.5",
+    "@types/yauzl": "2.10.3",
     "mongodb-memory-server-core": "^10.3.0",
     "prettier": "^3.6.2",
-    "typescript": "~5.9.3"
+    "typescript": "~5.9.3",
+    "jszip": "3.10.1"
+  },
+  "overrides": {
+    "mammoth": {
+      "argparse": "2.0.1"
+    }
   }
 }

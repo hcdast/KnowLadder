@@ -1,3 +1,4 @@
+import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
 import { objectIdDatabase } from "../database/object-id";
 import { newId } from "../database/object-id";
 import { parseReconcileOptions, validateReconcileOptions, type ReconcileOptions } from '../assessment/reconcile-options';
@@ -346,22 +347,68 @@ export async function cleanup(db:Db):Promise<number> {
   return removed;
 }
 async function main() {
-  const command=process.argv[2];
-  if (!['run','once','reconcile','cleanup'].includes(command) || !process.env.MONGODB_URI) throw new Error('INVALID_WORKER_COMMAND');
-  const reconcileOptions = command === 'reconcile' ? parseReconcileOptions(process.argv.slice(3)) : undefined;
-  const client=new MongoClient(process.env.MONGODB_URI,{readPreference:'primary',writeConcern:{w:'majority'}}); await client.connect();
-  let stopping=false; const stop=()=>{stopping=true;}; process.on('SIGINT',stop);process.on('SIGTERM',stop);
+  validateRuntimeFlags();
+  const command = process.argv[2];
+  if (
+    !["run", "once", "reconcile", "cleanup"].includes(command) ||
+    !process.env.MONGODB_URI
+  )
+    throw new Error("INVALID_WORKER_COMMAND");
+  const reconcileOptions =
+    command === "reconcile"
+      ? parseReconcileOptions(process.argv.slice(3))
+      : undefined;
+  const client = new MongoClient(process.env.MONGODB_URI, {
+    readPreference: "primary",
+    writeConcern: { w: "majority" },
+  });
+  await client.connect();
+  let stopping = false;
+  const stop = () => {
+    stopping = true;
+  };
+  const dispose = installShutdown(stop);
   let writer: WriterRegistration | undefined;
   try {
-    const db=objectIdDatabase(client.db());await assertSchema(db);
+    const db = objectIdDatabase(client.db());
+    await assertSchema(db);
     await assertOperationalAccess(db);
-    if (command==='reconcile') {
-      if (reconcileOptions!.apply) writer = await acquireWriter(db, 'learning');
-      console.log(JSON.stringify(await reconcile(db,reconcileOptions)));return;
+    if (command === "reconcile") {
+      if (reconcileOptions!.apply) writer = await acquireWriter(db, "learning");
+      console.log(JSON.stringify(await reconcile(db, reconcileOptions)));
+      return;
     }
-    writer = await acquireWriter(db, 'learning');
-    if (command==='cleanup') {console.log(JSON.stringify({removed:await cleanup(db)}));return;}
-    do {if(stopping || await writer.stopRequested())break;const processed=await processOne(db),due=await processDue(db);if(command==='once'){console.log(JSON.stringify({processed,due}));break;}if(!processed&&!due)await sleep(1000);}while(!stopping);
-  } finally {process.removeListener('SIGINT',stop);process.removeListener('SIGTERM',stop);try {await writer?.release();} finally {await client.close();}}
+    writer = await acquireWriter(db, "learning");
+    notifyReady();
+    if (command === "cleanup") {
+      console.log(JSON.stringify({ removed: await cleanup(db) }));
+      return;
+    }
+    do {
+      if (stopping || (await writer.stopRequested())) break;
+      const processed = await processOne(db),
+        due = await processDue(db);
+      if (command === "once") {
+        console.log(JSON.stringify({ processed, due }));
+        break;
+      }
+      if (!processed && !due) await sleep(1000);
+    } while (!stopping);
+  } finally {
+    try {
+      await writer?.release();
+    } finally {
+      try {
+        await client.close();
+      } finally {
+        dispose();
+      }
+    }
+  }
 }
-if (require.main===module) main().catch(()=>{console.error('学情worker失败，请检查安全诊断');process.exitCode=1;});
+if (require.main === module)
+  main().catch((error) => {
+    reportFailure("learning-worker", error);
+    process.exitCode = 1;
+    if (process.connected) process.disconnect();
+  });

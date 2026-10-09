@@ -1,3 +1,15 @@
+import {workbenchOpenApi} from "./training/workbench-openapi";
+import {WorkbenchService} from "./training/workbench.service";
+import {WorkbenchController} from "./training/workbench.controller";
+import {surveyOpenApi} from "./training/survey-openapi";
+import {SurveyController} from "./training/survey.controller";
+import {SurveyService} from "./training/survey.service";
+import {ImportController} from './training/import.controller';
+import {importOpenApi} from './training/import-openapi';
+import {ImportService} from './training/import.service';
+import { KnowledgeController } from "./training/knowledge.controller";
+import { KnowledgeService } from "./training/knowledge.service";
+import { KnowledgeSourceService } from "./training/knowledge-source.service";
 import {phase2OpenApi} from './training/phase2-openapi';
 import {TrainingPhase2PublicController} from './training/phase2-public.controller';
 import {TrainingPhase2Service} from './training/phase2.service';
@@ -61,7 +73,7 @@ import { PlatformReportService } from "./administration/report.service";
 import { PlatformBusinessController } from "./administration/business.controller";
 import { extendPlatformBusinessOpenApi } from "./administration/business-openapi";
 
-export async function createApp() {
+export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(req:ApiRequest,res:Response,next:NextFunction)=>void}={}) {
   fileScanEnabled();
   const config = loadConfig();
   @Module({
@@ -77,8 +89,8 @@ export async function createApp() {
         retryAttempts: 0,
       }),
     ],
-    controllers: [TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
-    providers: [TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
+    controllers: [WorkbenchController, SurveyController, ImportController, KnowledgeController, TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
+    providers: [WorkbenchService, SurveyService, ImportService, KnowledgeService, KnowledgeSourceService, TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
   })
   class AppModule {}
   const app = await NestFactory.create(AppModule, {
@@ -90,6 +102,7 @@ export async function createApp() {
     const express = app.getHttpAdapter().getInstance();
     express.disable("x-powered-by");
     express.set("trust proxy", config.trustProxy);
+    if(options.managedGuard)app.use(options.managedGuard);
     app.use(
       (
         req: ApiRequest,
@@ -146,6 +159,9 @@ export async function createApp() {
       );
       completeOpenApi(document);
       contentOpenApi(document);
+      importOpenApi(document);
+      surveyOpenApi(document);
+      workbenchOpenApi(document);
       filesOpenApi(document);
       assessmentOpenApi(document);
       learningOpenApi(document);
@@ -162,7 +178,7 @@ export async function createApp() {
     }
     await dummyHash();
     await app.init();
-    app.enableShutdownHooks();
+    if(options.shutdownHooks !== false) app.enableShutdownHooks();
     return app;
   } catch (error) {
     await app.close();

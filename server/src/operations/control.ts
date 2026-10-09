@@ -38,11 +38,17 @@ export async function assertOperationalAccess(db:Db,options:{allowMaintenance?:b
   throw new Error("OPERATIONS_ACCESS_BLOCKED");
 }
 export async function acquireWriter(db:Db,kind:WriterKind,legacyMigration=false):Promise<WriterRegistration> {
+  if(process.env.KL_STANDALONE_MANAGED_API_ENABLED==='true') {
+    if(kind!=='api'||!/^managed-[0-9a-f-]{36}$/.test(process.env.KL_MANAGED_WRITER_OWNER??''))throw Error('MANAGED_WRITER_REQUIRED');
+    if(await db.collection('operational_writers').findOne({state:'running'}))throw Error('MANAGED_UNKNOWN_WRITER');
+  }
   if(!WRITER_KINDS.includes(kind)) throw new Error("OPERATIONS_WRITER_KIND_INVALID");
   if(kind==="migration") await bootstrapOperations(db);
   if(legacyMigration && (kind!=="migration" || await db.collection("schema_migrations").findOne({version:10}))) throw new Error("LEGACY_WRITER_NOT_ALLOWED");
   const id=legacyMigration?randomUUID():newId(),token=process.env.KL_WRITER_LAUNCH_TOKEN??randomUUID(); requireUuid(token);
+  const schemaFingerprint=async(session:ClientSession)=>JSON.stringify(await db.collection('schema_migrations').find({},{session,projection:{_id:0,version:1,status:1,checksum:1,started_at:1,completed_at:1,failed_at:1}}).sort({version:1}).toArray());
   await transaction(db.client,async session=> {
+    const schemaBefore=await schemaFingerprint(session);
     const state=await db.collection<OperationalState>("operational_state").findOne({_id:"environment"},{session});
     if(!state||!["unregistered","active"].includes(state.mode)) throw new Error("OPERATIONS_ACCESS_BLOCKED");
     if(state.mode!=="unregistered") assertLocalEnvironment(db,state.environment_id!);
@@ -50,6 +56,11 @@ export async function acquireWriter(db:Db,kind:WriterKind,legacyMigration=false)
     if(fence.modifiedCount!==1) throw new Error("OPERATIONS_REVISION_CONFLICT");
     const now=new Date();
     await db.collection<Document>("operational_writers").insertOne({_id:id,environment_id:state.environment_id,kind,token,pid:process.pid,state:"running",started_at:now,heartbeat_at:now,stopped_at:null,shutdown_nonce:null},{session});
+    const admitted=await db.collection<OperationalState>('operational_state').findOne({_id:'environment'},{session});
+    if(!admitted||admitted.mode!==state.mode||admitted.revision!==state.revision||await schemaFingerprint(session)!==schemaBefore){
+      await db.collection<Document>('operational_writers').updateOne({_id:id,token,state:'running'},{$set:{state:'stopped',stopped_at:new Date(),heartbeat_at:new Date()}},{session});
+      throw Error('OPERATIONS_REVISION_CONFLICT');
+    }
   });
   let released=false,heartbeatFailed=false,inflight=Promise.resolve();
   const timer=setInterval(()=> {
@@ -152,9 +163,20 @@ export async function quarantineRestore(db:Db,input:{environmentId:string;restor
         affected_orgs: [], updated_at: new Date(),
       }, { session });
     });
+    if(process.env.KL_STANDALONE_RECOVERY_ENABLED==='true'){
+      const {StandaloneWriterAdmission}=await import('../training/standalone-writer-admission');
+      const {rawDatabase}=await import('../database/object-id');
+      await new StandaloneWriterAdmission(rawDatabase(db)).initialize();
+    }
     return;
   }
-  if(state.mode==="restore_quarantined"&&state.restore_id===input.restoreId&&state.environment_id===input.environmentId) return;
+  if(state.mode==='restore_quarantined'&&state.restore_id===input.restoreId&&state.environment_id===input.environmentId){
+    if(process.env.KL_STANDALONE_RECOVERY_ENABLED==='true'){
+      const {StandaloneWriterAdmission}=await import('../training/standalone-writer-admission');const {rawDatabase}=await import('../database/object-id');
+      await new StandaloneWriterAdmission(rawDatabase(db)).initialize();
+    }
+    return;
+  }
   throw new Error("OPERATIONS_RESTORE_CONFLICT");
 }
 export async function releaseRestoredLocal(client:MongoClient,db:Db,input:{restoreId:string;actor:string;reason:string;expectedRevision:number;manifestHash:string;ledgerSequence:number}) {

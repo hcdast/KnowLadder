@@ -86,6 +86,7 @@ async function backup({ client, db, file, key, root, maintenanceToken }) {
   const checkpoint = () => ensure(Date.now() < maintenanceDeadline, 'BACKUP_MAINTENANCE_TIMEOUT');
   checkpoint();
   await schema.assertSchema(db);
+  if (process.env.KL_STANDALONE_RECOVERY_ENABLED === 'true') await require('../server/dist/training/standalone-recovery-lifecycle').assertRecoveryQuiescent(db);
   root = await fileRoot(root); const registry = schema.systemBackupRegistry();
   const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name);
   ensure(names.length === registry.collections.length + registry.excluded.filter(n => !registry.collections.includes(n)).length && names.every(n => registry.collections.includes(n) || registry.excluded.includes(n)), 'UNKNOWN_COLLECTION');
@@ -166,6 +167,8 @@ function transform(name, row) {
   if (name === 'users') { row.status = 'disabled'; row.must_change_password = true; row.temporary_password_expires_at = new Date(0); row.credential_version = Number(row.credential_version) + 1; row.identity_revision = Number(row.identity_revision) + 1; row.updated_at = now; }
   if (name === 'organization_members') { row.status = 'disabled'; row.authorization_revision = Number(row.authorization_revision) + 1; row.updated_at = now; }
   if (name === 'outbox_events' && row.status === 'running') { row.status = 'pending'; row.lease_owner = row.lease_token = row.lease_until = null; row.available_at = now; row.updated_at = now; }
+  if (name === 'knowledge_import_jobs') { row.preview=[]; row.warnings=[]; row.lease_token=row.lease_until=null; if(row.status!=='applied'){row.status='failed';row.error_code='IMPORT_RESTORE_INVALIDATED';row.generation=Number(row.generation)+1;row.revision=Number(row.revision)+1;} row.updated_at=now; }
+  if (name === 'knowledge_outbox') { row.status = 'pending'; row.generation = Number(row.generation) + 1; row.lease_token = row.lease_until = null; row.error_code = ''; row.updated_at = now; }
   if (name === 'student_projection_states') { row.lease_owner = row.lease_token = row.lease_until = null; }
   if (name === 'learning_projection_builds' && row.status === 'building') { row.status = 'abandoned'; row.updated_at = now; }
   if (name === 'file_resources') {
@@ -190,7 +193,7 @@ async function restore({ client, db, file, key, root }) {
     const now = new Date(); const run = { _id: restoreId, environment_id: manifest.environment_id, status: 'quarantined', manifest_hash: verified.manifestHash, file_root_hash: hash(await fs.realpath(root)), ledger_sequence: safety.sequence, revision: 0, checks: { schema: false, files: false, ledger: false, identities: false, smoke: false }, created_at: now, updated_at: now };
     await db.collection('backup_restore_runs').insertOne(run);
     try {
-      const second = await authenticate(handle, key, async (name, row) => { if (!SKIP_IMPORT.has(name)) await db.collection(name).insertOne(transform(name, row)); }, async (record, bytes) => {
+      const second = await authenticate(handle, key, async (name, row) => { if (!SKIP_IMPORT.has(name) && name !== 'knowledge_sources') await db.collection(name).insertOne(transform(name, row)); }, async (record, bytes) => {
         if (record.part === 0) output = await fs.open(path.join(root, record.area, record.key), 'wx', 0o600);
         await writeAll(output, bytes); if (record.last) { await output.sync(); await output.close(); output = null; }
       });
@@ -276,7 +279,15 @@ async function verifyRestore({ db, file, key, root, restoreId, apply = false }) 
         'blocked_targets.global': false, affected_orgs: [] }) === 1
       && (await Promise.all(emptyAuthorization.map(name => db.collection(name).findOne({}, { projection: { _id: 1 } })))).every(row => row === null);
     const noWriters = await db.collection('operational_writers').countDocuments({ state: 'running' }) === 0;
-    const noLeases = await db.collection('outbox_events').countDocuments({ status: 'running' }) === 0 && await db.collection('student_projection_states').countDocuments({ lease_token: { $ne: null } }) === 0 && await db.collection('learning_projection_builds').countDocuments({ status: 'building' }) === 0;
+    const noKnowledgeLeases = process.env.KL_KNOWLEDGE_ENABLED !== 'true' || (await db.collection('knowledge_outbox').countDocuments({ $or: [{ status: 'running' }, { lease_token: { $ne: null } }, { lease_until: { $ne: null } }] }) === 0);
+    const noImportLeases = process.env.KL_KNOWLEDGE_IMPORT_ENABLED !== "true" || (await db.collection("knowledge_import_jobs").countDocuments({$or:[{status:"running"},{lease_token:{$ne:null}},{lease_until:{$ne:null}}]})===0);
+    let recoveryFresh=true;
+    if(process.env.KL_STANDALONE_RECOVERY_ENABLED==='true') {
+      const recovery=require('../server/dist/training/standalone-recovery-lifecycle.js');
+      await recovery.assertRecoveryQuiescent(db);
+      recoveryFresh=(await Promise.all(recovery.RECOVERY_COLLECTIONS.filter(name=>name!=='training_standalone_writer').map(name=>db.collection(name).countDocuments({})))).every(count=>count===0);
+    }
+    const noLeases = recoveryFresh && noImportLeases && noKnowledgeLeases && await db.collection('outbox_events').countDocuments({ status: 'running' }) === 0 && await db.collection('student_projection_states').countDocuments({ lease_token: { $ne: null } }) === 0 && await db.collection('learning_projection_builds').countDocuments({ status: 'building' }) === 0;
     const ledgerCurrent = !safety.pending && (apply || safety.sequence === run.ledger_sequence);
     const checks = { schema: true, files, identities, ledger: ledgerCurrent, smoke: noWriters && noLeases && files && identities && ledgerCurrent };
     let blockedReferences = 0;

@@ -408,6 +408,32 @@ export async function resetPassword(
     };
   });
 }
+export async function setTemporaryPasswordExpiry(
+  ctx: OperationContext,
+  input: { user_id: string; expires_at: string; expected_credential_version: number },
+): Promise<{ user_id: string; expires_at: string }> {
+  id(input.user_id);
+  const expires = new Date(input.expires_at);
+  if (!Number.isSafeInteger(input.expected_credential_version) || input.expected_credential_version < 1 ||
+      !Number.isFinite(expires.getTime()) || expires.toISOString() !== input.expires_at)
+    reject("期限须为UTC ISO8601，凭据版本须为正整数");
+  return transact(ctx, "user.temporary-expiry", { user_ids: [input.user_id] },
+    { user_id: input.user_id, expires_at: input.expires_at, expected_credential_version: input.expected_credential_version },
+    async (session, now) => {
+      if (expires <= now || expires.getTime() - now.getTime() > 31 * 86400000)
+        reject("临时密码到期时间须在未来且不超过31天");
+      const c = collections(ctx.db);
+      const changed = await c.users.updateOne({ _id: input.user_id, ...privacyActive,
+        status: "active", must_change_password: true, credential_version: input.expected_credential_version,
+        temporary_password_expires_at: { $type: "date" } }, {
+        $set: { temporary_password_expires_at: expires, updated_at: now },
+        $inc: { credential_version: 1, identity_revision: 1 },
+      }, { session });
+      if (changed.matchedCount !== 1) reject("仅允许更新版本匹配、有效且尚未首次改密的账号");
+      await c.sessions.updateMany({ user_id: input.user_id, revoked_at: null }, { $set: { revoked_at: now } }, { session });
+      return { result: { user_id: input.user_id, expires_at: input.expires_at }, resource: input.user_id };
+    });
+}
 export async function setOrganizationStatus(
   ctx: OperationContext,
   input: { org_id: string; status: "active" | "disabled" },
@@ -745,6 +771,27 @@ export async function recoverCliAdministration(ctx: OperationContext, input: {
             temporary_password_expires_at: expiry(ctx, now), password_changed_at: now, updated_at: now } }, { session });
         await c.sessions.updateMany({ user_id: uid, revoked_at: null }, { $set: { revoked_at: now } }, { session });
         return { secret };
+      }
+      if (operation.action === "user.temporary-expiry") {
+        const uid = id(desired.user_id), expires = new Date(String(desired.expires_at));
+        const expected = Number(desired.expected_credential_version);
+        if (!Number.isSafeInteger(expected) || expected < 1 || !Number.isFinite(expires.getTime()) ||
+            expires <= now || expires.getTime() - now.getTime() > 31 * 86400000)
+          reject("原临时密码期限已失效或不合法，保持隔离");
+        const user = await c.users.findOne({ _id: uid, ...privacyActive, status: "active", must_change_password: true }, { session });
+        if (!user) reject("目标已改密或不可用，拒绝延长");
+        if (user.credential_version === expected) {
+          const changed = await c.users.updateOne({ _id: uid, credential_version: expected,
+            must_change_password: true, ...privacyActive }, {
+            $set: { temporary_password_expires_at: expires, updated_at: now },
+            $inc: { credential_version: 1, identity_revision: 1 },
+          }, { session });
+          if (changed.matchedCount !== 1) reject("恢复期间凭据已变化");
+        } else if (user.credential_version !== expected + 1 || user.temporary_password_expires_at?.getTime() !== expires.getTime()) {
+          reject("目标凭据与原操作不一致，保持隔离");
+        }
+        await c.sessions.updateMany({ user_id: uid, revoked_at: null }, { $set: { revoked_at: now } }, { session });
+        return {};
       }
       if (operation.action === "user.password.reset") {
         const secret = temporaryPassword(), password_hash = await hashPassword(secret);

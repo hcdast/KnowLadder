@@ -458,9 +458,19 @@ export const NATURAL_KEYS: Record<string,string> = {
 };
 
 OBJECT_ID_PATHS.object_id_allocations = ["_id", "actor_id"];
+OBJECT_ID_PATHS.knowledge_sources = ["_id", "org_id", "source_id", "owner_id"];
+OBJECT_ID_PATHS.knowledge_outbox = ["_id", "org_id", "owner_id"];
+OBJECT_ID_PATHS.ai_jobs = [...OBJECT_ID_PATHS.ai_jobs, "knowledge_scope[].id"];
 
 // Independent control database; UUID environment/backup identities are natural keys.
 OBJECT_ID_PATHS.safety_ledger_heads = ["_id"];
 OBJECT_ID_PATHS.completed_backups = ["_id"];
 NATURAL_KEYS.safety_ledger_heads = "ledger_key";
 NATURAL_KEYS.completed_backups = "ledger_key";
+
+OBJECT_ID_PATHS.knowledge_import_jobs=["_id","org_id","user_id","member_id","owner_id","file_id","chapter_ids[]"];
+
+OBJECT_ID_PATHS.knowledge_import_provenance=["_id","org_id","owner_id","file_id","chapter_ids[]"];
+
+OBJECT_ID_PATHS.training_surveys=["_id","org_id","course_id"];
+OBJECT_ID_PATHS.training_survey_responses=["_id","org_id","survey_id","course_id","user_id","member_id"];

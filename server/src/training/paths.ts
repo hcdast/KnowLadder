@@ -61,3 +61,6 @@ for(const name of ['training_locations','training_schedule_locks'])TRAINING_PATH
 TRAINING_PATHS.training_sessions=['_id','org_id','class_id','subject_id','course_id','teacher_member_id','location_id','original_session_id','author_id','contributors[]','reviewer_id','recipients[]'];
 for(const name of ['training_session_versions','training_attendance','training_attendance_versions','training_leave_requests','training_paths','training_path_versions','training_path_assignments','training_certificates','training_certificate_events'])TRAINING_PATHS[name]=['_id','org_id','class_id','subject_id','session_id','attendance_id','path_id','assignment_id','certificate_id','user_id','member_id','author_id','contributors[]','reviewer_id','issuer_id','actor_id','entries[].member_id','course_ids[]','task_ids[]'];
 for(const name of ['training_notification_outbox','training_notifications'])TRAINING_PATHS[name]=['_id','org_id','user_id','member_id','source_id','event_id'];
+
+// Recovery journals store opaque hashes and explicit canonical string plan IDs.
+for(const name of ['training_standalone_leases','training_standalone_operations','training_assignment_recovery_plans','training_standalone_knowledge_signals','training_standalone_writer'])TRAINING_PATHS[name]=['_id'];

@@ -22,6 +22,9 @@ export class SiteService {
     if (!PAGES.includes(key)) fail(404, "NOT_FOUND", "页面不存在");
     if (process.env.KL_TRAINING_ENABLED !== "true")
       return { page: null, consultation_enabled: false };
+    await assertOperationalAccess(this.training.db);
+    const activeOrg = await this.training.col("organizations").findOne({_id: process.env.KL_SITE_ORG_ID ?? "000000000000000000000000", status:"active"});
+    if (!activeOrg) return {page:null, consultation_enabled:false, retention_days:null};
     const page = await this.training.col("site_revisions").findOne(
       {
         org_id: process.env.KL_SITE_ORG_ID ?? "000000000000000000000000",

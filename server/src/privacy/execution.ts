@@ -1,3 +1,4 @@
+import {recoveryEnabled} from '../training/standalone-recovery-lifecycle';
 import { courseworkMaintenanceFence } from "../files/coursework-cleanup";
 import { requireActor, requireObjectId } from "../operations/contracts";
 import {
@@ -102,6 +103,8 @@ function steps(user: string): Step[] {
     {$unset:['report_members','report_identities','phase2_teachers','phase2_teacher_users']},
   ];
   return [
+    ...(recoveryEnabled()?[{name:'training_assignment_recovery_plans',pipeline:direct('userId',user)}]:[]),
+    ...(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? [{name:"training_survey_responses",pipeline:direct("user_id",user)}] : []),
     ...(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? [{name:"ai_jobs",pipeline:[
       ...join("training_reports","context_id",reportScope).slice(0,1),
       {$match:{$or:[{user_id:user},{kind:"learning-report","privacy_parent.0":{$exists:true}}]}},
@@ -167,6 +170,7 @@ function steps(user: string): Step[] {
           })),
         ]
       : []),
+    ...(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? [{name:"knowledge_import_jobs",pipeline:direct("user_id",user)}] : []),
     ...[
       "recommendations",
       "behavior_events",

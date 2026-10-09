@@ -16,6 +16,7 @@ import {
   setMembership,
   setUserStatus,
   resetPassword,
+  setTemporaryPasswordExpiry,
   setOrganizationStatus,
   lockRestoredAuth,
   type OperationContext,
@@ -31,6 +32,7 @@ const HELP = `受审计运维命令（先执行数据库迁移；所有变更必
   membership-set --user-id ObjectId --org-id ObjectId --roles student,org_admin [--status active|disabled] [--expected-revision 当前版本] [--valid-to UTC ISO8601 新content_reviewer必填]
   user-status --user-id ObjectId --status active|disabled
   password-reset --user-id ObjectId [--secret-file 绝对路径]
+  password-expiry --user-id ObjectId --expires-at UTC_ISO8601 --expected-credential-version 当前凭据版本 （保留临时密码，期限不超过31天）
   organization-status --org-id ObjectId --status active|disabled
   lock-restored-auth --confirm LOCK_RESTORED_AUTH
   capability-set --member-id ObjectId --org-id ObjectId --capability content:retire|content:revoke|file:delete|assessment:manage|assessment:review|teaching:roster|teaching:assign|teaching:report --granted true|false --expected-revision 当前版本 [--valid-to UTC ISO8601]
@@ -54,6 +56,7 @@ const flags: Record<string, string[]> = {
   ],
   "user-status": ["user-id", "status"],
   "password-reset": ["user-id", "secret-file"],
+  "password-expiry": ["user-id", "expires-at", "expected-credential-version"],
   "organization-status": ["org-id", "status"],
   "lock-restored-auth": ["confirm"],
   "capability-set": ["member-id", "org-id", "capability", "granted", "expected-revision", "valid-to"],
@@ -268,6 +271,12 @@ export async function runCli(argv = process.argv.slice(2)): Promise<void> {
         break;
       case "password-reset":
         result = await resetPassword(ctx, { user_id: required(v, "user-id") });
+        break;
+      case "password-expiry":
+        result = await setTemporaryPasswordExpiry(ctx, {
+          user_id: required(v, "user-id"), expires_at: required(v, "expires-at"),
+          expected_credential_version: Number(required(v, "expected-credential-version")),
+        });
         break;
       case "organization-status":
         result = await setOrganizationStatus(ctx, {

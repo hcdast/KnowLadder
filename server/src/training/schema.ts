@@ -356,7 +356,13 @@ export async function migrateTraining(
   if (process.env.NODE_ENV === "production")
     throw Error("Training extension is not approved for production");
   const hello = await db.admin().command({ hello: 1 });
-  if (!hello.setName) throw Error("Training migration requires replicaSet");
+  if (!hello.setName) {
+    const recovery=await import('./standalone-recovery-lifecycle');
+    if(!recovery.recoveryEnabled())throw Error('Training migration requires replicaSet');
+    recovery.assertRecoveryConfiguration();
+    await recovery.assertRecoveryQuiescent(db);
+    if(await db.collection('operational_writers').findOne({state:'running'}))throw Error('Training migration requires stopped writers');
+  }
   const token = randomUUID(),
     now = new Date();
   if (!existing)

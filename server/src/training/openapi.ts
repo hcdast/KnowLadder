@@ -1,6 +1,7 @@
 import type {
   OpenAPIObject,
   SchemaObject,
+  ReferenceObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
 const id: SchemaObject = { type: "string", pattern: "^[a-f0-9]{24}$" },
   text: SchemaObject = { type: "string", maxLength: 200 },
@@ -8,7 +9,7 @@ const id: SchemaObject = { type: "string", pattern: "^[a-f0-9]{24}$" },
   revision: SchemaObject = { type: "integer", minimum: 1 },
   bool: SchemaObject = { type: "boolean" };
 const object = (
-  properties: Record<string, SchemaObject>,
+  properties: Record<string, SchemaObject | ReferenceObject>,
   required = Object.keys(properties),
 ): SchemaObject => ({
   type: "object",
@@ -36,6 +37,9 @@ const rubric: SchemaObject = {
   }),
 };
 const requestSchemas: Record<string, SchemaObject> = {
+  "knowledge/search": object({query:{type:"string",maxLength:256},scope:{type:"array",minItems:1,maxItems:20,
+    items:{$ref:"#/components/schemas/KnowledgeSource"}}}),
+  "knowledge/rebuild": object({source:{$ref:"#/components/schemas/KnowledgeSource"}}),
   reports: object(
     {
       class_id: id,
@@ -278,6 +282,19 @@ export function trainingOpenApi(document: OpenAPIObject) {
   });
   document.components ??= {};
   document.components.schemas ??= {};
+  const source:SchemaObject={oneOf:[object({kind:{type:"string",enum:["chapter"]},id}),
+    object({kind:{type:"string",enum:["course-text"]},id,lesson_key:{type:"string",maxLength:64}})]};
+  const scope:SchemaObject={type:"array",minItems:1,maxItems:20,items:{$ref:"#/components/schemas/KnowledgeSource"}};
+  const evidence=object({key:text,source:{$ref:"#/components/schemas/KnowledgeSource"},title:text,revision,
+    owner_id:id,source_hash:{type:"string",pattern:"^[a-f0-9]{64}$"},
+    start_utf16:{type:"integer",minimum:0},end_utf16:{type:"integer",minimum:1},
+    content_hash:{type:"string",pattern:"^[a-f0-9]{64}$"},text:{type:"string",maxLength:1600}});
+  document.components.schemas.KnowledgeSource=source;
+  document.components.schemas.KnowledgeEvidence=evidence;
+  requestSchemas["ai/jobs"]!.properties!.knowledge_scope=scope;
+  requestSchemas["ai/jobs"]!.properties!.knowledge_fingerprint={type:"string",pattern:"^[a-f0-9]{64}$"};
+  job.properties!.knowledge_scope=scope;
+  job.properties!.knowledge_evidence={type:"array",maxItems:5,items:{$ref:"#/components/schemas/KnowledgeEvidence"}};
   document.components.schemas.TrainingAiJob = job;
   document.components.schemas.TrainingLesson = lesson;
   for (const [path, item] of Object.entries(document.paths)) {
@@ -305,13 +322,13 @@ export function trainingOpenApi(document: OpenAPIObject) {
           {
             name: "Idempotency-Key",
             in: "header",
-            required: !path.endsWith("/receipts/query"),
+            required: !path.endsWith("/receipts/query") && !path.endsWith("/knowledge/search"),
             schema: { type: "string", pattern: "^[A-Za-z0-9_-]{8,128}$" },
           },
           {
             name: "X-CSRF-Token",
             in: "header",
-            required: true,
+            required: !path.endsWith("/knowledge/search"),
             schema: { type: "string" },
           },
         ];
@@ -405,6 +422,15 @@ export function trainingOpenApi(document: OpenAPIObject) {
           },
         };
       let result: SchemaObject = { type: "object", additionalProperties: true };
+      if(path.endsWith("/knowledge/search"))result=object({status:{type:"string",enum:["grounded","insufficient-evidence"]},
+        citations:{type:"array",maxItems:5,items:{$ref:"#/components/schemas/KnowledgeEvidence"}},fingerprint:{type:"string",pattern:"^[a-f0-9]{64}$"}});
+      if(path.endsWith("/knowledge/rebuild"))result=object({status:{type:"string",enum:["pending"]},generation:revision});
+      if(path.endsWith("/knowledge/sources"))result=object({items:{type:"array",maxItems:200,
+        items:object({source:{$ref:"#/components/schemas/KnowledgeSource"},title:text,revision,current:bool})},truncated:bool});
+      if(path.endsWith("/knowledge/status"))result=object({items:{type:"array",maxItems:100,items:object({
+        kind:{type:"string",enum:["textbook","course"]},owner_id:id,title:text,
+        status:{type:"string",enum:["pending","running","completed","failed"]},error_code:text,generation:revision,
+        updated_at:{type:"string",format:"date-time"},source:{oneOf:[{$ref:"#/components/schemas/KnowledgeSource"},{type:"object",nullable:true,enum:[null]}]}})},truncated:bool,index_version:revision});
       if (
         (training && path.includes("/ai/jobs/")) ||
         (training && path.endsWith("/ai/jobs") && method === "post")

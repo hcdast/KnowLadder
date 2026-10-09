@@ -13,7 +13,7 @@ import { Database } from '../database/database';
 import { ContentAccess, type ContentContext } from '../content/access';
 import { CONTENT_COLLECTIONS, licensed, type BaseVersion, type FileResource } from '../content/contracts';
 import { ApiRequest, fail } from '../errors';
-import { allowedFileMimes, fileConfig, fileScanEnabled, MAX_FILE_SIZE, openPrivate, assertUploadCapacity } from './config';
+import { DOCX_FILE_MIME, allowedFileMimes, fileConfig, fileScanEnabled, MAX_FILE_SIZE, openPrivate, assertUploadCapacity } from './config';
 import { receive } from './stream';
 import { assertScanner } from './scanner';
 import { fileReferenced, fenceFileRetentionSubjects } from './references';
@@ -86,6 +86,7 @@ export class FilesService {
   async register(req: ApiRequest, input: RegisterFile) {
     this.configured();
     if (!input || typeof input !== 'object' || Object.keys(input).some(key=>!['owner_type','owner_version_id','expected_revision','display_name','size','mime','checksum'].includes(key)) || !['textbook','question'].includes(input.owner_type) || typeof input.owner_version_id !== 'string' || typeof input.display_name !== 'string' || input.display_name.length < 1 || input.display_name.length > 200 || /[\u0000-\u001f\u007f/\\]/.test(input.display_name) || !Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_FILE_SIZE || !allowedFileMimes().some(mime=>mime===input.mime) || typeof input.checksum !== 'string' || !/^[a-f0-9]{64}$/.test(input.checksum)) fail(422,'INVALID_FILE','附件登记参数无效');
+    if (input.mime === DOCX_FILE_MIME && input.owner_type !== "textbook") fail(422,"INVALID_FILE","DOCX仅用于教材素材导入");
     this.revision(input.expected_revision);
     return this.access.run(req,true,async ctx => {
       this.access.require(ctx,'edit');

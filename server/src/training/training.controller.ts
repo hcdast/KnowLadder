@@ -5,6 +5,7 @@ import type { Response } from "express";
 import { Put, Res } from "@nestjs/common";
 import {
   Body,
+  Query,
   Controller,
   Get,
   HttpCode,
@@ -13,7 +14,7 @@ import {
   Req,
 } from "@nestjs/common";
 import { ApiCookieAuth, ApiHeader, ApiTags } from "@nestjs/swagger";
-import { ApiRequest } from "../errors";
+import { ApiRequest, fail } from "../errors";
 import { TrainingService } from "./training.service";
 import { TrainingAiService } from "./ai.service";
 @ApiTags("培训课程、任务、作业与AI")
@@ -65,8 +66,9 @@ export class TrainingController {
   @Get("courses") courses(@Req() r: ApiRequest) {
     return this.result(r, this.service.listCourses(r));
   }
-  @Get("courses/:id") course(@Req() r: ApiRequest, @Param("id") id: string) {
-    return this.result(r, this.service.course(r, id));
+  @Get("courses/:id") course(@Req() r: ApiRequest, @Param("id") id: string, @Query("mode") mode?:string) {
+    if(mode!==undefined && mode!=="learner")fail(422,"INVALID_INPUT","课程视图模式无效");
+    return this.result(r, this.service.course(r, id, mode === "learner"));
   }
   @Post("courses") @HttpCode(200) create(
     @Req() r: ApiRequest,
@@ -81,6 +83,7 @@ export class TrainingController {
   ) {
     return this.result(r, this.service.changeCourse(r, id, b));
   }
+  @Post("courses/:id/assignments/preview") @HttpCode(200) previewAssignments(@Req() r:ApiRequest,@Param("id") id:string,@Body() b:unknown){return this.result(r,this.service.previewAssignments(r,id,b));}
   @Post("courses/:id/assign") @HttpCode(200) assign(
     @Req() r: ApiRequest,
     @Param("id") id: string,

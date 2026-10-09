@@ -1,3 +1,8 @@
+
+import {managedApiEnabled,assertManagedInvocation} from './managed-invocation';
+import {AssignmentRecoveryRunner} from './assignment-recovery-runner';
+import {rawDatabase} from '../database/object-id';
+import { enqueueKnowledge } from "./knowledge-events";
 import { Injectable } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import type { Document } from "mongodb";
@@ -94,6 +99,7 @@ export class TrainingService {
     return result;
   }
   async audit(ctx: Context, name: string, row: Row, action: string) {
+    if(name === "course") await enqueueKnowledge(this.db,ctx,"course",row._id);
     await this.access.audit(
       ctx,
       name,
@@ -261,6 +267,12 @@ export class TrainingService {
           write,
         );
         await this.resources(ctx, course.lessons, write);
+        if(write && process.env.KL_KNOWLEDGE_ENABLED === "true"){
+          const fenced=await this.col("class_courses").updateOne(
+            {_id:link._id,org_id:ctx.orgId,status:"active",revision:link.revision},
+            {$inc:{revision:1}},{session:ctx.session});
+          if(fenced.modifiedCount !== 1)fail(409,"CONTEXT_CHANGED","课程分配已变化");
+        }
         return course;
       } catch (e) {
         if ((e as any).status !== 404) throw e;
@@ -385,7 +397,7 @@ export class TrainingService {
         )
         .limit(200)
         .toArray();
-      return { classes, subjects, assignments: quizIds, quizzes, phase2_enabled: process.env.KL_TRAINING_PHASE2_ENABLED === 'true' };
+      return { classes, subjects, assignments: quizIds, quizzes, surveys_enabled: process.env.KL_TRAINING_SURVEYS_ENABLED === "true", knowledge_enabled: process.env.KL_KNOWLEDGE_ENABLED === 'true', phase2_enabled: process.env.KL_TRAINING_PHASE2_ENABLED === 'true' };
     });
   }
   async listCourses(req: ApiRequest) {
@@ -433,9 +445,10 @@ export class TrainingService {
       return { items: out, limit: 200 };
     });
   }
-  async course(req: ApiRequest, key: string) {
+  async course(req: ApiRequest, key: string, learner=false) {
     return this.run(req, false, async (ctx) => {
-      const teacher = ctx.capabilities.some((x) =>
+      if(learner)this.require(ctx,"learning:self");
+      const teacher = !learner && ctx.capabilities.some((x) =>
         [
           "training:schedule-manage",
         "training:path-edit",
@@ -540,6 +553,7 @@ export class TrainingService {
           operation === "course.create" ? result._id : row.resource_id,
           operation !== "course.progress",
         );
+        if(operation === "course.assign"){const course=await this.row(ctx,"courses",row.resource_id);await this.classAccess(ctx,v.id(result.class_id),course.subject_id,true);}
       } else if (operation.startsWith("report.")) {
         if(process.env.KL_TRAINING_REPORTS_ENABLED!=='true')fail(503,'TRAINING_REPORTS_DISABLED','报告发布尚未启用');
         this.require(ctx,['report.publish','report.reject'].includes(operation)?'training:report-review':'training:report-edit');
@@ -577,6 +591,9 @@ export class TrainingService {
             task.class_id,
           );
         }
+      } else if (operation === "knowledge.rebuild") {
+        if(process.env.KL_KNOWLEDGE_ENABLED !== "true")fail(503,"KNOWLEDGE_DISABLED","知识库尚未启用");
+        this.require(ctx,"ai:manage");
       } else if (operation === "ai.configure") {
         this.require(ctx, "ai:manage");
       } else if (operation.startsWith("ai.")) {
@@ -607,6 +624,9 @@ export class TrainingService {
             await this.taskAccess(ctx, job.context_id, true);
           else
             await this.courseAccess(ctx, job.context_id, job.kind !== "assist");
+          if(job.knowledge_scope) return {status:"confirmed",result:{id:job._id,kind:job.kind,
+            context_id:job.context_id,status:job.status,revision:job.revision,output:"",citations:[],
+            error_code:job.error_code,created_at:job.created_at}};
         }
         if (operation === "ai.accept" || operation === "ai.accept-question") {
           const source =
@@ -751,9 +771,16 @@ export class TrainingService {
       });
     });
   }
+  async previewAssignments(req:ApiRequest,key:string,input:unknown){
+    const o=v.object(input,["class_ids"]);if(!Array.isArray(o.class_ids)||!o.class_ids.length||o.class_ids.length>20)fail(422,"BATCH_LIMIT","请选择1至20个班级");const ids=o.class_ids.map(v.id);if(new Set(ids).size!==ids.length)fail(422,"DUPLICATE_CLASSES","班级编号不能重复");
+    return this.run(req,false,async ctx=>{this.require(ctx,"course:assign");const course=await this.courseAccess(ctx,key,true);if(course.status!=="published")fail(409,"INVALID_STATE","仅可分配已发布课程");const items=[];
+      for(const id of ids){try{await this.classAccess(ctx,id,course.subject_id,true);const clazz=await this.row(ctx,"classes",id);const link=await this.col("class_courses").findOne({org_id:ctx.orgId,class_id:id,course_id:key},{session:ctx.session});items.push({class_id:id,name:clazz.name,status:link?(link.status==="active"?"already_assigned":"conflict"):"ready"});}catch(e){const status=(e as any).getStatus?.()??(e as any).status;if(![403,404].includes(status))throw e;items.push({class_id:id,status:"forbidden"});}}
+      return {course_id:key,items};});
+  }
   async assignCourse(req: ApiRequest, key: string, input: unknown) {
     const o = v.object(input, ["class_id"]);
     const classId = v.id(o.class_id);
+    if(managedApiEnabled())return this.assignManaged(req,key,classId);
     return this.run(req, true, async (ctx) => {
       this.require(ctx, "course:assign");
       const c = await this.courseAccess(ctx, key, true, true);
@@ -761,6 +788,9 @@ export class TrainingService {
       if (c.status !== "published")
         fail(409, "INVALID_STATE", "仅可分配已发布版本");
       return this.idem(ctx, req, "course.assign", key, o, async () => {
+        const existing=await this.col("class_courses").findOne({org_id:ctx.orgId,class_id:classId,course_id:key},{session:ctx.session});
+        if(existing){if(existing.status!=="active")fail(409,"ASSIGNMENT_ENDED","已结束的课程分配不能自动恢复");return {course_id:key,class_id:classId,status:"already_assigned"};}
+
         const r = {
           ...(await this.base(ctx)),
           class_id: classId,
@@ -774,8 +804,31 @@ export class TrainingService {
           { upsert: true, session: ctx.session },
         );
         await this.audit(ctx, "course", c, "course.assign");
-        return { course_id: key, class_id: classId };
+        return { course_id: key, class_id: classId, status:"assigned" };
       });
+    });
+  }
+  private async assignManaged(req:ApiRequest,key:string,classId:string){
+    if(process.env.KL_TRAINING_ENABLED!=='true')fail(503,'TRAINING_DISABLED','培训扩展尚未启用');
+    await assertManagedInvocation(this.db);
+    const idem=req.get('Idempotency-Key');if(!idem||!/^[A-Za-z0-9_-]{8,128}$/.test(idem))fail(422,'IDEMPOTENCY_KEY_REQUIRED','请提供8至128字符幂等键');
+    return this.access.run(req,true,async ctx=>{
+      if(ctx.platform)fail(503,'STANDALONE_MODULE_UNAVAILABLE','单例分配暂不支持平台委派入口');
+      this.require(ctx,'course:assign');
+      const course=await this.courseAccess(ctx,key,true);await this.classAccess(ctx,classId,course.subject_id,true);
+      if(course.status!=='published')fail(409,'INVALID_STATE','仅可分配已发布课程');
+      const old=await this.col('class_courses').findOne({org_id:ctx.orgId,class_id:classId,course_id:key});
+      if(old&&old.status!=='active')fail(409,'ASSIGNMENT_ENDED','已结束的课程分配不能自动恢复');
+      const plan={orgId:ctx.orgId,userId:ctx.userId,memberId:ctx.memberId,courseId:key,classId,subjectId:course.subject_id,courseRevision:course.revision,key:idem,timestamp:await this.access.now(ctx)};
+      const verify=()=>this.access.run(req,true,async fresh=>{
+        await assertManagedInvocation(this.db);
+        if(fresh.platform||fresh.userId!==plan.userId||fresh.memberId!==plan.memberId||fresh.orgId!==plan.orgId)fail(403,'FORBIDDEN','当前身份已变化');
+        this.require(fresh,'course:assign');const current=await this.courseAccess(fresh,key,true);
+        if(current.status!=='published'||current.revision!==plan.courseRevision||current.subject_id!==plan.subjectId)fail(409,'CONTEXT_CHANGED','课程版本已变化');
+        await this.classAccess(fresh,classId,plan.subjectId,true);
+      });
+      try{return await new AssignmentRecoveryRunner(this.db,rawDatabase(this.db)).run(plan,verify,process.env.KL_KNOWLEDGE_ENABLED==='true');}
+      catch(error){if(error instanceof Error&&/^ASSIGNMENT_(PLAN_CONFLICT|RECOVERY_CONFLICT|RECOVERY_CHANGED|ENDED|RECEIPT_CONFLICT)$/.test(error.message))fail(409,'ASSIGNMENT_CONFLICT','原请求或关联状态已变化');throw error;}
     });
   }
   async progress(req: ApiRequest, key: string, input: unknown) {

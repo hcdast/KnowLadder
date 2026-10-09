@@ -48,7 +48,7 @@ export class SafeErrors implements ExceptionFilter {
       status = 422;
       body = { code: "VALIDATION_ERROR", message: "请求正文格式错误" };
     }
-    if (status === 429) response.setHeader("Retry-After", "300");
+    if (status === 429 && !response.hasHeader("Retry-After")) response.setHeader("Retry-After", "300");
     response
       .status(status)
       .json({ error: body, request_id: request.requestId });

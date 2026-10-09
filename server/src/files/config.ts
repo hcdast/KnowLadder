@@ -4,7 +4,9 @@ import path from 'node:path';
 import { assertWindowsPrivateDirectory } from '../security/private-directory';
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const FILE_MIMES = ['application/pdf','image/png','image/jpeg','text/plain'] as const;
-export function allowedFileMimes():readonly string[]{return process.env.KL_TRAINING_ENABLED==='true'?[...FILE_MIMES,'video/mp4','audio/mpeg']:FILE_MIMES;}
+export const DOCX_FILE_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+export function importDocumentsEnabled():boolean { return process.env.KL_KNOWLEDGE_IMPORT_ENABLED === 'true' && process.env.KL_TRAINING_ENABLED === 'true' && process.env.KL_KNOWLEDGE_ENABLED === 'true'; }
+export function allowedFileMimes():readonly string[]{const mimes:string[]=process.env.KL_TRAINING_ENABLED==='true'?[...FILE_MIMES,'video/mp4','audio/mpeg']:[...FILE_MIMES];if(importDocumentsEnabled())mimes.push(DOCX_FILE_MIME);return mimes;}
 export function fileScanEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   const value = env.FILE_SCAN_ENABLED;
   if (value === undefined || value === 'true') return true;
@@ -105,4 +107,20 @@ export async function openPrivate(area: 'quarantine'|'ready', key: string, root?
   const info = await handle.stat();
   if (!info.isFile() || info.nlink !== 1 || info.size > MAX_FILE_SIZE) { await handle.close(); throw new Error('私有文件无效'); }
   return handle;
+}
+
+/** Startup preflight must not mkdir/chmod or alter storage. */
+export async function assertStorageReady() {
+  const root=configuredRoot();
+  for(const base of [path.resolve(__dirname,'../../..'),process.cwd()]) {
+    const relative=path.relative(base,root);
+    if(!relative||(!relative.startsWith('..'+path.sep)&&relative!=='..'&&!path.isAbsolute(relative)))
+      throw Error('STORAGE_OUTSIDE_REPOSITORY_REQUIRED');
+  }
+  for(const target of [root,...['tmp','quarantine','ready'].map(area=>path.join(root,area))]) {
+    await noLinks(target);
+    if(!(await lstat(target)).isDirectory())throw Error('STORAGE_DIRECTORY_REQUIRED');
+  }
+  if(process.platform==='win32')await assertWindowsPrivateDirectory(root,['tmp','quarantine','ready']);
+  return root;
 }

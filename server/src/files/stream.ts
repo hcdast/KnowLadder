@@ -1,11 +1,12 @@
 import { createHash } from 'node:crypto';
 import { open, rename, unlink } from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
+import { createWriteStream, constants } from 'node:fs';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { TextDecoder } from 'node:util';
 import type { Readable } from 'node:stream';
-import { storagePath, storageRoot, MAX_FILE_SIZE } from './config';
+import { storagePath, storageRoot, MAX_FILE_SIZE, DOCX_FILE_MIME, importDocumentsEnabled } from './config';
+import { extractInProcess } from '../training/import-parser-process';
 import { fail } from '../errors';
 export async function receive(source: Readable, expected: {declared_size:number;declared_mime:string;declared_checksum:string}, key: string) {
   const root = await storageRoot();
@@ -40,7 +41,21 @@ export async function receive(source: Readable, expected: {declared_size:number;
     const jpeg = prefix[0] === 255 && prefix[1] === 216 && prefix[2] === 255 && suffix.subarray(-2).equals(Buffer.from([255,217]));
     const mp4 = process.env.KL_TRAINING_ENABLED === 'true' && prefix.length >= 24 && prefix.subarray(4,8).toString('ascii') === 'ftyp' && prefix.readUInt32BE(0) >= 16 && prefix.readUInt32BE(0) <= size && ['isom','iso2','mp41','mp42','avc1','M4V '].includes(prefix.subarray(8,12).toString('ascii'));
     const mp3 = process.env.KL_TRAINING_ENABLED === 'true' && size > 32 && ((prefix.subarray(0,3).toString('ascii') === 'ID3' && [3,4].includes(prefix[3]!) && prefix.subarray(6,10).every(byte => byte < 128)) || (prefix[0] === 255 && (prefix[1]! & 224) === 224 && (prefix[1]! & 6) !== 0 && (prefix[2]! & 240) !== 240 && (prefix[2]! & 240) !== 0 && (prefix[2]! & 12) !== 12));
-    const valid = mime === 'video/mp4' ? mp4 : mime === 'audio/mpeg' ? mp3 : mime === 'application/pdf' ? pdf : mime === 'image/png' ? png : mime === 'image/jpeg' ? jpeg : mime === 'text/plain' && textValid && !pdf && !png && !jpeg;
+    let docx = false;
+    if (mime === DOCX_FILE_MIME && importDocumentsEnabled() && prefix.subarray(0,4).equals(Buffer.from([80,75,3,4]))) {
+      try {
+        const check = await open(temporary, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+        try {
+          const info = await check.stat();
+          if (!info.isFile() || info.nlink !== 1 || info.size !== size) throw Error('DOCX_INTEGRITY');
+          const bytes = await check.readFile();
+          if (createHash('sha256').update(bytes).digest('hex') !== checksum) throw Error('DOCX_INTEGRITY');
+          await extractInProcess(bytes,mime,true); docx = true;
+        } finally { await check.close(); }
+      }
+      catch { fail(422,'FILE_TYPE_MISMATCH','DOCX容器结构无效或超过安全限制'); }
+    }
+    const valid = mime === DOCX_FILE_MIME ? docx : mime === 'video/mp4' ? mp4 : mime === 'audio/mpeg' ? mp3 : mime === 'application/pdf' ? pdf : mime === 'image/png' ? png : mime === 'image/jpeg' ? jpeg : mime === 'text/plain' && textValid && !pdf && !png && !jpeg;
     if (!valid) fail(422,'FILE_TYPE_MISMATCH','文件正文类型与登记不符');
     await rename(temporary, await storagePath('quarantine',key,root));
     return {size,mime,checksum};

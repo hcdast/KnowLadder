@@ -1,3 +1,8 @@
+import {recoveryEnabled,assertRecoveryConfiguration,STANDALONE_RECOVERY_SCHEMAS,RECOVERY_COLLECTIONS,RECOVERY_CHECKSUM,migrateRecovery,initializeRecovery,withRecoveryMigration} from '../training/standalone-recovery-lifecycle';
+import {surveySchemas,migrateSurveys,SURVEY_CHECKSUM} from "../training/survey-schema";
+import {provenanceSchemas,migrateProvenance,PROVENANCE_CHECKSUM} from '../training/import-provenance-schema';
+import {importSchemas,migrateImports,IMPORT_CHECKSUM} from '../training/import-schema';
+import { knowledgeSchemas, migrateKnowledge, KNOWLEDGE_CHECKSUM } from "../training/knowledge-schema";
 import {aiLearningSchemas,migrateAiLearning,AI_LEARNING_CHECKSUM} from "../training/ai-learning-schema";
 import {trainingPhase2Schemas,migrateTrainingPhase2,TRAINING_PHASE2_CHECKSUM} from '../training/phase2-schema';
 import {trainingReportSchemas,migrateTrainingReports,TRAINING_REPORT_CHECKSUM} from '../training/report-schema';
@@ -406,17 +411,30 @@ function preAiTrainingSchemas(){const s=trainingSchemas(OBJECT_ID_SCHEMAS);retur
 function preReportSchemas(){const s=preAiTrainingSchemas();return process.env.KL_AI_POLICY_ENABLED === "true" ? aiPolicySchemas(s):s;}
 function prePhase2Schemas(){const s=preReportSchemas();return process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? trainingReportSchemas(s):s;}
 function preLearningAiSchemas(){const s=prePhase2Schemas();return process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? trainingPhase2Schemas(s):s;}
-function effectiveTrainingSchemas(){const s=preLearningAiSchemas();return process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? aiLearningSchemas(s):s;}
-function requireLearningAiDependencies(){if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && ["KL_TRAINING_ENABLED","KL_TRAINING_REPORTS_ENABLED","KL_AI_POLICY_ENABLED"].some(key=>process.env[key]!=="true"))throw Error("AI learning reports require training, reports and amount policy");}
-export function systemBackupRegistry() {
-  return { version: process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : CURRENT_SCHEMA_VERSION, collections: Object.keys(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS).filter(name => !["auth_sessions", "auth_rate_limits"].includes(name)), excluded: ["auth_sessions", "auth_rate_limits"], checksums: { "1": CHECKSUM, "2": CONTENT_SCHEMA_CHECKSUM, "3": CONTENT_V3_CHECKSUM, "4": ASSESSMENT_V4_CHECKSUM, "5": LEARNING_V5_CHECKSUM, "6": LEARNING_API_V6_CHECKSUM, "7": PRIVACY_V7_CHECKSUM, "8": TEACHING_V8_CHECKSUM, "9": ADMINISTRATION_V9_CHECKSUM, "10": OBJECT_ID_CHECKSUM, ...(process.env.KL_TRAINING_ENABLED === "true" ? { "11": TRAINING_CHECKSUM, ...(process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? {"12":COURSEWORK_FILES_CHECKSUM}:{}), ...(process.env.KL_AI_POLICY_ENABLED === "true" ? {"13":AI_POLICY_CHECKSUM}:{}), ...(process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? {"14":TRAINING_REPORT_CHECKSUM}:{}), ...(process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? {"15":TRAINING_PHASE2_CHECKSUM}:{}), ...(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? {"16":AI_LEARNING_CHECKSUM}:{}) } : {}) } };
+function preKnowledgeSchemas(){const s=preLearningAiSchemas();return process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? aiLearningSchemas(s):s;}
+function preImportSchemas(){const s=preKnowledgeSchemas();return process.env.KL_KNOWLEDGE_ENABLED === "true" ? knowledgeSchemas(s):s;}
+function preProvenanceSchemas(){const s=preImportSchemas();return process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? importSchemas(s):s;}
+function preSurveySchemas(){const s=preProvenanceSchemas();return process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? provenanceSchemas(s):s;}
+function effectiveTrainingSchemas(){const s=preSurveySchemas();return process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? surveySchemas(s):s;}
+function requireLearningAiDependencies(){if(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" && ["KL_TRAINING_ENABLED","KL_KNOWLEDGE_IMPORT_ENABLED","KL_KNOWLEDGE_ENABLED"].some(key=>process.env[key]!=="true"))throw Error("Surveys require training, knowledge and import v19");if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" && ["KL_TRAINING_ENABLED","KL_KNOWLEDGE_ENABLED"].some(key=>process.env[key]!=="true"))throw Error("Knowledge import requires training and knowledge");if(process.env.KL_KNOWLEDGE_ENABLED === "true" && process.env.KL_TRAINING_ENABLED !== "true")throw Error("Knowledge requires training");if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && ["KL_TRAINING_ENABLED","KL_TRAINING_REPORTS_ENABLED","KL_AI_POLICY_ENABLED"].some(key=>process.env[key]!=="true"))throw Error("AI learning reports require training, reports and amount policy");}
+function baseSystemBackupRegistry() {
+  return { version: process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? 20 : process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? 19 : process.env.KL_KNOWLEDGE_ENABLED === "true" ? 17 : process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : CURRENT_SCHEMA_VERSION, collections: Object.keys(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS).filter(name => !["auth_sessions", "auth_rate_limits"].includes(name)), excluded: ["auth_sessions", "auth_rate_limits"], checksums: { "1": CHECKSUM, "2": CONTENT_SCHEMA_CHECKSUM, "3": CONTENT_V3_CHECKSUM, "4": ASSESSMENT_V4_CHECKSUM, "5": LEARNING_V5_CHECKSUM, "6": LEARNING_API_V6_CHECKSUM, "7": PRIVACY_V7_CHECKSUM, "8": TEACHING_V8_CHECKSUM, "9": ADMINISTRATION_V9_CHECKSUM, "10": OBJECT_ID_CHECKSUM, ...(process.env.KL_TRAINING_ENABLED === "true" ? { "11": TRAINING_CHECKSUM, ...(process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? {"12":COURSEWORK_FILES_CHECKSUM}:{}), ...(process.env.KL_AI_POLICY_ENABLED === "true" ? {"13":AI_POLICY_CHECKSUM}:{}), ...(process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? {"14":TRAINING_REPORT_CHECKSUM}:{}), ...(process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? {"15":TRAINING_PHASE2_CHECKSUM}:{}), ...(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? {"16":AI_LEARNING_CHECKSUM}:{}), ...(process.env.KL_KNOWLEDGE_ENABLED === "true" ? {"17":KNOWLEDGE_CHECKSUM}:{}),...(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? {"18":IMPORT_CHECKSUM,"19":PROVENANCE_CHECKSUM}:{}),...(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? {"20":SURVEY_CHECKSUM}:{}) } : {}) } };
 }
+
+export function systemBackupRegistry(){
+ assertRecoveryConfiguration();
+ const base=baseSystemBackupRegistry();
+ if(!recoveryEnabled())return base;
+ return {...base,version:21,collections:[...base.collections,...RECOVERY_COLLECTIONS],excluded:[...base.excluded,...RECOVERY_COLLECTIONS],checksums:{...base.checksums,'21':RECOVERY_CHECKSUM}};
+}
+function effectiveRuntimeSchemas(){const base=process.env.KL_TRAINING_ENABLED==='true'?effectiveTrainingSchemas():OBJECT_ID_SCHEMAS;return recoveryEnabled()?{...base,...STANDALONE_RECOVERY_SCHEMAS}:base;}
 
 /** Empty restore targets only. No markers, epochs, role catalog or state seeds. */
 export async function initializeRestoreSchema(db: Db): Promise<void> {
   await assertTopology(db, loadConfig());
   if ((await db.listCollections({}, { nameOnly: true, maxTimeMS: COMMAND_MS }).toArray()).length) throw new Error("Restore target must be empty");
-  for (const [name, schema] of Object.entries(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS)) await ensureCollection(rawDatabase(db), name, schema, async () => {});
+  for (const [name, schema] of Object.entries(effectiveRuntimeSchemas())) await ensureCollection(rawDatabase(db), name, schema, async () => {});
+
 }
 
 
@@ -1006,18 +1024,33 @@ export async function migrateVersion8(uri: string): Promise<void> {
   await migrateThrough(uri, 8);
 }
 
-export async function migrate(uri: string): Promise<void> {
+export async function migrate(uri:string):Promise<void>{
+ if(!recoveryEnabled())return migrateCore(uri);
+ assertRecoveryConfiguration();const coordinator=new MongoClient(uri);await coordinator.connect();
+ try{
+  if(!await coordinator.db().collection('schema_migrations').findOne({version:10,status:'completed',checksum:OBJECT_ID_CHECKSUM}))await initializeObjectId(uri,OBJECT_ID_SCHEMAS,OBJECT_ID_CHECKSUM,ROLE_CAPABILITIES);
+  return await withRecoveryMigration(coordinator.db(),()=>migrateCore(uri));
+ }finally{await coordinator.close();}
+}
+async function migrateCore(uri: string): Promise<void> {
   requireLearningAiDependencies();
-  if (process.env.KL_TRAINING_ENABLED !== "true") { await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES); return; }
+  if (process.env.KL_TRAINING_ENABLED !== "true") {
+    if(!recoveryEnabled()){await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);return;}
+    assertRecoveryConfiguration();
+    const controlClient=new MongoClient(uri);await controlClient.connect();
+    try{if(!await controlClient.db().collection('schema_migrations').findOne({version:10,status:'completed',checksum:OBJECT_ID_CHECKSUM}))await initializeObjectId(uri,OBJECT_ID_SCHEMAS,OBJECT_ID_CHECKSUM,ROLE_CAPABILITIES);
+      await migrateRecovery(controlClient.db());await assertSchema(controlClient.db());return;
+    }finally{await controlClient.close();}
+  }
   const client = new MongoClient(uri); await client.connect();
   try {
     const marker = await client.db().collection('schema_migrations').findOne({version:10,status:'completed',checksum:OBJECT_ID_CHECKSUM});
     if (!marker) await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);
-    if (await client.db().collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM}) && (process.env.KL_COURSEWORK_FILES_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) && (process.env.KL_AI_POLICY_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) && (process.env.KL_TRAINING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:14,status:'completed',checksum:TRAINING_REPORT_CHECKSUM})) && (process.env.KL_TRAINING_PHASE2_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:15,status:'completed',checksum:TRAINING_PHASE2_CHECKSUM})) && (process.env.KL_AI_LEARNING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:16,status:'completed',checksum:AI_LEARNING_CHECKSUM}))) { await assertSchema(client.db()); return; }
+    if (await client.db().collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM}) && (process.env.KL_COURSEWORK_FILES_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) && (process.env.KL_AI_POLICY_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) && (process.env.KL_TRAINING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:14,status:'completed',checksum:TRAINING_REPORT_CHECKSUM})) && (process.env.KL_TRAINING_PHASE2_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:15,status:'completed',checksum:TRAINING_PHASE2_CHECKSUM})) && (process.env.KL_AI_LEARNING_REPORTS_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:16,status:'completed',checksum:AI_LEARNING_CHECKSUM})) && (process.env.KL_KNOWLEDGE_ENABLED !== 'true' || await client.db().collection('schema_migrations').findOne({version:17,status:'completed',checksum:KNOWLEDGE_CHECKSUM})) && (process.env.KL_KNOWLEDGE_IMPORT_ENABLED !== "true" || await client.db().collection("schema_migrations").findOne({version:19,status:"completed",checksum:PROVENANCE_CHECKSUM})) && (process.env.KL_TRAINING_SURVEYS_ENABLED !== "true" || await client.db().collection("schema_migrations").findOne({version:20,status:"completed",checksum:SURVEY_CHECKSUM}))) { if(recoveryEnabled())await migrateRecovery(client.db()); await assertSchema(client.db()); return; }
     // No active application writers may observe a half-migrated extension.
     const writers = await client.db().collection('operational_writers').findOne({state:'running'});
     if (writers) throw new Error('Training migration requires stopped writers');
-    await migrateTraining(client.db(),OBJECT_ID_SCHEMAS); if(process.env.KL_COURSEWORK_FILES_ENABLED === "true") await migrateCourseworkFiles(client.db(),trainingSchemas(OBJECT_ID_SCHEMAS)); if(process.env.KL_AI_POLICY_ENABLED === "true") await migrateAiPolicy(client.db(),preAiTrainingSchemas()); if(process.env.KL_TRAINING_REPORTS_ENABLED === "true") await migrateTrainingReports(client.db(),preReportSchemas()); if(process.env.KL_TRAINING_PHASE2_ENABLED === "true") await migrateTrainingPhase2(client.db(),prePhase2Schemas()); if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true") await migrateAiLearning(client.db(),preLearningAiSchemas()); await assertSchema(client.db());
+    if(recoveryEnabled()){assertRecoveryConfiguration();await migrateRecovery(client.db());} await migrateTraining(client.db(),OBJECT_ID_SCHEMAS); if(process.env.KL_COURSEWORK_FILES_ENABLED === "true") await migrateCourseworkFiles(client.db(),trainingSchemas(OBJECT_ID_SCHEMAS)); if(process.env.KL_AI_POLICY_ENABLED === "true") await migrateAiPolicy(client.db(),preAiTrainingSchemas()); if(process.env.KL_TRAINING_REPORTS_ENABLED === "true") await migrateTrainingReports(client.db(),preReportSchemas()); if(process.env.KL_TRAINING_PHASE2_ENABLED === "true") await migrateTrainingPhase2(client.db(),prePhase2Schemas()); if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true") await migrateAiLearning(client.db(),preLearningAiSchemas()); if(process.env.KL_KNOWLEDGE_ENABLED === "true") await migrateKnowledge(client.db(),preKnowledgeSchemas()); if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true"){await migrateImports(client.db(),preImportSchemas());await migrateProvenance(client.db(),preProvenanceSchemas());} if(process.env.KL_TRAINING_SURVEYS_ENABLED === "true")await migrateSurveys(client.db(),preSurveySchemas()); if(recoveryEnabled())await migrateRecovery(client.db()); await assertSchema(client.db());
   } finally { await client.close(); }
 }
 
@@ -1106,11 +1139,17 @@ async function migrateThrough(uri: string, targetVersion: 8 | 9): Promise<void> 
 }
 
 export async function assertSchema(db: Db): Promise<void> {
+ assertRecoveryConfiguration();
+ if(recoveryEnabled()&&!await rawDatabase(db).collection('schema_migrations').findOne({version:21,status:'completed',checksum:RECOVERY_CHECKSUM}))throw Error('Recovery v21 migration incomplete');
+ if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:18,status:"completed",checksum:IMPORT_CHECKSUM}))throw Error("Knowledge import v18 migration incomplete");
  requireLearningAiDependencies();
+ if(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:20,status:"completed",checksum:SURVEY_CHECKSUM}))throw Error("Survey v20 migration required");
+ if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:19,status:"completed",checksum:PROVENANCE_CHECKSUM}))throw Error("Knowledge provenance v19 migration incomplete");
+ if(process.env.KL_KNOWLEDGE_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:17,status:"completed",checksum:KNOWLEDGE_CHECKSUM}))throw Error("Knowledge v17 migration incomplete");
  if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:16,status:"completed",checksum:AI_LEARNING_CHECKSUM}))throw Error("AI learning v16 migration incomplete");
  if(process.env.KL_TRAINING_PHASE2_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:15,status:"completed",checksum:TRAINING_PHASE2_CHECKSUM}))throw Error("Training phase2 v15 migration incomplete");
  if(process.env.KL_TRAINING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:14,status:"completed",checksum:TRAINING_REPORT_CHECKSUM}))throw Error("Training reports v14 migration incomplete"); const enabled = process.env.KL_TRAINING_ENABLED === 'true';
- await assertObjectIdSchema(db, enabled ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM);
+ await assertObjectIdSchema(db, effectiveRuntimeSchemas(), OBJECT_ID_CHECKSUM);
  if (enabled && !await rawDatabase(db).collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM})) throw new Error('Training v11 migration incomplete');
  if(process.env.KL_COURSEWORK_FILES_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) throw new Error('Coursework files v12 migration incomplete');
  if(process.env.KL_AI_POLICY_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) throw new Error('AI policy v13 migration incomplete');
@@ -1120,6 +1159,7 @@ export async function inspectMigration(uri: string) {
  try { await client.connect(); const db = client.db(); await assertTopology(db, loadConfig());
  const collections = await db.listCollections({}, {nameOnly:true}).toArray();
  const markers = collections.some(c=>c.name==="schema_migrations") ? await db.collection("schema_migrations").find({}, {projection:{_id:0,version:1,status:1,checksum:1,completed_at:1}}).toArray() : [];
- return { target_version:process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : 10, mode:collections.length ? "existing" : "empty", collections:collections.map(c=>c.name), markers, requires_legacy_migration:markers.some(m=>m.version<10), checksum:process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? AI_LEARNING_CHECKSUM : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? TRAINING_PHASE2_CHECKSUM : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? TRAINING_REPORT_CHECKSUM : process.env.KL_AI_POLICY_ENABLED === "true" ? AI_POLICY_CHECKSUM : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? COURSEWORK_FILES_CHECKSUM : TRAINING_CHECKSUM) : OBJECT_ID_CHECKSUM };
+ const registry=systemBackupRegistry();
+ return {target_version:registry.version,mode:collections.length?'existing':'empty',collections:collections.map(c=>c.name),markers,requires_legacy_migration:markers.some(m=>m.version<10),checksum:registry.checksums[String(registry.version) as keyof typeof registry.checksums]};
  } finally { await client.close(); }
 }

@@ -1,3 +1,4 @@
+import {assertManagedBusinessWrite} from '../training/managed-invocation';
 import { ObjectId, type Db, type Document } from "mongodb";
 import { OBJECT_ID_PATHS, NATURAL_KEYS } from "./object-id-paths";
 
@@ -188,7 +189,7 @@ function cursor(raw: any, name: string): any {
 function collection(raw: any, name: string): any {
   if (!OBJECT_ID_PATHS[name]) throw new Error("UNREGISTERED_OBJECT_ID_COLLECTION:" + name);
   const overrides = new Map<PropertyKey, any>();
-  return new Proxy(raw, { set(_target,key,value){overrides.set(key,value);return true;}, get(target, key) {
+  const encoded=new Proxy(raw, { set(_target,key,value){overrides.set(key,value);return true;}, get(target, key) {
     if(overrides.has(key)) return overrides.get(key);
     if (key === "find") return (filter: Document = {}, options?: Document) => cursor(target.find(encodeFilter(name, filter), options), name);
     if (key === "aggregate") return (stages: Document[], options?: Document) => cursor(target.aggregate(pipeline(name, stages), options), name);
@@ -213,6 +214,14 @@ function collection(raw: any, name: string): any {
     const value = Reflect.get(target, key, target);
     return typeof value === "function" ? value.bind(target) : value;
   } });
+  return new Proxy(encoded,{get(target,key){
+    const value=Reflect.get(target,key);
+    const mutations=['insertOne','insertMany','updateOne','updateMany','findOneAndUpdate','replaceOne','findOneAndReplace','deleteOne','deleteMany','findOneAndDelete','bulkWrite','drop','rename','createIndex','createIndexes','dropIndex','dropIndexes'];
+    if(mutations.includes(String(key))&&typeof value==='function')return async(...args:any[])=>{assertManagedBusinessWrite(name);return value(...args);};
+    if(process.env.KL_STANDALONE_MANAGED_API_ENABLED==='true'&&['initializeOrderedBulkOp','initializeUnorderedBulkOp'].includes(String(key)))throw Error('MANAGED_WRITER_REQUIRED');
+    if(key==='aggregate')return(stages:Document[],...args:any[])=>{if(JSON.stringify(stages).match(/"\$(out|merge)"\s*:/))assertManagedBusinessWrite(name);return value(stages,...args);};
+    return value;
+  }});
 }
 export function rawDatabase(db: Db): Db { return rawDatabases.get(db) ?? db; }
 /** Explicitly wrap an application DB; never patch MongoClient or driver prototypes. */
@@ -229,6 +238,13 @@ export function objectIdDatabase(db: Db): Db {
       if (!collections.has(name)) collections.set(name, collection(target.collection(name), name));
       return collections.get(name);
     };
+    if(key==='command')return async(command:Document,...args:any[])=>{
+      const first=Object.keys(command)[0];
+      if(!['hello','ping','listCollections','listIndexes','buildInfo','collStats','dbStats','count','distinct','find','explain'].includes(first??''))assertManagedBusinessWrite('database');
+      return (target.command as any)(command,...args);
+    };
+    if(['dropDatabase','createCollection','renameCollection'].includes(String(key)))return async(...args:any[])=>{assertManagedBusinessWrite('database');return (target as any)[key](...args);};
+    if(key==='aggregate')return (stages:Document[],...args:any[])=>{if(JSON.stringify(stages).match(/"\$(out|merge)"\s*:/))assertManagedBusinessWrite('database');return (target.aggregate as any)(stages,...args);};
     const value = Reflect.get(target, key, target);
     return typeof value === "function" ? value.bind(target) : value;
   } });

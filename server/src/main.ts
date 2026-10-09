@@ -1,44 +1,66 @@
+import { managedApiEnabled } from "./training/managed-invocation";
+import { startManagedApi } from "./training/managed-api-supervisor";
 import { createApp } from "./app";
 import { loadConfig } from "./config";
 import { Database } from "./database/database";
+import {
+  installShutdown,
+  notifyReady,
+  reportFailure,
+} from "./runtime/process-lifecycle";
 async function main() {
   const config = loadConfig();
-  const app = await createApp();
-  let closing = false;
-  let timer: NodeJS.Timeout | undefined;
-  const close = async () => {
-    if (closing) return;
-    closing = true;
-    clearInterval(timer);
-    await app.close();
-  };
-  process.once("SIGINT", () => { void close().catch(() => { process.exitCode = 1; }); });
-  process.once("SIGTERM", () => { void close().catch(() => { process.exitCode = 1; }); });
+  if (managedApiEnabled()) {
+    const gateway = await startManagedApi(config.port);
+    const dispose = installShutdown(async () => {
+      try {
+        await gateway.close();
+      } finally {
+        dispose();
+      }
+    });
+    notifyReady();
+    process.stdout.write("KnowLadder 受管 API 已启动\n");
+    return;
+  }
+  const app = await createApp({ shutdownHooks: false });
+  let closing: Promise<void> | undefined, timer: NodeJS.Timeout | undefined;
+  const close = () =>
+    (closing ??= (async () => {
+      clearInterval(timer);
+      try {
+        await app.close();
+      } finally {
+        dispose();
+      }
+    })());
+  const dispose = installShutdown(close);
   try {
     await app.listen(config.port, config.production ? "0.0.0.0" : "127.0.0.1");
     const database = app.get(Database);
+    await database.ready();
     let checking = false;
     timer = setInterval(() => {
       if (checking || closing) return;
       checking = true;
-      void database.writerStopRequested().then(stop => stop ? close() : undefined)
-        .catch(() => close()).finally(() => { checking = false; });
+      void database
+        .writerStopRequested()
+        .then((stop) => (stop ? close() : undefined))
+        .catch(() => close())
+        .finally(() => {
+          checking = false;
+        });
     }, 1000);
     timer.unref();
-    process.stdout.write(`KnowLadder API 已启动，端口 ${config.port}\n`);
+    notifyReady();
+    process.stdout.write("KnowLadder API 已启动\n");
   } catch (error) {
     await close();
     throw error;
   }
 }
-main().catch((error: unknown) => {
-  if (error instanceof Error && error.message === 'FILE_SCAN_ENABLED 必须为 true 或 false') {
-    process.stderr.write('API 启动失败：FILE_SCAN_ENABLED 必须为 true 或 false。\n');
-    process.exitCode = 1;
-    return;
-  }
-  process.stderr.write(
-    "API 启动失败：请检查运行配置、数据库副本集与迁移状态。\n",
-  );
+main().catch((error) => {
+  reportFailure("api", error);
   process.exitCode = 1;
+  if (process.connected) process.disconnect();
 });
