@@ -2,6 +2,8 @@
 import BrandIcon from '../components/BrandIcon.vue';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiError, type BusinessRequest, type Identity } from "../session";
+import ImportProvenance from "./ImportProvenance.vue";
+import TextbookImport from "./TextbookImport.vue";
 import FileUpload from "./FileUpload.vue";
 import ReadingProgress from "./ReadingProgress.vue";
 import ResourceTable from "../administration/components/ResourceTable.vue";
@@ -30,6 +32,9 @@ const textbookFilter = ref("");
 const items = ref<Version[]>([]);
 const cursor = ref<string | null>(null);
 const selected = ref<Version>();
+const versionHeading = ref<HTMLElement>();
+const saveNotice = ref<HTMLElement>();
+const chapterHeading = ref<HTMLElement>();
 const draft = ref<Version>();
 const original = ref("");
 const pendingSave = ref<{ value: Version; metadataRevision?: number }>();
@@ -109,7 +114,9 @@ let alive = true;
 let serial = 0;
 let dialogTrigger: HTMLElement | null = null;
 const retries = new Map<string, string>();
-const dirty = computed(() => !!pendingSave.value || (!!draft.value && JSON.stringify(draft.value) !== original.value) || (creating.value && !!(createTitle.value || licenseSource.value || createPrompt.value || createOptions.value || createAnswer.value)));
+const importDirty = ref(false);
+const draftDirty = computed(() => !!pendingSave.value || (!!draft.value && JSON.stringify(draft.value) !== original.value) || (creating.value && !!(createTitle.value || licenseSource.value || createPrompt.value || createOptions.value || createAnswer.value)));
+const dirty = computed(() => draftDirty.value || importDirty.value);
 const savedResourceIds = computed(() => {
   const value = original.value ? JSON.parse(original.value) as Version : undefined;
   return [...(value?.resource_ids || []), ...(value?.chapters || []).flatMap(chapter => chapter.resource_ids)];
@@ -191,14 +198,18 @@ async function loadList(next = false) {
 async function navigate(nextMode: "manage" | "read", nextKind: Kind = "textbook") {
   if (nextMode === "read" && !canRead.value) return;
   if (loading.value || !mayLeave() || !await beforeLeave() || !alive || loading.value) return;
+  const trigger = document.activeElement instanceof HTMLButtonElement ? document.activeElement : undefined;
   resetAudit();
   mode.value = nextMode; kind.value = nextKind; selected.value = undefined; draft.value = undefined;
   pendingSave.value = undefined;
   source.value = undefined; readerChapter.value = undefined; readerChapters.value = []; knowledge.value = undefined;
   items.value = []; cursor.value = null; status.value = ""; notice.value = ""; await loadList();
+  await nextTick();
+  if (alive && !error.value && mode.value === nextMode && kind.value === nextKind && trigger?.isConnected && !trigger.disabled && document.activeElement === document.body) trigger.focus();
 }
 async function openVersion(id: string, force = false, readingLeaveConfirmed = false) {
   if (loading.value || (!force && !mayLeave()) || (!readingLeaveConfirmed && !await beforeLeave()) || !alive || loading.value) return;
+  const openingDetail = !selected.value;
   resetAudit();
   loading.value = true; error.value = ""; conflict.value = false; preview.value = false;
   const token = ++serial;
@@ -212,6 +223,11 @@ async function openVersion(id: string, force = false, readingLeaveConfirmed = fa
     if (kind.value === "textbook" && !result.access_revoked_at) chapters = await loadChapters(id, result.revision);
     if (!alive || token !== serial) return;
     selected.value = result;
+    if (openingDetail) {
+      await nextTick();
+      if (!alive || token !== serial || selected.value?.id !== id) return;
+      versionHeading.value?.focus();
+    }
     pendingSave.value = undefined;
     if (mode.value === "read") { readerChapters.value = chapters; return; }
     draft.value = result.access_revoked_at ? undefined : JSON.parse(JSON.stringify({ ...result, ...(kind.value === "textbook" ? { chapters } : {}) }));
@@ -269,7 +285,7 @@ async function loadAudit(next = true) {
   }
 }
 async function save() {
-  if (!draft.value || !editable.value || loading.value || conflict.value) return;
+  if (!draft.value || !editable.value || loading.value || conflict.value || importDirty.value) return;
   loading.value = true; error.value = "";
   try {
     pendingSave.value ||= { value: JSON.parse(JSON.stringify(draft.value)) as Version };
@@ -291,6 +307,8 @@ async function save() {
     pendingSave.value = undefined;
     notice.value = "草稿已保存。送审前请确认授权和附件。";
     loading.value = false; await openVersion(value.id, true);
+    await nextTick();
+    if (alive && !error.value && selected.value?.id === value.id && document.activeElement === document.body) saveNotice.value?.focus();
   } catch (cause) {
     if (cause instanceof ApiError && cause.status >= 400 && cause.status < 500 && cause.status !== 429) pendingSave.value = undefined;
     report(cause);
@@ -379,6 +397,8 @@ async function readChapter(id: string) {
     if (!alive || token !== serial) return;
     if (result.textbook_edition_id !== selected.value?.id || result.edition_revision !== selected.value?.revision) throw new ApiError(409, "章节与已加载目录的教材版本不一致，请重新加载完整目录。");
     readerChapter.value = result;
+    await nextTick();
+    if (alive && token === serial && readerChapter.value?.id === id) chapterHeading.value?.focus();
   } catch (cause) { if (token === serial) report(cause); }
   finally { if (alive && token === serial) loading.value = false; }
 }
@@ -437,7 +457,7 @@ async function download(id: string) {
       <button v-if="canRead" class="button secondary" :aria-pressed="mode === 'read'" :disabled="loading" @click="navigate('read')">{{ manage ? '教材阅读预览（不记录学情）' : '学生阅读' }}</button>
     </nav>
     <div v-if="error" ref="errorSummary" class="notice" tabindex="-1" role="alert"><p>{{ error }}</p><ul v-if="Object.keys(fieldErrors).length"><li v-for="(message, field) in fieldErrors" :key="field"><button class="text-button" @click="focusField(String(field))">{{ field }}：{{ message }}（定位字段）</button></li></ul><button v-if="conflict && selected" class="button secondary" :disabled="loading" @click="openVersion(selected.id)">放弃本地草稿并重新加载</button></div>
-    <p v-if="notice" class="notice" role="status">{{ notice }}</p>
+    <p v-if="notice" ref="saveNotice" tabindex="-1" class="notice" role="status">{{ notice }}</p>
     <p v-if="loading" role="status">正在请求真实数据，请稍候…</p>
     <template v-if="!selected">
       <details v-if="consolePresentation && mode === 'manage' && kind === 'textbook'" class="content-section"><summary>高级定位</summary><div class="field"><label for="textbook-filter">教材身份 ID 筛选（可选）</label><input id="textbook-filter" v-model="textbookFilter" :disabled="loading" /><p class="field-help">仅在已知教材身份 ID 时填写；不填写则按版本状态浏览全部教材。</p></div></details>
@@ -459,7 +479,7 @@ async function download(id: string) {
     </template>
     <template v-else>
       <div class="actions"><button class="button secondary" :disabled="loading" @click="navigate(mode, kind)">返回列表</button><button class="button secondary" :disabled="loading" @click="openVersion(selected.id)">重新加载版本</button></div>
-      <header class="stack"><h2>{{ selected.title }}</h2><template v-if="consolePresentation"><p class="field-help"><template v-if="selected.edition_code">版本号 {{ selected.edition_code }} · </template>修订 {{ selected.revision }} · <StatusBadge :status="mode === 'read' ? 'published' : selected.status" :label="mode === 'read' ? '已发布' : versionStatusLabels[selected.status]" /></p><details><summary>高级定位</summary><p class="field-help">版本 ID：{{ selected.id }}</p></details></template><p v-else class="field-help">版本 ID：{{ selected.id }} · 修订 {{ selected.revision }} · {{ mode === 'read' ? '已发布' : selected.status }}</p></header>
+      <header class="stack"><h2 ref="versionHeading" tabindex="-1">{{ selected.title }}</h2><template v-if="consolePresentation"><p class="field-help"><template v-if="selected.edition_code">版本号 {{ selected.edition_code }} · </template>修订 {{ selected.revision }} · <StatusBadge :status="mode === 'read' ? 'published' : selected.status" :label="mode === 'read' ? '已发布' : versionStatusLabels[selected.status]" /></p><details><summary>高级定位</summary><p class="field-help">版本 ID：{{ selected.id }}</p></details></template><p v-else class="field-help">版本 ID：{{ selected.id }} · 修订 {{ selected.revision }} · {{ mode === 'read' ? '已发布' : selected.status }}</p></header>
       <p v-if="selected.access_revoked_at" class="notice">授权已撤销，原文、答案和附件不可读取。原因：{{ selected.access_revoked_reason }}</p>
       <p v-if="selected.retired_reason" class="notice">撤回原因：{{ selected.retired_reason }}</p>
       <template v-if="mode === 'manage' && draft">
@@ -468,7 +488,7 @@ async function download(id: string) {
         <p v-if="dirty" role="status">有未保存的本地修改。先保存，再上传附件或送审。</p>
         <p v-if="pendingSave" class="notice" role="status">保存结果尚未确认，已冻结本次内容与幂等键。再次点击恢复保存将继续原请求，不会重复创建修订。也可保留内容后重新加载核对服务端状态。</p>
         <form class="stack" :autocomplete="consolePresentation ? 'off' : undefined" novalidate @submit.prevent="save">
-          <fieldset class="stack content-fields" :disabled="!editable || loading || conflict || !!pendingSave">
+          <fieldset class="stack content-fields" :disabled="!editable || loading || conflict || !!pendingSave || importDirty">
             <legend>版本内容</legend>
             <div class="field"><label for="content-name">标题</label><input id="content-name" v-model="draft.title" maxlength="200" required /></div>
             <div class="content-columns"><div class="field"><label for="license-source">授权来源</label><input id="license-source" v-model="draft.license.source" required /></div><div class="field"><label for="license-expiry">授权到期时间（可选，本地时间）</label><input id="license-expiry" type="datetime-local" :value="localLicenseExpiry" @input="updateLicenseExpiry" /></div></div>
@@ -491,16 +511,18 @@ async function download(id: string) {
               <button type="button" class="button secondary" :disabled="(draft.chapters?.length || 0) >= 100" @click="newChapter">新增章节</button>
             </template>
           </fieldset>
-          <button v-if="editable" type="submit" class="button" :disabled="loading || !dirty || conflict">{{ pendingSave ? '恢复原保存请求' : '保存草稿' }}</button>
+          <button v-if="editable" type="submit" class="button" :disabled="loading || !draftDirty || conflict || importDirty">{{ pendingSave ? '恢复原保存请求' : '保存草稿' }}</button>
         </form>
-        <section class="content-section stack"><h3>正文附件引用</h3><p v-if="!draft.resource_ids.length" class="field-help">尚未绑定附件。复制版本不会沿用旧附件，必须重新上传。</p><ul class="content-list"><li v-for="id in draft.resource_ids" :key="id"><span>{{ id }}</span><div class="actions"><button class="button secondary" @click="download(id)">管理附件预览（下载）</button><button v-if="editable" class="button secondary" :disabled="loading || conflict || !!pendingSave" @click="draft.resource_ids = draft.resource_ids.filter(value => value !== id); draft.chapters?.forEach(chapter => chapter.resource_ids = chapter.resource_ids.filter(value => value !== id))">取消绑定</button></div></li></ul><FileUpload :key="`${selected.id}:${fileEpoch}`" :request="request" :kind="kind" :owner-id="selected.id" :revision="draft.revision" :disabled="dirty || loading || conflict" :editable="editable" :can-delete="capabilities.includes('file:delete')" :bound-ids="savedResourceIds" :local-ids="[...(draft.resource_ids || []), ...(draft.chapters || []).flatMap(chapter => chapter.resource_ids)]" @revision="revisionChanged" @ready="bindFile" @error="report" @recovered="clearRecoveredError" /></section>
+        <ImportProvenance v-if="kind === 'textbook' && !selected.access_revoked_at && !platform" :key="selected.id+':'+selected.revision" :request="request" :owner-id="selected.id" />
+        <TextbookImport v-if="kind === 'textbook' && editable && !platform" :key="`${selected.id}:${identity.context?.org_id}:${identity.user.id}`" :request="request" :version="draft" :scope="`${identity.user.id}:${identity.context?.org_id}`" :blocked="draftDirty || loading || conflict" @dirty="importDirty = $event" @applied="openVersion(selected.id, true)" />
+        <section class="content-section stack"><h3>正文附件引用</h3><p v-if="!draft.resource_ids.length" class="field-help">尚未绑定附件。复制版本不会沿用旧附件，必须重新上传。</p><ul class="content-list"><li v-for="id in draft.resource_ids" :key="id"><span>{{ id }}</span><div class="actions"><button class="button secondary" @click="download(id)">管理附件预览（下载）</button><button v-if="editable" class="button secondary" :disabled="loading || conflict || !!pendingSave || importDirty" @click="draft.resource_ids = draft.resource_ids.filter(value => value !== id); draft.chapters?.forEach(chapter => chapter.resource_ids = chapter.resource_ids.filter(value => value !== id))">取消绑定</button></div></li></ul><FileUpload :key="`${selected.id}:${fileEpoch}`" :request="request" :kind="kind" :owner-id="selected.id" :revision="draft.revision" :disabled="dirty || loading || conflict" :editable="editable" :can-delete="capabilities.includes('file:delete')" :bound-ids="savedResourceIds" :local-ids="[...(draft.resource_ids || []), ...(draft.chapters || []).flatMap(chapter => chapter.resource_ids)]" @revision="revisionChanged" @ready="bindFile" @error="report" @recovered="clearRecoveredError" /></section>
         <button v-if="kind === 'question'" class="button secondary" :aria-expanded="preview" @click="preview = !preview">{{ preview ? '收起学生预览' : '学生预览（不含答案）' }}</button>
         <section v-if="preview && kind === 'question'" class="content-section stack" aria-label="学生题目预览"><h3>{{ draft.title }}</h3><p class="reading-body">{{ draft.prompt }}</p><label v-for="option in draft.question_type === 'numeric' ? [] : draft.options" :key="option.id" class="check-label"><input :type="draft.question_type === 'single' ? 'radio' : 'checkbox'" name="student-preview" />{{ option.id }}. {{ option.text }}</label><div v-if="draft.question_type === 'numeric'" class="field"><label for="preview-number">你的答案</label><input id="preview-number" inputmode="decimal" /></div><p class="field-help">仅预览题面，不提交作答、不显示答案或评分。</p></section>
         <details class="content-section"><summary>版本前后对比（源版本只读）</summary><p v-if="!source" class="field-help">此版本没有源版本。</p><div v-else class="content-columns"><section><h3>源版本</h3><pre class="content-json">{{ JSON.stringify(source, null, 2) }}</pre></section><section><h3>当前本地版本</h3><pre class="content-json">{{ JSON.stringify(draft, null, 2) }}</pre></section></div></details>
         <section class="content-section stack"><h3>审核与发布</h3><p v-if="selfReview" class="field-help">作者及贡献者不可审核自己的版本。请由另一位真实审核账号登录处理。</p><p v-if="dirty" class="field-help">保存所有本地修改后才能送审。</p><div class="field"><label for="review-reason">审核说明 / 退回或停止使用原因</label><textarea id="review-reason" v-model="reason" rows="3" maxlength="2000" :disabled="loading" /></div><div class="actions"><button v-if="editable" class="button" :disabled="loading || dirty || conflict" @click="transition('submit-review')">提交审核</button><button v-if="canReview && selected.status === 'review'" class="button secondary" :disabled="loading || selfReview || conflict" @click="transition('return')">退回修改</button><button v-if="canReview && selected.status === 'review'" class="button" :disabled="loading || selfReview || conflict" @click="transition('publish')">确认授权并发布</button><button v-if="canEdit && selected.status === 'published'" class="button secondary" :disabled="loading || conflict" @click="create(true)">复制为新版本（附件需重传）</button><button v-if="capabilities.includes('content:retire') && selected.status === 'published'" class="button secondary" :disabled="loading || dirty || conflict" @click="transition('retire')">撤回发布</button><button v-if="capabilities.includes('content:revoke')" class="button secondary" :disabled="loading || dirty || conflict" @click="transition('revoke-access')">撤销访问授权（不可恢复）</button></div></section>
       </template>
       <template v-else-if="mode === 'read'">
-        <div class="reader-layout"><nav aria-label="教材目录" class="stack"><h3>目录</h3><p v-if="!readerChapters.length">这份教材暂无章节，请联系内容管理员。</p><ol class="chapter-navigation"><li v-for="chapter in readerChapters" :key="chapter.id" :class="{ 'chapter-child': chapter.parent_id }"><button class="text-button" :disabled="loading" :aria-current="readerChapter?.id === chapter.id ? 'page' : undefined" @click="readChapter(chapter.id)">{{ chapter.title }}</button><p v-if="chapter.parent_id" class="field-help">上级：{{ readerChapters.find(parent => parent.id === chapter.parent_id)?.title }}</p></li></ol></nav><article class="stack"><template v-if="readerChapter"><h3>{{ readerChapter.title }}</h3><ReadingProgress v-if="learner" :key="`${selected.id}:${readerChapter.id}:${readerChapter.edition_revision}`" ref="readingProgress" :request="request" :edition-id="selected.id" :edition-revision="readerChapter.edition_revision" :chapter-id="readerChapter.id" :body="readerChapter.body" @pending="emit('readingPending', $event)" @error="report" /><p v-else class="reading-body">{{ readerChapter.body }}</p><h4 v-if="readerChapter.knowledge_point_ids.length">关联知识点</h4><div class="actions"><button v-for="id in readerChapter.knowledge_point_ids" :key="id" class="button secondary" @click="readKnowledge(id)">查看知识点 {{ id }}</button></div><pre v-if="knowledge" class="content-json">{{ JSON.stringify(knowledge, null, 2) }}</pre><h4 v-if="readerChapter.resource_ids.length">章节附件</h4><button v-for="id in readerChapter.resource_ids" :key="id" class="button secondary" @click="download(id)">下载附件 {{ id }}</button></template><p v-else class="content-empty">从目录选择章节开始阅读。</p></article></div><section v-if="selected.resource_ids?.length" class="content-section stack"><h3>教材附件</h3><button v-for="id in selected.resource_ids" :key="id" class="button secondary" @click="download(id)">下载教材附件 {{ id }}</button></section>
+        <div class="reader-layout"><nav aria-label="教材目录" class="stack"><h3>目录</h3><p v-if="!readerChapters.length">这份教材暂无章节，请联系内容管理员。</p><ol class="chapter-navigation"><li v-for="chapter in readerChapters" :key="chapter.id" :class="{ 'chapter-child': chapter.parent_id }"><button class="text-button" :disabled="loading" :aria-current="readerChapter?.id === chapter.id ? 'page' : undefined" @click="readChapter(chapter.id)">{{ chapter.title }}</button><p v-if="chapter.parent_id" class="field-help">上级：{{ readerChapters.find(parent => parent.id === chapter.parent_id)?.title }}</p></li></ol></nav><article class="stack"><template v-if="readerChapter"><h3 ref="chapterHeading" tabindex="-1">{{ readerChapter.title }}</h3><ReadingProgress v-if="learner" :key="`${selected.id}:${readerChapter.id}:${readerChapter.edition_revision}`" ref="readingProgress" :request="request" :edition-id="selected.id" :edition-revision="readerChapter.edition_revision" :chapter-id="readerChapter.id" :body="readerChapter.body" @pending="emit('readingPending', $event)" @error="report" /><p v-else class="reading-body">{{ readerChapter.body }}</p><h4 v-if="readerChapter.knowledge_point_ids.length">关联知识点</h4><div class="actions"><button v-for="id in readerChapter.knowledge_point_ids" :key="id" class="button secondary" @click="readKnowledge(id)">查看知识点 {{ id }}</button></div><pre v-if="knowledge" class="content-json">{{ JSON.stringify(knowledge, null, 2) }}</pre><h4 v-if="readerChapter.resource_ids.length">章节附件</h4><button v-for="id in readerChapter.resource_ids" :key="id" class="button secondary" @click="download(id)">下载附件 {{ id }}</button></template><p v-else class="content-empty">从目录选择章节开始阅读。</p></article></div><section v-if="selected.resource_ids?.length" class="content-section stack"><h3>教材附件</h3><button v-for="id in selected.resource_ids" :key="id" class="button secondary" @click="download(id)">下载教材附件 {{ id }}</button></section>
       </template>
       <details v-if="mode === 'manage'" class="content-section"><summary>审计记录（含归属文件事件）</summary><p v-if="!audit.length">暂无可见审计记录。</p><ol><li v-for="event in audit" :key="event.id">{{ event.created_at }} · {{ event.action }} · 操作人 {{ event.actor_id }}<p>{{ event.reason }}</p><p class="field-help">{{ event.resource_type }} / {{ event.resource_id }} · 内容修订 {{ event.revision_before ?? '历史未记录' }} → {{ event.revision_after ?? '历史未记录' }} · 访问修订 {{ event.access_revision_before ?? '历史未记录' }} → {{ event.access_revision_after ?? '历史未记录' }}</p><p class="field-help">请求编号：{{ event.request_id }}</p></li></ol><button v-if="auditCursor" class="button secondary" :disabled="auditBusy || loading" @click="loadAudit()">加载更多审计记录</button></details>
     </template>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import BrandIcon from "../components/BrandIcon.vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiError, type BusinessRequest, type Identity } from "../session";
 import type {
   QuizDraftSummary,
@@ -29,6 +29,8 @@ const view = ref<
 >("classes");
 const classes = ref<TeachingClass[]>([]);
 const selectedClass = ref<TeachingClass>();
+const classHeading = ref<HTMLElement>();
+const quizHeading = ref<HTMLElement>();
 const roster = ref<TeachingRoster>();
 const subjectId = ref("");
 const classReport = ref<TeachingClassSubjectReport>();
@@ -176,6 +178,10 @@ async function openClass(row: TeachingClass) {
   createdQuiz.value = undefined;
   quizSubject.value = subjectId.value;
   view.value = "roster";
+  await nextTick();
+  if (alive && selectedClass.value?.id === row.id && view.value === "roster") {
+    classHeading.value?.focus();
+  }
   await loadRoster();
 }
 
@@ -291,8 +297,9 @@ function copyRosterIds() {
   );
 }
 
-function startQuizFromClass() {
+async function startQuizFromClass() {
   if (!canManage || !selectedClass.value) return;
+  const classId = selectedClass.value.id;
   if (
     dirty.value &&
     view.value === "quiz" &&
@@ -321,6 +328,8 @@ function startQuizFromClass() {
   view.value = "quiz";
   notice.value =
     "将以 source_class_ids 创建草稿；服务端按当前名册展开受众。发布后名册变更不影响已发布受众。完整选题可到评估管理台继续编辑。";
+  await nextTick();
+  if (alive && !denied.value && view.value === "quiz" && selectedClass.value?.id === classId && document.activeElement === document.body) quizHeading.value?.focus();
 }
 
 function toIso(local: string) {
@@ -632,7 +641,7 @@ onBeforeUnmount(() => {
           class="stack content-section"
           aria-label="当前班级"
         >
-          <h3>{{ selectedClass.name }} · {{ selectedClass.year_label }}</h3>
+          <h3 ref="classHeading" tabindex="-1">{{ selectedClass.name }} · {{ selectedClass.year_label }}</h3>
           <p class="field-help">班级编号 {{ selectedClass.id }}</p>
 
           <div class="field">
@@ -928,7 +937,7 @@ onBeforeUnmount(() => {
           </template>
 
           <template v-else-if="view === 'quiz' && canManage">
-            <h4>从班级创建考试草稿</h4>
+            <h4 ref="quizHeading" tabindex="-1">从班级创建考试草稿</h4>
             <p class="field-help">
               使用 source_class_ids=[当前班]，与 audience_member_ids
               互斥。创建后请到评估工作台补题或交独立审核发布。

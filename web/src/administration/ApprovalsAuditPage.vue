@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink } from "vue-router";
 import type { Approval, Audit, ConsolePageProps, Operation, Page, Receipt } from "./types";
 import { consoleActionLabel, consoleCapabilityLabel, consoleRoleLabel, consoleScopeLabel, consoleStatusLabel } from "./presentation";
@@ -16,6 +16,15 @@ const busy = ref(false), relatedBusy = ref(false), error = ref(""), relatedError
 const decisionError = ref(""), loaded = ref(false), decisionReceipt = ref<Receipt>();
 const life = new AbortController(); let alive = true;
 const detail = computed(() => !!props.resourceId);
+const pageElement = ref<HTMLElement>();
+onMounted(async () => {
+  await nextTick();
+  if (alive && detail.value && document.activeElement === document.body) {
+    const heading = pageElement.value?.querySelector<HTMLElement>("h1");
+    heading?.setAttribute("tabindex", "-1");
+    heading?.focus();
+  }
+});
 const governing = computed(() => props.context.capabilities.includes("platform:govern"));
 const independenceReason = computed(() => {
   const row = selected.value; if (!row) return "尚未读取审批详情。";
@@ -119,7 +128,7 @@ onMounted(() => {
 onBeforeUnmount(() => { alive = false; life.abort(); emit("dirty", false); });
 </script>
 <template>
-  <section class="admin-page stack" :aria-busy="busy">
+  <section ref="pageElement" class="admin-page stack" :aria-busy="busy">
     <PageHeader :title="mode === 'approvals' ? detail ? '审批申请详情' : '审批中心' : detail ? '审计记录详情' : '操作审计'" :description="mode === 'approvals' ? '审批与应用是不同状态，只有已生效结果才代表权限变更完成。' : '仅展示当前职责可见的最小审计证据；按服务端游标读取，不宣称时间倒序。'"><template #actions><RouterLink v-if="detail" class="button secondary" :to="`/console/${mode}`">返回{{ mode === 'approvals' ? '审批列表' : '审计列表' }}</RouterLink></template></PageHeader>
     <p v-if="error" class="notice" role="alert">读取未完成：{{ error }}</p><p v-if="busy" role="status">正在读取或处理记录…</p>
     <template v-if="!detail">

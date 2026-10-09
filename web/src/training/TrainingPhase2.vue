@@ -343,7 +343,15 @@ async function check(row: Row) {
     failure(e);
   }
 }
+let confirmationOrigin: HTMLElement | null = null;
+async function cancelConfirmation() {
+  pendingAction.value = null;
+  await nextTick();
+  if (confirmationOrigin?.isConnected) confirmationOrigin.focus();
+  confirmationOrigin = null;
+}
 async function confirm(label: string, run: () => Promise<unknown>) {
+  confirmationOrigin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   pendingAction.value = { label, run };
   await nextTick();
   cancelButton.value?.focus();
@@ -426,14 +434,14 @@ watch(
       role="alertdialog"
       aria-label="确认教务操作"
       class="notice"
-      @keydown.esc="pendingAction = null"
+      @keydown.esc.prevent="cancelConfirmation"
     >
       <p>{{ pendingAction.label }}</p>
       <div class="actions">
         <button
           ref="cancelButton"
           class="button secondary"
-          @click="pendingAction = null"
+          @click="cancelConfirmation"
         >
           取消</button
         ><button class="button" :disabled="blocked" @click="proceed">

@@ -9,6 +9,7 @@ type Page = components["schemas"]["LearningReadingPage"];
 const props = defineProps<{ request: BusinessRequest; editionId: string; editionRevision: number; chapterId: string; body: string }>();
 const emit = defineEmits<{ pending: [value: boolean]; error: [cause: unknown] }>();
 const bodyElement = ref<HTMLElement>();
+const progressStatus = ref<HTMLElement>();
 const ready = ref(false), saving = ref(false), comparing = ref(false), conflicted = ref(false);
 const message = ref(""), measurement = ref(""), offset = ref(0), completed = ref(false);
 const confirmed = ref({ offset: 0, completed: false });
@@ -122,6 +123,7 @@ function resize() { if (ready.value) void restore(offset.value); }
 async function send() {
   const event = frozen.value;
   if (!event || !alive) return;
+  const trigger = document.activeElement instanceof HTMLButtonElement ? document.activeElement : undefined;
   saving.value = true; message.value = "正在确认阅读进度…";
   try {
     const result = await props.request<Result>("/behavior-events", { method: "POST", body: event, signal: life.signal });
@@ -138,7 +140,11 @@ async function send() {
     if (!alive) return;
     if (cause instanceof ApiError && cause.status === 409 && cause.code === "READING_REVISION_CONFLICT") { frozen.value = undefined; conflicted.value = true; clearTimers(); fail(cause); await compare(); }
     else { fail(cause); if (frozen.value) message.value += " 原事件结果待确认；仅可重试相同事件，期间不会发送新事件。"; }
-  } finally { if (alive) saving.value = false; }
+  } finally {
+    if (alive) saving.value = false;
+    await nextTick();
+    if (alive && trigger?.isConnected && !trigger.disabled && document.activeElement === document.body) trigger.focus();
+  }
 }
 function flush(): Promise<void> {
   clearTimers();
@@ -157,6 +163,8 @@ async function resolve(keepLocal: boolean) {
   else { adopt(value); await restore(offset.value); }
   conflicted.value = false; remote.value = undefined; message.value = keepLocal ? "已明确选择本页进度，正在确认保存。" : "已采用服务器进度。";
   if (keepLocal) await flush();
+  await nextTick();
+  if (alive && !conflicted.value && document.activeElement === document.body) progressStatus.value?.focus();
 }
 function mark() { if (!ready.value || conflicted.value || frozen.value || !props.body.length) return; measure(); completed.value = !completed.value; void flush(); }
 function saveNow() { measure(); void flush(); }
@@ -181,7 +189,7 @@ defineExpose({ beforeLeave });
 <template>
   <p ref="bodyElement" class="reading-body">{{ body }}</p>
   <section class="content-section stack" aria-label="阅读进度" :aria-busy="saving || comparing">
-    <p role="status">{{ message }}</p>
+    <p ref="progressStatus" role="status" tabindex="-1">{{ message }}</p>
     <p v-if="measurement" class="notice" role="status">{{ measurement }}</p>
     <p class="field-help">{{ completed ? '已标记已读' : '未标记已读' }} · 已确认 UTF-16 位置 {{ confirmed.offset }} · 进度修订 {{ revision }}。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。</p>
     <p class="field-help">刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。</p>

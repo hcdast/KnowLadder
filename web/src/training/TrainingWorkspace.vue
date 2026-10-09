@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import TrainingBatchAssign from "./TrainingBatchAssign.vue";
+import TrainingWorkbench from "./TrainingWorkbench.vue";
+import TrainingSurveys from "./TrainingSurveys.vue";
+import TrainingKnowledge from "./TrainingKnowledge.vue";
+import { parseQuestionCandidate, type Candidate } from "./question-candidate";
 import TrainingPhase2 from "./TrainingPhase2.vue";
 import TrainingReports from "./TrainingReports.vue";
 import CourseworkAttachments from "./CourseworkAttachments.vue";
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ApiError, type BusinessRequest, type Identity } from "../session";
 type Row = Record<string, any>;
 const props = defineProps<{ identity: Identity; request: BusinessRequest }>();
-const emit = defineEmits<{ dirty: [boolean]; unknown: [boolean] }>();
+const emit = defineEmits<{ dirty: [boolean]; unknown: [boolean]; reading:[{editionId:string;chapterId:string}] }>();
 const lifetime = new AbortController();
 let viewEpoch = 0;
 const request: BusinessRequest = async <T,>(path: string, options = {}) => {
@@ -31,16 +36,23 @@ const request: BusinessRequest = async <T,>(path: string, options = {}) => {
   }
 };
 function selectTrainingTab(next: string) {
-  if (reportDirty.value && next !== tab.value) {
+  if ((reportDirty.value || batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value) && next !== tab.value) {
     message.value = "请先保存当前表单，再切换功能。";
     return;
   }
   tab.value = next;
 }
+async function openKnowledgeCourse(target:{id:string;lessonKey:string}){
+  selectTrainingTab("courses");
+  if(tab.value !== "courses")return;
+  await openCourse(target.id);await nextTick();
+  if(course.value?._id === target.id)document.getElementById(`training-lesson-${target.lessonKey}`)?.focus();
+}
 const reportEpoch = ref(0),
   reportDirty = ref(false),
+  batchDirty = ref(false), surveyDirty = ref(false), batchUnknown = ref(false), surveyUnknown = ref(false),
   reportReceipt = ref<Row | null>(null),
-  phase2Receipt = ref<Row | null>(null);
+  phase2Receipt = ref<Row | null>(null), knowledgeReceipt = ref<Row | null>(null);
 const editableLessons = ref<Row[]>([]);
 const canCourses = computed(() =>
   caps.value.some((x) =>
@@ -69,7 +81,7 @@ const caps = computed(() => props.identity.context?.capabilities || []),
   has = (cap: string) => caps.value.includes(cap);
 const route = useRoute();
 const tab = ref(
-    ["courses", "tasks", "ai", "site", "reports", "phase2"].includes(
+    ["courses", "tasks", "ai", "site", "reports", "phase2", "knowledge"].includes(
       String(route.query.tab),
     )
       ? String(route.query.tab)
@@ -121,6 +133,7 @@ const catalog = ref<{
   assignments: Row[];
   quizzes: Row[];
   phase2_enabled?: boolean;
+  knowledge_enabled?: boolean; surveys_enabled?: boolean;
 }>({ classes: [], subjects: [], assignments: [], quizzes: [] });
 const feedbackComments = ref<Record<string, string>>({});
 const labels: Record<string, string> = {
@@ -166,9 +179,18 @@ const questionType = ref("numeric"),
   questionPrompt = ref(""),
   questionAnswer = ref(""),
   questionExplanation = ref(""),
-  optionA = ref(""),
-  optionB = ref(""),
+  questionOptions = ref([{id:"a",text:""},{id:"b",text:""}]),
   questionDraftId = ref("");
+const questionRule = ref<Candidate['scoring_rule']|null>(null);
+const confirmCandidateLoad = ref(false);
+const structuredCandidate = computed(() => aiJob.value?.status === 'succeeded' && aiJob.value.kind === 'questions' ? parseQuestionCandidate(aiJob.value.output) : null);
+function loadCandidate() {
+  const q=structuredCandidate.value;if(!q)return;
+  questionType.value=q.question_type;questionPrompt.value=q.prompt;questionAnswer.value=q.answer;questionExplanation.value=q.explanation;questionOptions.value=q.options.map(o=>({...o}));questionRule.value={...q.scoring_rule};questionDraftId.value='';confirmCandidateLoad.value=false;changed();
+}
+watch(() => aiJob.value?.id, () => { confirmCandidateLoad.value=false; questionDraftId.value=''; });
+function addQuestionOption() { let n=1; while(questionOptions.value.some(o=>o.id==='option_'+n))n++; questionOptions.value.push({id:'option_'+n,text:''}); changed(); }
+watch(questionType,()=>{if(questionType.value !== 'numeric' && questionOptions.value.length<2)questionOptions.value=[{id:'a',text:''},{id:'b',text:''}]; if(questionRule.value && questionRule.value.strategy!==({single:'single_exact',multiple:'multiple_exact_set',numeric:'numeric_exact_decimal'} as Record<string,string>)[questionType.value])questionRule.value=null;});
 async function acceptQuestion() {
   if (!aiJob.value) return;
   const result = await write(
@@ -186,10 +208,8 @@ async function acceptQuestion() {
         options:
           questionType.value === "numeric"
             ? []
-            : [
-                { id: "a", text: optionA.value },
-                { id: "b", text: optionB.value },
-              ],
+            : questionOptions.value.map(o=>({...o})),
+        ...(questionRule.value ? {scoring_rule:{...questionRule.value}} : {}),
         knowledge_point_ids: [],
       },
     },
@@ -249,11 +269,12 @@ try {
   storageBlocked.value = true;
   message.value = "无法读取恢复记录，写入冻结；请核查原请求。";
 }
-watch([dirty, reportDirty], ([d, r]) => emit("dirty", d || r));
+watch([dirty, reportDirty, batchDirty, surveyDirty], ([d, r, b, s]) => emit("dirty", d || r || b || s));
+watch([batchUnknown,surveyUnknown,pending,storageBlocked,fileUnknown],()=>emit("unknown",batchUnknown.value || surveyUnknown.value || !!pending.value || storageBlocked.value || fileUnknown.value));
 watch(
   pending,
   (p) => {
-    emit("unknown", !!p || storageBlocked.value || fileUnknown.value);
+    emit("unknown", !!p || storageBlocked.value || fileUnknown.value || batchUnknown.value || surveyUnknown.value);
     try {
       if (p) sessionStorage.setItem(scope, JSON.stringify(p));
       else sessionStorage.removeItem(scope);
@@ -277,8 +298,9 @@ async function hash(body: unknown) {
   ).join("");
 }
 function clearSensitiveViews() {
+  knowledgeReceipt.value = null;
   reportEpoch.value++;
-  reportDirty.value = false;
+  reportDirty.value = false; batchDirty.value=false; surveyDirty.value=false;
   reportReceipt.value = null;
   viewEpoch++;
   cancelTaskConfirm.value = null;
@@ -313,8 +335,9 @@ function clearSensitiveViews() {
   questionPrompt.value = "";
   questionAnswer.value = "";
   questionExplanation.value = "";
-  optionA.value = "";
-  optionB.value = "";
+  questionOptions.value = [{id:"a",text:""},{id:"b",text:""}];
+  questionRule.value = null;
+  confirmCandidateLoad.value = false;
   questionDraftId.value = "";
   siteTitle.value = "";
   siteBody.value = "";
@@ -351,6 +374,7 @@ async function queryReceipt() {
       if (pending.value.path.startsWith("/training/reports") && data.result)
         reportReceipt.value = data.result;
       if (pending.value.path.startsWith('/training/phase2/') && data.result) phase2Receipt.value = data.result;
+      if ((pending.value.path.startsWith("/training/knowledge/") || pending.value.path.startsWith("/training/ai/jobs")) && data.result) knowledgeReceipt.value = data.result;
       pending.value = null;
       recoveryReloadConfirm.value = false;
       dirty.value = false;
@@ -441,6 +465,7 @@ async function load() {
   }
 }
 async function write(path: string, body: unknown, done?: () => Promise<void>) {
+  if (batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value) { message.value = "请先完成当前批次/反馈表单或核对原编号，再操作其他写入。"; return; }
   if (busy.value || storageBlocked.value || fileUnknown.value) return;
   const fingerprint = await hash(body);
   if (busy.value || lifetime.signal.aborted) return;
@@ -505,17 +530,18 @@ function clearMedia() {
 watch(
   () => route.query.tab,
   (value) => {
-    if (["courses", "tasks", "ai", "site", "reports", "phase2"].includes(String(value)))
+    if (["courses", "tasks", "ai", "site", "reports", "phase2", "knowledge"].includes(String(value)))
       selectTrainingTab(String(value));
   },
 );
-async function openCourse(id: string) {
+async function openCourse(id: string, learner=false) {
+  if (reportDirty.value || batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value) { message.value = "请先保存课程反馈或查询原编号，再切换课程。"; return; }
   if (dirty.value && !window.confirm("当前表单尚未保存，确定切换？")) return;
   busy.value = true;
   try {
     clearMedia();
     course.value = null;
-    course.value = await request("/training/courses/" + id);
+    course.value = await request("/training/courses/" + id + (learner?"?mode=learner":""));
     courseEdit.value = false;
     dirty.value = false;
     work.value = null;
@@ -936,7 +962,7 @@ async function sitePublish(row: Row) {
   await loadSite();
 }
 function unload(e: BeforeUnloadEvent) {
-  if (dirty.value || reportDirty.value || pending.value || fileUnknown.value) {
+  if (dirty.value || reportDirty.value || batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value || pending.value || fileUnknown.value) {
     e.preventDefault();
     e.returnValue = "";
   }
@@ -1051,6 +1077,10 @@ onBeforeUnmount(() => {
         取消重新载入
       </button>
     </section>
+    <button v-if="has('learning:self')" class="button secondary" @click="selectTrainingTab('workbench')">我的学习工作台</button>
+    <TrainingWorkbench v-if="tab==='workbench' && has('learning:self')" :key="reportEpoch" :request="request" @course="selectTrainingTab('courses');openCourse($event,true)" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
+    <button v-if="catalog.knowledge_enabled && (has('learning:self') || has('ai:generate') || has('content:edit') || has('content:review') || has('ai:manage'))" class="button secondary" :aria-pressed="tab === 'knowledge'" @click="selectTrainingTab('knowledge')">知识检索与答疑</button>
+    <TrainingKnowledge v-if="tab === 'knowledge' && catalog.knowledge_enabled" :key="reportEpoch" :request="request" :write="write" :caps="caps" :blocked="busy || storageBlocked || fileUnknown" :recovered="knowledgeReceipt" @reading="emit('reading', $event)" @course="openKnowledgeCourse" />
     <button v-if="catalog.phase2_enabled && (caps.some(x=>x.startsWith('training:')) || has('learning:self'))" class="button secondary" @click="selectTrainingTab('phase2')">课表、结业与通知</button>
     <TrainingPhase2 v-if="tab === 'phase2' && catalog.phase2_enabled" :key="reportEpoch" :user-id="identity.user.id" :receipt="phase2Receipt" :request="request" :write="write" :caps="caps" :catalog="catalog" :blocked="busy || storageBlocked || fileUnknown" @dirty="reportDirty = $event" />
     <TrainingReports
@@ -1086,6 +1116,8 @@ onBeforeUnmount(() => {
           </button>
         </aside>
         <div v-if="course" class="course-detail">
+          <TrainingBatchAssign v-if="has('course:assign') && course.status === 'published'" :key="'batch'+course._id+reportEpoch" :course-id="course._id" :user-id="identity.user.id" :org-id="identity.context!.org_id" :classes="catalog.classes" :request="request" :blocked="busy || storageBlocked || fileUnknown || !!pending || surveyDirty" @dirty="batchDirty=$event" @unknown="batchUnknown=$event" />
+          <TrainingSurveys v-if="catalog.surveys_enabled && (has('course:edit') || has('learning:self'))" :key="course._id + reportEpoch" :course-id="course._id" :user-id="identity.user.id" :request="request" :manage="has('course:edit')" :blocked="busy || storageBlocked || fileUnknown || batchDirty" @dirty="surveyDirty = $event" @unknown="surveyUnknown = $event" />
           <p class="muted">
             课程版本 {{ course.version_no }} ·
             {{ labels[course.status] || course.status }}
@@ -1212,6 +1244,8 @@ onBeforeUnmount(() => {
           <article
             v-for="lesson in course.lessons"
             :key="lesson.key"
+            :id="`training-lesson-${lesson.key}`"
+            tabindex="-1"
             class="lesson"
           >
             <p class="eyebrow">
@@ -1781,7 +1815,7 @@ onBeforeUnmount(() => {
             /></label
           ><button class="button" :disabled="busy">采纳为草稿课节</button>
           <p class="field-help">
-            题目建议仅采纳为教学建议文本；进入正式题库需另按题型编辑与独立审核。
+            结构化候选可载入题库草稿表单；普通建议文本需人工编辑。进入正式题库仍须核对并独立审核。
           </p>
         </form>
         <form
@@ -1794,6 +1828,15 @@ onBeforeUnmount(() => {
           @submit.prevent="acceptQuestion"
         >
           <h4>人工核对后保存为真实题库草稿</h4>
+          <template v-if="structuredCandidate">
+            <button type="button" class="button secondary" :disabled="busy" @click="confirmCandidateLoad = true">载入结构化候选</button>
+            <div v-if="confirmCandidateLoad" class="notice">
+              <p>载入会替换当前题干、选项、参考答案和解析。请核对后再保存。</p>
+              <button type="button" class="button" @click="loadCandidate">确认载入</button>
+              <button type="button" class="button secondary" @click="confirmCandidateLoad = false">取消载入</button>
+            </div>
+            <p class="field-help">格式检查通过。答案与教学解析仍需人工核对。</p>
+          </template>
           <label
             >题目标题<input
               v-model="questionTitle"
@@ -1814,19 +1857,14 @@ onBeforeUnmount(() => {
               rows="5"
               @input="changed"
             /></label
-          ><template v-if="questionType !== 'numeric'"
-            ><label
-              >选项 a<input
-                v-model="optionA"
-                required
-                maxlength="2000"
-                @input="changed" /></label
-            ><label
-              >选项 b<input
-                v-model="optionB"
-                required
-                maxlength="2000"
-                @input="changed" /></label></template
+          ><template v-if="questionType !== 'numeric'">
+            <div v-for="(option,index) in questionOptions" :key="index">
+              <label>选项标识<input v-model="option.id" required maxlength="20" @input="changed" /></label>
+              <label>选项内容<input v-model="option.text" required maxlength="2000" @input="changed" /></label>
+              <button type="button" class="button secondary" :disabled="questionOptions.length <= 2 || busy" @click="questionOptions.splice(index,1); changed()">删除选项</button>
+            </div>
+            <button type="button" class="button secondary" :disabled="questionOptions.length >= 10 || busy" @click="addQuestionOption()">添加选项</button>
+          </template
           ><label
             >参考答案<input
               v-model="questionAnswer"

@@ -145,7 +145,7 @@ async function scheduleDeletion() {
 <template>
   <section class="content-section stack" aria-label="私有文件上传与恢复" :aria-busy="busy">
     <h3>归属版本附件与恢复</h3>
-    <div v-if="editable" class="field"><label for="private-upload">{{ recovery ? '重新选择原始文件以恢复传输' : '上传私有附件' }}</label><input id="private-upload" type="file" accept=".pdf,.png,.jpg,.jpeg,.txt" :disabled="disabled || busy || pending" @change="upload" /><p class="field-help">最多 10 MiB。先保存草稿再上传。刷新后从服务端恢复未绑定文件，不保存敏感内容到浏览器存储。</p></div>
+    <div v-if="editable" class="field"><label for="private-upload">{{ recovery ? '重新选择原始文件以恢复传输' : '上传私有附件' }}</label><input id="private-upload" type="file" :accept="kind === 'textbook' ? '.pdf,.docx,.png,.jpg,.jpeg,.txt' : '.pdf,.png,.jpg,.jpeg,.txt'" :disabled="disabled || busy || pending" @change="upload" /><p class="field-help">最多 10 MiB。先保存草稿再上传。刷新后从服务端恢复未绑定文件，不保存敏感内容到浏览器存储。</p></div>
     <p v-if="message" role="status">{{ message }}</p>
     <button v-if="pending" type="button" class="button secondary" :disabled="busy || disabled" @click="resume">查询并恢复原上传请求（固定幂等键）</button>
     <button type="button" class="button secondary" :disabled="busy" @click="load(false)">刷新附件状态</button>

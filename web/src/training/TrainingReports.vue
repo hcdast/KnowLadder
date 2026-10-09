@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { ApiError, type BusinessRequest } from "../session";
 type Row = Record<string, any>;
+const detailHeading = ref<HTMLElement>();
+const actionStatus = ref<HTMLElement>();
 const props = defineProps<{
   request: BusinessRequest;
   write: (path: string, body: unknown) => Promise<any>;
@@ -114,6 +116,8 @@ async function open(row: Row) {
     note.value = "";
     message.value = "";
     await loadAi();
+    await nextTick();
+    if (alive && selected.value?._id === row._id && document.activeElement === document.body) detailHeading.value?.focus();
   } catch (e) {
     failure(e);
   } finally {
@@ -156,6 +160,8 @@ async function save() {
     emit("dirty", false);
     message.value = "草稿已保存";
     await load();
+    await nextTick();
+    if (alive && selected.value?._id === row._id && document.activeElement === document.body) actionStatus.value?.focus();
   }
 }
 async function act(action: string) {
@@ -177,6 +183,8 @@ async function act(action: string) {
     acceptConfirmed.value = false;
     message.value = "报告状态已更新";
     await load();
+    await nextTick();
+    if (alive && selected.value?._id === row._id && document.activeElement === document.body) actionStatus.value?.focus();
   }
 }
 async function loadAi() {
@@ -242,7 +250,7 @@ onBeforeUnmount(() => {
     <p class="muted">
       报告区分培训完成情况与知识掌握情况。正文由教师确认，送审后由独立审核人发布。
     </p>
-    <p v-if="message" role="status" class="notice">{{ message }}</p>
+    <p v-if="message" ref="actionStatus" role="status" tabindex="-1" class="notice">{{ message }}</p>
     <div class="actions">
       <button class="button secondary" :disabled="busy" @click="load">
         刷新报告列表</button
@@ -264,6 +272,7 @@ onBeforeUnmount(() => {
     </ul>
     <p v-if="!items.length && !busy" class="muted">暂无可访问的报告。</p>
     <form v-if="canEdit || selected" @submit.prevent="save">
+      <h4 v-if="selected" ref="detailHeading" tabindex="-1">{{ selected.title }}</h4>
       <div v-if="!selected" class="form-grid">
         <label
           >班级<select
@@ -310,7 +319,7 @@ onBeforeUnmount(() => {
           {{ facts.learning.mastery_bands.mastered }}。
         </p>
         <p v-if="facts.training">
-          培训任务：{{ facts.training.title }}；完成
+          培训任务：{{ facts.training.title }}；{{ facts.training.target_type === 'quiz' ? '已提交人数' : '完成人数' }}
           {{
             facts.training.completion_count == null
               ? "证据未接入"

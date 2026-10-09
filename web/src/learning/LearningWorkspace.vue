@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import BrandIcon from '../components/BrandIcon.vue';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiError, type BusinessRequest, type Identity } from '../session';
 import AssessmentSession from '../assessment/AssessmentSession.vue';
 import type { Answer, Editions, Mastery, Mistake, Mistakes, PracticeOptions, Quizzes, Recommendation, Recommendations, Recovery, Reports, Session, Submission } from './types';
@@ -8,6 +8,7 @@ const props = defineProps<{ identity: Identity; request: BusinessRequest }>();
 const emit = defineEmits<{ dirty: [value: boolean]; unknown: [value: boolean]; read: [target: { editionId: string; chapterId: string }] }>();
 const caps = props.identity.context?.capabilities || [];
 const allowed = caps.includes('learning:self') && !caps.some(c => ['content:edit', 'content:review', 'assessment:manage', 'assessment:review'].includes(c));
+const mistakeHeading = ref<HTMLElement>();
 const mode = ref<'mastery' | 'mistakes' | 'recommendations'>('mastery');
 const period = ref<'mastery' | '7d' | '30d'>('mastery'), status = ref<'active' | 'resolved' | 'all'>('active');
 const subject = ref(''), subjectInput = ref(''), edition = ref(''), options = ref<PracticeOptions>();
@@ -54,7 +55,10 @@ function fail(cause: unknown) {
 function canLeave() { if (unknown.value) { error.value = '请先使用原请求编号确认创建或作答结果。'; return false; } return !childDirty.value || window.confirm('存在未保存作答，确定放弃并返回学情？'); }
 async function navigate(value: typeof mode.value) {
   if (writeBusy.value || !canLeave()) return;
+  const trigger = document.activeElement instanceof HTMLButtonElement ? document.activeElement : undefined;
   selectedSession.value = ''; childDirty.value = false; childUnknown.value = false; mode.value = value; clearViews(); await load();
+  await nextTick();
+  if (alive && !denied.value && mode.value === value && trigger?.isConnected && !trigger.disabled && document.activeElement === document.body) trigger.focus();
 }
 async function catalogue(next: 'books' | 'quizzes' | null = null) {
   if (!allowed || denied.value || catalogueBusy.value || cooldown.value) return;
@@ -72,6 +76,11 @@ async function chooseEdition() {
   catch (cause) { if (token === serial) fail(cause); }
   finally { if (alive && token === serial) busy.value = false; }
   if (alive && token === serial && options.value) await load();
+}
+async function choosePeriod(value: 'mastery' | '7d' | '30d', event: Event) {
+  const trigger = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : undefined;
+  period.value = value; await load(); await nextTick();
+  if (alive && !denied.value && mode.value === 'mastery' && period.value === value && trigger?.isConnected && !trigger.disabled && document.activeElement === document.body) trigger.focus();
 }
 async function chooseSubject() { if (options.value?.subject_id !== subject.value) { edition.value = ''; options.value = undefined; } await load(); }
 async function load(next = false, retry = true) {
@@ -106,7 +115,7 @@ async function load(next = false, retry = true) {
 function readyStatus(value: string) { return value === 'ready' || value === 'insufficient_evidence'; }
 async function openMistake(id: string) {
   if (locked.value) return; const token = ++serial; busy.value = true; detail.value = undefined; error.value = '';
-  try { const value = await props.request<Mistake>(`/me/mistakes/${encodeURIComponent(id)}`, { signal: life.signal }); if (!alive || token !== serial) return; if (value.source_watermark !== mistakes.value?.source_watermark) throw new ApiError(409, '错题证据已变化', {}, '', '', 'PROJECTION_CHANGED'); if (readyStatus(value.status)) detail.value = value; else { clearViews(); notice.value = '错题证据正在更新或暂不可用，请重新读取。'; } }
+  try { const value = await props.request<Mistake>(`/me/mistakes/${encodeURIComponent(id)}`, { signal: life.signal }); if (!alive || token !== serial) return; if (value.source_watermark !== mistakes.value?.source_watermark) throw new ApiError(409, '错题证据已变化', {}, '', '', 'PROJECTION_CHANGED'); if (readyStatus(value.status)) { detail.value = value; await nextTick(); if (alive && token === serial && !denied.value && detail.value?.id === id) mistakeHeading.value?.focus(); } else { clearViews(); notice.value = '错题证据正在更新或暂不可用，请重新读取。'; } }
   catch (cause) { if (!alive || token !== serial) return; if (cause instanceof ApiError && cause.status === 409 && cause.code === 'PROJECTION_CHANGED') { clearViews(); notice.value = '错题版本已变化，已重新读取列表。'; await load(); } else fail(cause); }
   finally { if (alive && token === serial) busy.value = false; }
 }
@@ -185,7 +194,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
         <div class="content-columns"><div class="field"><label for="learning-edition">教材版本（推荐必选）</label><select id="learning-edition" v-model="edition" :disabled="locked" @change="chooseEdition"><option value="">不限定教材 / 考试学科</option><option v-for="book in books" :key="book.id" :value="book.id">{{ book.title }} · {{ book.edition_code }}</option></select><button v-if="bookCursor" class="text-button" :disabled="locked" @click="catalogue('books')">加载更多真实教材</button></div><div class="field"><label for="learning-subject">学科</label><select id="learning-subject" v-model="subject" :disabled="locked || mode === 'recommendations'" @change="chooseSubject"><option value="">选择教材或考试学科</option><option v-for="id in subjects" :key="id" :value="id">{{ id === options?.subject_id ? '所选教材学科' : '学科' }} · {{ id }}</option></select><p class="field-help">学科来自真实教材与可见考试；没有教材的考试学科也可查阅学情。接口未提供名称时保留真实编号。</p><button v-if="quizCursor" class="text-button" :disabled="locked" @click="catalogue('quizzes')">加载更多考试学科</button></div></div>
         <details v-if="mode !== 'recommendations'"><summary>按已知学科编号读取（含历史考试）</summary><form class="stack" @submit.prevent="subject = subjectInput; chooseSubject()"><label for="learning-subject-id">真实学科编号</label><input id="learning-subject-id" v-model="subjectInput" :disabled="locked" required pattern="[0-9a-f]{24}" /><p class="field-help">历史会话接口不返回学科编号；请使用已知真实编号，系统不推测考试归属。</p><button class="button secondary" :disabled="locked">读取学科</button></form></details>
         <button class="text-button" :disabled="locked" @click="catalogue()">重新读取教材与考试目录</button>
-        <nav v-if="mode === 'mastery'" class="content-toolbar" aria-label="报告窗口"><button v-for="tab in (['mastery', '7d', '30d'] as const)" :key="tab" class="button secondary" :disabled="locked" :aria-pressed="period === tab" @click="period = tab; load()">{{ tab === 'mastery' ? '90天掌握度' : tab === '7d' ? '最近7天报告' : '最近30天报告' }}</button></nav>
+        <nav v-if="mode === 'mastery'" class="content-toolbar" aria-label="报告窗口"><button v-for="tab in (['mastery', '7d', '30d'] as const)" :key="tab" class="button secondary" :disabled="locked" :aria-pressed="period === tab" @click="choosePeriod(tab, $event)">{{ tab === 'mastery' ? '90天掌握度' : tab === '7d' ? '最近7天报告' : '最近30天报告' }}</button></nav>
         <div v-if="mode === 'mistakes'" class="field"><label for="mistake-status">错题状态</label><select id="mistake-status" v-model="status" :disabled="locked" @change="load()"><option value="active">待解决</option><option value="resolved">已解决</option><option value="all">全部</option></select></div>
         <div class="actions"><button class="button secondary" :disabled="locked || (mode === 'recommendations' ? !edition : !subject)" @click="load()">重新读取当前视图</button></div>
         <p v-if="busy || catalogueBusy" role="status">正在读取真实数据…</p>
@@ -200,7 +209,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
               <h3>90天掌握度 · 首次记录作答</h3><p v-if="!rows.length">暂无可见独立证据。完成真实练习后，等待服务器生成诊断。</p><ul class="content-list"><li v-for="row in rows" :key="row.knowledge_point_id"><div class="stack"><h4>{{ pointName(row.knowledge_point_id) }}</h4><p>{{ row.mastery === null ? '待诊断（不足5道合格首次题）' : `掌握度 ${row.mastery}%` }} · {{ row.independent_question_count }} 道独立首次题</p><p>精确分子 / 分母：{{ row.numerator }} / {{ row.denominator }}</p><p class="field-help">最后证据：{{ row.last_evidence_at }} · {{ row.status === 'weak' ? '薄弱' : row.status === 'developing' ? '巩固中' : row.status === 'mastered' ? '已掌握' : '证据不足' }}</p></div></li></ul><button v-if="mastery?.next_cursor" class="button secondary" :disabled="locked" @click="load(true)">加载更多掌握度</button>
             </section>
             <section v-else-if="mode === 'mistakes' && mistakes" class="stack" aria-label="错题列表"><p>当前可见 {{ mistakes.total }} 道错题。按题目身份归并；最新有效作答决定是否已解决。</p><p v-if="!mistakes.items.length">当前筛选没有可见错题。可切换状态或在完成练习后重新读取。</p><ul class="content-list"><li v-for="row in mistakes.items" :key="row.id"><div><h3>{{ row.title }}</h3><p>{{ row.status === 'active' ? '待解决' : '已解决' }} · 最后作答 {{ row.last_attempt_at }}</p></div><button class="button secondary" :disabled="locked" @click="openMistake(row.id)">查看原作答与有效解析</button></li></ul><button v-if="mistakes.next_cursor" class="button secondary" :disabled="locked" @click="load(true)">加载更多错题</button>
-              <article v-if="detail" class="content-section stack" aria-label="错题详情"><h3>{{ detail.question.title }}</h3><p class="reading-body">{{ detail.question.prompt }}</p><ul><li v-for="option in detail.question.options" :key="option.id">{{ option.id }}. {{ option.text }}</li></ul><p>原作答：{{ answer(detail.student_answer) }}</p><p>当前有效标准答案：{{ detail.standard_answer }}</p><p class="reading-body">有效解析：{{ detail.explanation || '当前有效版本未提供解析。' }}</p><p>得分 {{ detail.score }} / {{ detail.question.max_score }} · 有效评分修订 {{ detail.grading_revision }} · {{ detail.verdict === 'correct' ? '正确' : detail.verdict === 'incorrect' ? '错误' : '未答' }}</p><div class="actions"><button v-for="file in detail.question.resource_ids" :key="file" class="button secondary" :disabled="locked" @click="download(file)">下载原题附件 {{ file }}</button></div><p class="field-help">重练使用当前合法已发布版本，题面可能变化；原题及原作答不会被覆盖。重复练习影响错题解决状态，不刷高首次掌握度证据。</p><p v-if="unavailablePractice.includes(detail.id)" class="notice">当前没有合法已发布版本可供重练，请等待内容更新。</p><button class="button" :disabled="locked || unavailablePractice.includes(detail.id)" @click="create('learning.mistake.practice', detail.id)">使用当前版本重练</button></article>
+              <article v-if="detail" class="content-section stack" aria-label="错题详情"><h3 ref="mistakeHeading" tabindex="-1">{{ detail.question.title }}</h3><p class="reading-body">{{ detail.question.prompt }}</p><ul><li v-for="option in detail.question.options" :key="option.id">{{ option.id }}. {{ option.text }}</li></ul><p>原作答：{{ answer(detail.student_answer) }}</p><p>当前有效标准答案：{{ detail.standard_answer }}</p><p class="reading-body">有效解析：{{ detail.explanation || '当前有效版本未提供解析。' }}</p><p>得分 {{ detail.score }} / {{ detail.question.max_score }} · 有效评分修订 {{ detail.grading_revision }} · {{ detail.verdict === 'correct' ? '正确' : detail.verdict === 'incorrect' ? '错误' : '未答' }}</p><div class="actions"><button v-for="file in detail.question.resource_ids" :key="file" class="button secondary" :disabled="locked" @click="download(file)">下载原题附件 {{ file }}</button></div><p class="field-help">重练使用当前合法已发布版本，题面可能变化；原题及原作答不会被覆盖。重复练习影响错题解决状态，不刷高首次掌握度证据。</p><p v-if="unavailablePractice.includes(detail.id)" class="notice">当前没有合法已发布版本可供重练，请等待内容更新。</p><button class="button" :disabled="locked || unavailablePractice.includes(detail.id)" @click="create('learning.mistake.practice', detail.id)">使用当前版本重练</button></article>
             </section>
             <section v-else-if="mode === 'recommendations' && recommendations" class="stack" aria-label="推荐内容"><p>本期不使用先修关系，不推断先修已满足；知识图谱尚未参与推荐。</p><p v-if="!recommendations.items.length">{{ recommendations.empty_reason === 'NO_ELIGIBLE_CONTENT' ? '当前无合法候选内容。可换一本教材或在内容更新后重试。' : '当前没有可展示推荐，请稍后重新读取。' }}</p><ol class="content-list"><li v-for="card in recommendations.items.slice(0, 3)" :key="card.id"><div class="stack"><h3>{{ card.kind === 'reading' ? '关联章节阅读' : `${card.difficulty}练习 · ${card.count}题` }}</h3><p>{{ card.reason }}</p><p>合格首次题 {{ card.independent_question_count }} 道 · {{ card.mastery === null ? '待诊断' : `掌握度 ${card.mastery}%` }}</p><button v-if="card.kind === 'reading'" class="button secondary" :disabled="locked || !card.chapter_id" @click="readCard(card)">阅读关联章节</button><button v-else class="button" :disabled="locked" @click="create('learning.recommendation.practice', card.id)">接受练习推荐</button><p class="field-help">有效至 {{ card.expires_at }}</p></div></li></ol><p class="field-help">候选不足时不凑题；接受时由服务器重新核验，过期后刷新候选。阅读导航不承诺24小时去重。</p></section>
           </template>

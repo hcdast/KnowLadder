@@ -24,7 +24,7 @@ export function canAddPeopleRole(context: ConsoleContext, organization: Organiza
 }
 
 export function isUserId(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
+  return /^[0-9a-f]{24}$/.test(value);
 }
 
 export function sameUserName(users: readonly Pick<User, "id" | "display_name">[], user: Pick<User, "id" | "display_name">): boolean {

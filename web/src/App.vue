@@ -1352,6 +1352,7 @@ async function retry() {
         :request="businessRequest"
         @dirty="trainingDirty = $event"
         @unknown="trainingUnknown = $event"
+          @reading="openReading"
       />
       <PrivacyWorkspace
         v-if="
