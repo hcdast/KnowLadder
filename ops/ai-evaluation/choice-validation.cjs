@@ -1,0 +1,9 @@
+'use strict';
+const path=require('node:path');
+const {validateQuestion,object,text}=require('../../server/dist/content/dto');
+const {scoreAnswer}=require('../../server/dist/assessment/scoring');
+const {Decimal128}=require(path.resolve(__dirname,'../../server/node_modules/mongodb'));
+const pack=require('./choice-cases.json');
+function requestCase(c){return {id:c.id,kind:'questions',prompt:'依据原创题干和固定选项生成候选。外层返回text及source_keys，text是JSON字符串，只含question_type,prompt,options,answer,explanation,scoring_rule。题干和选项保持完全一致。answer使用选项id，多选用英文逗号。scoring_rule={version:1,strategy:'+ (c.question_type==='single'?'single_exact':'multiple_exact_set')+',max_score:"1"}。不要生成知识点或执行发布。',sources:[{key:'choice-original',title:'原创整数选择题',text:JSON.stringify({question_type:c.question_type,prompt:c.prompt,options:c.options})}]};}
+function validate(c,raw){try{const q=JSON.parse(raw);object(q,['question_type','prompt','options','answer','explanation','scoring_rule']);text(q.prompt,'prompt',2000);text(q.answer,'answer',100);text(q.explanation,'explanation',4000);if(q.question_type!==c.question_type||q.prompt!==c.prompt||JSON.stringify(q.options)!==JSON.stringify(c.options))throw Error('SOURCE_CHANGED');const k='000000000000000000000001';const candidate={...q,knowledge_point_ids:[k],knowledge_weights:[{knowledge_point_id:k,weight_bps:10000}],difficulty_basis:'原创整数选择专项'};validateQuestion(candidate);if(q.scoring_rule.max_score!=='1')throw Error('MAX_SCORE_CHANGED');const value={selected_option_ids:q.answer.split(',').map(x=>x.trim())};if(scoreAnswer({...candidate,answer:c.expected},value,Decimal128.fromString('1.00')).verdict!=='correct')throw Error('ORACLE_ANSWER_MISMATCH');return {status:'pass',candidate:q,human_quality:'not_reviewed'};}catch(e){return {status:'fail',code:['SOURCE_CHANGED','MAX_SCORE_CHANGED','ORACLE_ANSWER_MISMATCH'].includes(e.message)?e.message:e.code||'INVALID_CHOICE_CANDIDATE'};}}
+module.exports={pack,requestCase,validate};

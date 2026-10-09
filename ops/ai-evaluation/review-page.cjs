@@ -19,7 +19,16 @@ function prepare(pack){
     if(c.kind==='questions')hints.push('题目建议仍是自由文本，须人工确认题型、选项、答案和解析后通过正式题库契约。');
     if(c.scenario==='证据不足')hints.push('来源不含实时价格，重点核对是否明确说明未知、是否编造收费信息。');
     if(c.kind==='learning-report')hints.push('核对建议与分布是否相符；培训完成率未知，不应推断个人能力。');
-    return {case_id:c.id,kind:c.kind,topic:c.topic,scenario:c.scenario,prompt:c.prompt,sources:c.sources,criteria:c.review_criteria,output,response_sha256:digest,structure:'pass',hints};
+    const findings=[];
+    if(c.kind==='learning-report'){
+      const facts=JSON.parse(c.sources[0].text);
+      // A narrowly scoped screening hint, not a general semantic or human-quality verdict.
+      if(facts.mastery_bands.insufficient_evidence===0 && /(?:^|[，；。])(?:同时也|同时|仍|也)?存在(?:一些|部分)?证据不足/.test(output.interpretation)){
+        findings.push({code:'POSSIBLE_UNSUPPORTED_EVIDENCE_BAND',status:'needs_human_review',basis:'来源的insufficient_evidence为0，但解释中出现“存在证据不足”的肯定表述。'});
+        hints.push('自动筛查提示：来源证据不足分类为0，解释却可能声称该分类存在，请重点复核；此提示不替代人工结论。');
+      }
+    }
+    return {case_id:c.id,kind:c.kind,topic:c.topic,scenario:c.scenario,prompt:c.prompt,sources:c.sources,criteria:c.review_criteria,output,response_sha256:digest,structure:'pass',hints,automated_findings:findings};
   });
   return {model:pack.model,corpus_sha256:pack.corpus_sha256,rows,coverage:{assist:20,prepare:10,questions:20,'learning-report':10,numeric_question_cases:0},human_quality:'not_reviewed'};
 }

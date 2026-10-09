@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "provenance": "KnowLadder原创数值题补充；独立于已冻结60例，不包含真实学员或教材",
+  "cases": [
+    {"id":"numeric-01","expression":"0.1+0.2","expected":"0.3","basis":"整数十分位相加：1+2=3，再除以10"},
+    {"id":"numeric-02","expression":"3.5-1.25","expected":"2.25","basis":"整数百分位相减：350-125=225，再除以100"},
+    {"id":"numeric-03","expression":"2.5*4","expected":"10","basis":"整数十分位相乘：25*4=100，再除以10"},
+    {"id":"numeric-04","expression":"1.2e3+3e2","expected":"1500","basis":"1200+300=1500"},
+    {"id":"numeric-05","expression":"-2+2","expected":"0","basis":"相反数相加为0，正负零十进制等价"}
+  ]
+}

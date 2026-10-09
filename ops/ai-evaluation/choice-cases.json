@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "choice-single-01",
+      "question_type": "single",
+      "prompt": "选出2加3的结果",
+      "options": [
+        {
+          "id": "A",
+          "text": "4"
+        },
+        {
+          "id": "B",
+          "text": "5"
+        },
+        {
+          "id": "C",
+          "text": "6"
+        }
+      ],
+      "expected": "B",
+      "basis": "整数加法2+3=5"
+    },
+    {
+      "id": "choice-single-02",
+      "question_type": "single",
+      "prompt": "选出三个连续整数4、5、6中最大的数",
+      "options": [
+        {
+          "id": "A",
+          "text": "4"
+        },
+        {
+          "id": "B",
+          "text": "6"
+        },
+        {
+          "id": "C",
+          "text": "5"
+        }
+      ],
+      "expected": "B",
+      "basis": "整数排序6大于5大于4"
+    },
+    {
+      "id": "choice-multiple-01",
+      "question_type": "multiple",
+      "prompt": "选出以下全部偶数",
+      "options": [
+        {
+          "id": "A",
+          "text": "2"
+        },
+        {
+          "id": "B",
+          "text": "3"
+        },
+        {
+          "id": "C",
+          "text": "4"
+        },
+        {
+          "id": "D",
+          "text": "5"
+        }
+      ],
+      "expected": "A,C",
+      "basis": "2和4可被2整除，3和5不可以"
+    },
+    {
+      "id": "choice-multiple-02",
+      "question_type": "multiple",
+      "prompt": "选出以下全部大于10的整数",
+      "options": [
+        {
+          "id": "A",
+          "text": "11"
+        },
+        {
+          "id": "B",
+          "text": "10"
+        },
+        {
+          "id": "C",
+          "text": "12"
+        },
+        {
+          "id": "D",
+          "text": "9"
+        }
+      ],
+      "expected": "A,C",
+      "basis": "11与12严格大于10"
+    }
+  ]
+}
