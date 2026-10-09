@@ -1,0 +1,45 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 阅读真实HTTP：未开始、UTF16边界、显式完成、回读与原事件回执
+ok 1 - 阅读真实HTTP：未开始、UTF16边界、显式完成、回读与原事件回执
+  ---
+  duration_ms: 7014.0336
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 阅读CAS、事务回滚及权限/教材许可重新检查
+ok 2 - 阅读CAS、事务回滚及权限/教材许可重新检查
+  ---
+  duration_ms: 5841.2246
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 阅读留存：90天仅删raw、180天CAS墓碑、旧事件不能复活
+ok 3 - 阅读留存：90天仅删raw、180天CAS墓碑、旧事件不能复活
+  ---
+  duration_ms: 5100.9313
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 阅读分页绑定身份和教材revision，无记录章也明确返回null
+ok 4 - 阅读分页绑定身份和教材revision，无记录章也明确返回null
+  ---
+  duration_ms: 5147.4778
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 阅读提交确认丢失后重试commit并按原event恢复，无重复写
+ok 5 - 阅读提交确认丢失后重试commit并按原event恢复，无重复写
+  ---
+  duration_ms: 4660.7192
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 27974.6881

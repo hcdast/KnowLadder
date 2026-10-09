@@ -1,0 +1,4 @@
+require('reflect-metadata');
+const parser=require('../dist/training/import-parser-process'),original=parser.extractInProcess;
+parser.extractInProcess=async(...args)=>{process.send({event:'parsing'});await new Promise(resolve=>process.once('message',m=>{if(m==='resume')resolve();}));return original(...args);};
+(async()=>{const {createApp}=require('../dist/app'),{Database}=require('../dist/database/database'),{AuthService}=require('../dist/auth.service'),{ContentAccess}=require('../dist/content/access');const app=await createApp();try{const processed=await require('../dist/training/import-worker').processImportOne(app.get(Database),app.get(AuthService),app.get(ContentAccess));process.send({event:'finished',processed});}finally{await app.close();process.disconnect();}})().catch(()=>{process.send?.({event:'failed'});process.exitCode=1;process.disconnect?.();});

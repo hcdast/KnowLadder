@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-05",
+  "pass": 2,
+  "fail": 0,
+  "skip": 0,
+  "seconds": 116.9976118,
+  "syntax": "three cjs passed",
+  "pdf": {
+    "pages": 1,
+    "bytes": 1755,
+    "text": true,
+    "render": true
+  },
+  "links": {
+    "count": 247,
+    "issues": []
+  },
+  "review": "固定完整PDF摘要、真实官方worker、职责分离、Range字节、撤权、全业务恢复旧身份拒绝和清理范围已核对",
+  "remaining": [
+    "正式Vue PDF资料读取下载与撤权清空",
+    "完整工作区无障碍",
+    "人工与生产准入"
+  ],
+  "external_model_requests": 0,
+  "commit": false,
+  "push": false
+}

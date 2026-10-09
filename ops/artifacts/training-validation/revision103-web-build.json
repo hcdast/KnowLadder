@@ -1,0 +1,20 @@
+[
+  {
+    "args": [
+      "node_modules/vue-tsc/bin/vue-tsc.js",
+      "--noEmit"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "args": [
+      "node_modules/vite/bin/vite.js",
+      "build"
+    ],
+    "exit": 0,
+    "stdout": "\u001b[36mvite v7.3.6 \u001b[32mbuilding client environment for production...\u001b[36m\u001b[39m\ntransforming...\n\u001b[32m✓\u001b[39m 117 modules transformed.\nrendering chunks...\ncomputing gzip size...\n\u001b[2mdist/\u001b[22m\u001b[32mindex.html                            \u001b[39m\u001b[1m\u001b[2m  0.46 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   0.32 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[35massets/ConsoleWorkspace-Bqgp_KHL.css  \u001b[39m\u001b[1m\u001b[2m 15.66 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   3.66 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[35massets/index-Dqrhmxrw.css             \u001b[39m\u001b[1m\u001b[2m 30.64 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:   6.79 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[36massets/ConsoleWorkspace-CPzj6HtN.js   \u001b[39m\u001b[1m\u001b[2m177.51 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip:  51.74 kB\u001b[22m\n\u001b[2mdist/\u001b[22m\u001b[36massets/index-2i4Ztlev.js              \u001b[39m\u001b[1m\u001b[2m460.28 kB\u001b[22m\u001b[1m\u001b[22m\u001b[2m │ gzip: 146.00 kB\u001b[22m\n\u001b[32m✓ built in 2.10s\u001b[39m\n",
+    "stderr": ""
+  }
+]

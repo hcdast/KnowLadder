@@ -1,0 +1,16 @@
+TAP version 13
+# Subtest: 培训媒体：真实分块落盘仅到隔离区、格式/开关/摘要拒绝
+ok 1 - 培训媒体：真实分块落盘仅到隔离区、格式/开关/摘要拒绝
+  ---
+  duration_ms: 11613.9846
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11880.8043

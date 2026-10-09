@@ -1,0 +1,36 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 测验任务完成统计 replicaSet
+ok 1 - 测验任务完成统计 replicaSet
+  ---
+  duration_ms: 11030.3359
+  type: 'test'
+  ...
+# Subtest: 测验任务完成统计 standalone
+not ok 2 - 测验任务完成统计 standalone
+  ---
+  duration_ms: 1435.9018
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\training-quiz-completion.integration.test.cjs:3:51'
+  failureType: 'testCodeFailure'
+  error: 'Training migration requires replicaSet'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    migrateTraining (D:\my-workspace\KnowLadder\server\dist\training\schema.js:316:15)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async migrate (D:\my-workspace\KnowLadder\server\dist\migrations\schema.js:930:9)
+    async fixture (D:\my-workspace\KnowLadder\server\test\helpers.cjs:152:17)
+    async assessmentFixture (D:\my-workspace\KnowLadder\server\test\assessment-helpers.cjs:40:13)
+    async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\training-quiz-completion.integration.test.cjs:4:15)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 1
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 12647.4975

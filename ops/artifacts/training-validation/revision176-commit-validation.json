@@ -1,0 +1,63 @@
+{
+  "revision": 176,
+  "branch": "develop",
+  "baseCommit": "0526245e3c2f2214b00a4ab0fef83fc37ffc8c7a",
+  "scope": "verified-project-changes-only",
+  "pendingDeploymentExcluded": [
+    "ecosystem.config.js",
+    "ops/pm2-backend.cjs",
+    "docs/账号密码.md",
+    "ops/artifacts/training-validation/revision175-atlas-capabilities.json",
+    "ops/artifacts/training-validation/revision175-db-before.json",
+    "ops/artifacts/training-validation/revision175-schema-audit.json",
+    "ops/backend-preflight.cjs",
+    "ops/download-clamav.cjs",
+    "ops/schema-repair.cjs",
+    "ops/setup-windows-scanner.ps1",
+    "server/src/migrations/collection-options.ts",
+    "server/src/runtime/writer-identity.ts",
+    "server/test/pm2-backend.integration.test.cjs",
+    "server/test/pm2-backend.test.cjs",
+    "server/test/schema-repair.integration.test.cjs"
+  ],
+  "partialStaging": [
+    "server/src/assessment/worker.ts",
+    "server/src/config.ts",
+    "server/src/files/worker.ts",
+    "server/src/learning/worker.ts",
+    "server/src/main.ts",
+    "server/src/operations/control.ts",
+    "server/src/training/schema.ts",
+    "server/src/runtime/feature-flags.ts",
+    "server/src/runtime/process-lifecycle.ts",
+    "server/src/training/import-worker.ts",
+    "server/src/training/knowledge-schema.ts",
+    "server/src/training/knowledge-worker.ts"
+  ],
+  "validation": {
+    "node": "22.19.0",
+    "mongo": "8.0.17 isolated kl_test_/kl_restore_",
+    "candidateBackendBuild": "passed",
+    "candidateVueTypeCheck": "passed",
+    "candidateViteBuild": "passed",
+    "offline": {
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0
+    },
+    "mongoHttpPrivacyRecovery": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0
+    },
+    "secretScan": {
+      "textFiles": 497,
+      "actualEnvironmentSecretMatches": 0,
+      "providerPatternReviewed": "Unsplash URL false positive"
+    },
+    "screenshotsReviewed": 38
+  },
+  "realDatabaseModified": false,
+  "realEnvironmentModified": false,
+  "pushAuthorized": false
+}

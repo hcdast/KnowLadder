@@ -1,0 +1,33 @@
+{
+  "checkedAt": "2026-10-05",
+  "pathTools": {
+    "ffmpeg": true,
+    "ffprobe": true,
+    "clamscan": false
+  },
+  "specificClamAvPathsChecked": [
+    "C:/Program Files/ClamAV/clamscan.exe",
+    "C:/ClamAV/clamscan.exe",
+    "D:/tools/clamav/clamscan.exe",
+    "E:/tools/clamav/clamscan.exe"
+  ],
+  "wsl": {
+    "command": "wsl --list --quiet",
+    "timeoutMs": 10000,
+    "timedOut": true
+  },
+  "original": {
+    "bytes": 5839,
+    "sha256": "a6dd136561334e9dc6fd96f0b3640014c2f40cf0b11e0a1f1acb371588441ab9",
+    "scan_status": "not_scanned"
+  },
+  "courseScanPlayback": "blocked_no_verified_scanner",
+  "infectionTest": "deferred_by_user",
+  "modelCalls": 0,
+  "scannerConfiguration": {
+    "configured": true,
+    "engineExists": false,
+    "databaseConfigured": true
+  },
+  "pathProbe": "read-only PowerShell found existing WinGet ffmpeg/ffprobe; inherited child PATH omitted them"
+}

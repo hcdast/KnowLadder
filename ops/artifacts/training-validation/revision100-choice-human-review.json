@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "model": "gpt-5.5",
+  "human_quality": "not_reviewed",
+  "cost_usd": null,
+  "records": [
+    {
+      "case": {
+        "id": "choice-single-01",
+        "question_type": "single",
+        "prompt": "选出2加3的结果",
+        "options": [
+          {
+            "id": "A",
+            "text": "4"
+          },
+          {
+            "id": "B",
+            "text": "5"
+          },
+          {
+            "id": "C",
+            "text": "6"
+          }
+        ],
+        "expected": "B",
+        "basis": "整数加法2+3=5"
+      },
+      "candidate": {
+        "question_type": "single",
+        "prompt": "选出2加3的结果",
+        "options": [
+          {
+            "id": "A",
+            "text": "4"
+          },
+          {
+            "id": "B",
+            "text": "5"
+          },
+          {
+            "id": "C",
+            "text": "6"
+          }
+        ],
+        "answer": "B",
+        "explanation": "2加3等于5，因此正确选项是B。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "single_exact",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "8d12afca47160e6871a256e621690c0b5bf2e736ff0168ba9f0243349dd2d94e",
+      "reviews": [
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case": {
+        "id": "choice-single-02",
+        "question_type": "single",
+        "prompt": "选出三个连续整数4、5、6中最大的数",
+        "options": [
+          {
+            "id": "A",
+            "text": "4"
+          },
+          {
+            "id": "B",
+            "text": "6"
+          },
+          {
+            "id": "C",
+            "text": "5"
+          }
+        ],
+        "expected": "B",
+        "basis": "整数排序6大于5大于4"
+      },
+      "candidate": {
+        "question_type": "single",
+        "prompt": "选出三个连续整数4、5、6中最大的数",
+        "options": [
+          {
+            "id": "A",
+            "text": "4"
+          },
+          {
+            "id": "B",
+            "text": "6"
+          },
+          {
+            "id": "C",
+            "text": "5"
+          }
+        ],
+        "answer": "B",
+        "explanation": "三个连续整数4、5、6中，6最大，对应选项B。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "single_exact",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "7ef3af8d5eafd74346f166e40384f09e5fa29bcc896a23de19b8dbb4fcd1e3e9",
+      "reviews": [
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case": {
+        "id": "choice-multiple-01",
+        "question_type": "multiple",
+        "prompt": "选出以下全部偶数",
+        "options": [
+          {
+            "id": "A",
+            "text": "2"
+          },
+          {
+            "id": "B",
+            "text": "3"
+          },
+          {
+            "id": "C",
+            "text": "4"
+          },
+          {
+            "id": "D",
+            "text": "5"
+          }
+        ],
+        "expected": "A,C",
+        "basis": "2和4可被2整除，3和5不可以"
+      },
+      "candidate": {
+        "question_type": "multiple",
+        "prompt": "选出以下全部偶数",
+        "options": [
+          {
+            "id": "A",
+            "text": "2"
+          },
+          {
+            "id": "B",
+            "text": "3"
+          },
+          {
+            "id": "C",
+            "text": "4"
+          },
+          {
+            "id": "D",
+            "text": "5"
+          }
+        ],
+        "answer": "A,C",
+        "explanation": "2和4能被2整除，是偶数；3和5不能被2整除，不是偶数。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "multiple_exact_set",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "e12d193b3376a23a4c5c5f3d32476f55063e7cdb8e69f00d4d5220aed5f10517",
+      "reviews": [
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case": {
+        "id": "choice-multiple-02",
+        "question_type": "multiple",
+        "prompt": "选出以下全部大于10的整数",
+        "options": [
+          {
+            "id": "A",
+            "text": "11"
+          },
+          {
+            "id": "B",
+            "text": "10"
+          },
+          {
+            "id": "C",
+            "text": "12"
+          },
+          {
+            "id": "D",
+            "text": "9"
+          }
+        ],
+        "expected": "A,C",
+        "basis": "11与12严格大于10"
+      },
+      "candidate": {
+        "question_type": "multiple",
+        "prompt": "选出以下全部大于10的整数",
+        "options": [
+          {
+            "id": "A",
+            "text": "11"
+          },
+          {
+            "id": "B",
+            "text": "10"
+          },
+          {
+            "id": "C",
+            "text": "12"
+          },
+          {
+            "id": "D",
+            "text": "9"
+          }
+        ],
+        "answer": "A,C",
+        "explanation": "11和12都大于10；10等于10，不大于10；9小于10。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "multiple_exact_set",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "079b40675a770ca38024bc774f197a4a6a4c68c5ce964342c45388ea6e33351a",
+      "reviews": [
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

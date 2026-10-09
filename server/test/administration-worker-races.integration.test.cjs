@@ -1,7 +1,7 @@
 "use strict";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { randomUUID } = require("node:crypto");
+const { newId, objectIdDatabase } = require("../dist/database/object-id");
 const { isDeepStrictEqual } = require("node:util");
 const { setTimeout: delay } = require("node:timers/promises");
 const { MongoClient } = require("mongodb");
@@ -163,7 +163,7 @@ async function businessFacts(f, target) {
 }
 
 async function isolate(f, kind, actor = f.student) {
-  const userId = actor.user.user_id, operation_id = randomUUID();
+  const userId = actor.user.user_id, operation_id = newId();
   const user = await f.db.collection("users").findOne({ _id: userId });
   const before = { user_id: userId, identity_revision: user.identity_revision, credential_version: user.credential_version,
     status: user.status, privacy_state: user.privacy_state };
@@ -207,7 +207,7 @@ async function isolate(f, kind, actor = f.student) {
       const client = new MongoClient(localUri(f.uri), { serverSelectionTimeoutMS: 5000 });
       try {
         await client.connect();
-        const db = client.db();
+        const db = objectIdDatabase(client.db());
         await recoverAdministrationOperation({ client, db, operation_id, actor: "iam-worker-race-recovery",
           reason: "独立 writer 核对原不可变 fence 目标后前向完成",
           revalidate: async (op, session) => {
@@ -379,7 +379,7 @@ test("IAM standalone：claim 后管理隔离、自然过期/接管/processed 与
   await parent.test("51 个真实 HTTP 生成的隔离到期 heads 在前：processDue 仍发布正常成员且不改隔离 head", async () => {
     const blocked = await f.actor();
     const now = (await f.db.command({ hello: 1 })).localTime;
-    const subjects = Array.from({ length: 51 }, () => randomUUID());
+    const subjects = Array.from({ length: 51 }, () => newId());
     await f.db.collection("subjects").insertMany(subjects.map((id, index) => ({
       _id: id, code: `iam-prefix-${index}`, name: `隔离到期学科 ${index}`, created_at: now, updated_at: now,
     })));

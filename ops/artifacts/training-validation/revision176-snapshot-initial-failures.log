@@ -1,0 +1,84 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 批量预检查/分配和本人工作台真实HTTP
+not ok 1 - 批量预检查/分配和本人工作台真实HTTP
+  ---
+  duration_ms: 8550.2345
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\batch-workbench.integration.test.cjs:8:1'
+  failureType: 'testCodeFailure'
+  error: "ENOENT: no such file or directory, open 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\ops\\artifacts\\training-validation\\revision150-batch-workbench-openapi.json'"
+  code: 'ENOENT'
+  stack: |-
+    Object.writeFileSync (node:fs:2425:20)
+    TestContext.<anonymous> (D:\my-workspace\KnowLadder\.cache\commit-review-176\verify\server\test\batch-workbench.integration.test.cjs:392:22)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+ok 2 - 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+  ---
+  duration_ms: 5425.1696
+  type: 'test'
+  ...
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+not ok 3 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 6823.4536
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\training-phase2-privacy.integration.test.cjs:418:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Cannot find module './system-backup-archive.cjs'
+    Require stack:
+    - D:\my-workspace\KnowLadder\.cache\commit-review-176\verify\ops\system-backup.cjs
+    - D:\my-workspace\KnowLadder\.cache\commit-review-176\verify\server\test\training-phase2-privacy.integration.test.cjs
+    - D:\my-workspace\KnowLadder\.cache\commit-review-176\verify\server\test\recovery-privacy.integration.test.cjs
+  code: 'MODULE_NOT_FOUND'
+  stack: |-
+    Function._resolveFilename (node:internal/modules/cjs/loader:1383:15)
+    defaultResolveImpl (node:internal/modules/cjs/loader:1025:19)
+    resolveForCJSWithHooks (node:internal/modules/cjs/loader:1030:22)
+    Function._load (node:internal/modules/cjs/loader:1192:37)
+    TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    wrapModuleLoad (node:internal/modules/cjs/loader:237:24)
+    Module.require (node:internal/modules/cjs/loader:1463:12)
+    require (node:internal/modules/helpers:147:16)
+    Object.<anonymous> (D:\my-workspace\KnowLadder\.cache\commit-review-176\verify\ops\system-backup.cjs:5:117)
+    Module._compile (node:internal/modules/cjs/loader:1706:14)
+  ...
+# Subtest: standalone recovery: real v10/control migration, drift and restore isolation
+ok 4 - standalone recovery: real v10/control migration, drift and restore isolation
+  ---
+  duration_ms: 3861.5372
+  type: 'test'
+  ...
+# Subtest: standalone recovery: complete business schemas and privacy classification
+ok 5 - standalone recovery: complete business schemas and privacy classification
+  ---
+  duration_ms: 1833.8637
+  type: 'test'
+  ...
+# Subtest: standalone control migration: stopped writers, failed initialization/resume and registration race
+ok 6 - standalone control migration: stopped writers, failed initialization/resume and registration race
+  ---
+  duration_ms: 1775.1295
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+ok 7 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 11987.0954
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 5
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 42639.72

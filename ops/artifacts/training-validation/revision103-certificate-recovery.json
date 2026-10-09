@@ -1,0 +1,18 @@
+{
+  "environment": "Windows Node22.19.0 / Mongo8.0.17 isolated replica set / actual Vue browser",
+  "responseDropped": true,
+  "unknownVisible": true,
+  "reloaded": true,
+  "receiptConfirmed": true,
+  "tokenLength": 64,
+  "db": {
+    "certificates": 1,
+    "events": 1,
+    "receipts": 1
+  },
+  "transport": {
+    "dropped": 1,
+    "writeCount": 1,
+    "lastKey": "1b5e4644-14f9-419d-b17d-1b132e69c6e2"
+  }
+}

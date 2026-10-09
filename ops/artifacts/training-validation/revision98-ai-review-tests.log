@@ -2,105 +2,111 @@ TAP version 13
 # Subtest: blank and partial packs preserve per-capability unrun counts and pending verification
 ok 1 - blank and partial packs preserve per-capability unrun counts and pending verification
   ---
-  duration_ms: 3.0011
+  duration_ms: 3.5772
   type: 'test'
   ...
 # Subtest: unreconciled unknown charges remain reserved; token counts never become supplier fees
 ok 2 - unreconciled unknown charges remain reserved; token counts never become supplier fees
   ---
-  duration_ms: 1.6143
+  duration_ms: 1.5626
   type: 'test'
   ...
 # Subtest: five dollar aggregate cap and per-request reservations fail closed
 ok 3 - five dollar aggregate cap and per-request reservations fail closed
   ---
-  duration_ms: 2.1126
+  duration_ms: 1.9722
   type: 'test'
   ...
 # Subtest: review binds exact output and requires two distinct reviewers with complete scores
 ok 4 - review binds exact output and requires two distinct reviewers with complete scores
   ---
-  duration_ms: 1.2556
+  duration_ms: 1.6287
   type: 'test'
   ...
 # Subtest: disagreements and invalid outputs cannot be hidden by aggregate averages
 ok 5 - disagreements and invalid outputs cannot be hidden by aggregate averages
   ---
-  duration_ms: 1.2567
+  duration_ms: 1.3268
   type: 'test'
   ...
 # Subtest: duplicate cases, stale corpus and impossible reasoning usage are rejected
 ok 6 - duplicate cases, stale corpus and impossible reasoning usage are rejected
   ---
-  duration_ms: 1.2091
+  duration_ms: 1.349
   type: 'test'
   ...
 # Subtest: complete controlled declarations cannot claim real model or production admission
 ok 7 - complete controlled declarations cannot claim real model or production admission
   ---
-  duration_ms: 2.276
+  duration_ms: 2.8387
   type: 'test'
   ...
 # Subtest: CLI consumes real files, emits stable errors and never echoes malformed payloads
 ok 8 - CLI consumes real files, emits stable errors and never echoes malformed payloads
   ---
-  duration_ms: 125.6084
+  duration_ms: 139.9429
   type: 'test'
   ...
 # Subtest: 60 original cases have exact ability distribution and safe anonymous groups
 ok 9 - 60 original cases have exact ability distribution and safe anonymous groups
   ---
-  duration_ms: 2.4764
+  duration_ms: 2.3908
   type: 'test'
   ...
 # Subtest: structure pass never substitutes human pedagogical review
 ok 10 - structure pass never substitutes human pedagogical review
   ---
-  duration_ms: 0.9218
+  duration_ms: 1.0729
   type: 'test'
   ...
 # Subtest: malformed responses and unknown citations fail closed
 ok 11 - malformed responses and unknown citations fail closed
   ---
-  duration_ms: 0.2598
+  duration_ms: 0.4386
   type: 'test'
   ...
 # Subtest: learning report rejects numbers, invalid shape and empty suggestions
 ok 12 - learning report rejects numbers, invalid shape and empty suggestions
   ---
-  duration_ms: 0.3986
+  duration_ms: 0.4145
   type: 'test'
   ...
 # Subtest: preflight does not leak key or claim paid budget readiness
 ok 13 - preflight does not leak key or claim paid budget readiness
   ---
-  duration_ms: 0.2375
+  duration_ms: 0.24
   type: 'test'
   ...
 # Subtest: 60 real-output slots retain source/hash and never manufacture human scores
 ok 14 - 60 real-output slots retain source/hash and never manufacture human scores
   ---
-  duration_ms: 6.1433
+  duration_ms: 7.3349
   type: 'test'
   ...
 # Subtest: tampered outputs, duplicate IDs and mismatched corpus fail closed
 ok 15 - tampered outputs, duplicate IDs and mismatched corpus fail closed
   ---
-  duration_ms: 1.8036
+  duration_ms: 2.8598
   type: 'test'
   ...
 # Subtest: untrusted model text is escaped in HTML and embedded data
 ok 16 - untrusted model text is escaped in HTML and embedded data
   ---
-  duration_ms: 2.2256
+  duration_ms: 2.4126
   type: 'test'
   ...
-1..16
-# tests 16
+# Subtest: positive zero-band claims are flagged for humans while negation is not
+ok 17 - positive zero-band claims are flagged for humans while negation is not
+  ---
+  duration_ms: 1.6388
+  type: 'test'
+  ...
+1..17
+# tests 17
 # suites 0
-# pass 16
+# pass 17
 # fail 0
 # cancelled 0
 # skipped 0
 # todo 0
-# duration_ms 206.0479
+# duration_ms 223.8483

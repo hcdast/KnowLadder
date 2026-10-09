@@ -1,0 +1,40 @@
+TAP version 13
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 1 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 26290.7548
+  type: 'test'
+  ...
+# Subtest: v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+not ok 2 - v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+  ---
+  duration_ms: 4791.676
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\import.integration.test.cjs:58:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Nest can't resolve dependencies of the AuthService (?). Please make sure that the argument at index [0] is available in the current module.
+    
+    Potential solutions:
+    - The dependency at index [0] appears to be undefined at runtime
+    - This commonly occurs when using 'import type' instead of 'import' for injectable classes
+    - Check your imports and change:
+      ❌ import type { SomeService } from './some.service';
+      ✅ import { SomeService } from './some.service';
+    - Ensure the imported class is decorated with @Injectable() or is a valid provider
+    - If using dynamic imports, ensure the class is available at runtime, not just for type checking
+    
+    For more common dependency resolution issues, see: https://docs.nestjs.com/faq/common-errors
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    Injector.resolveSingleParam (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/injector.js:250:19)
+    resolveParam (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/injector.js:150:49)
+    Array.map (<anonymous>)
+    Injector.resolveConstructorParams (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/injector.js:182:58)
+    Injector.loadInstance (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/injector.js:76:24)
+    Injector.loadProvider (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/injector.js:110:20)
+    file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/instance-loader.js:58:33
+    Array.map (<anonymous>)
+    InstanceLoader.createInstancesOfProviders (file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/instance-loader.js:57:36)
+    file:///D:/my-workspace/KnowLadder/server/node_modules/@nestjs/core/injector/instance-loader.js:42:24
+  ...

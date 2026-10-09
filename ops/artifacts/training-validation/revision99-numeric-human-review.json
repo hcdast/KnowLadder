@@ -1,0 +1,188 @@
+{
+  "model": "gpt-5.5",
+  "transport": "real-gateway-numeric-supplement",
+  "cost_usd": null,
+  "human_quality": "not_reviewed",
+  "records": [
+    {
+      "case_id": "numeric-01",
+      "source": {
+        "id": "numeric-01",
+        "expression": "0.1+0.2",
+        "expected": "0.3",
+        "basis": "整数十分位相加：1+2=3，再除以10"
+      },
+      "candidate": {
+        "question_type": "numeric",
+        "prompt": "请计算表达式 0.1+0.2 的精确结果，不作近似。",
+        "options": [],
+        "answer": "0.3",
+        "explanation": "将 0.1 和 0.2 按十进制小数相加：0.1 表示十分之一，0.2 表示十分之二，十分之一加十分之二等于十分之三，即 0.3。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "numeric_exact_decimal",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "eb126666d8313133635b6ca3fed0aafadf4dd667f2eed216b791439b6cc1a298",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "numeric-02",
+      "source": {
+        "id": "numeric-02",
+        "expression": "3.5-1.25",
+        "expected": "2.25",
+        "basis": "整数百分位相减：350-125=225，再除以100"
+      },
+      "candidate": {
+        "question_type": "numeric",
+        "prompt": "请计算表达式 3.5 - 1.25 的精确结果，不作近似。",
+        "options": [],
+        "answer": "2.25",
+        "explanation": "将 3.5 写成 3.50，按小数减法计算：3.50 - 1.25 = 2.25。因此精确结果为 2.25。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "numeric_exact_decimal",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "e0016f7b2811d2b08fd7d9373f8dd93b2fa2e7677e3d6de0d84013694b68753a",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "numeric-03",
+      "source": {
+        "id": "numeric-03",
+        "expression": "2.5*4",
+        "expected": "10",
+        "basis": "整数十分位相乘：25*4=100，再除以10"
+      },
+      "candidate": {
+        "question_type": "numeric",
+        "prompt": "请计算表达式 2.5*4 的精确结果，不作近似。",
+        "options": [],
+        "answer": "10",
+        "explanation": "将 2.5 与 4 相乘：2.5*4=10，因此精确结果为 10。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "numeric_exact_decimal",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "65fd66618efe33529391f0b0770f723c0caf12139c862670b1ecb3df985a6f96",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "numeric-04",
+      "source": {
+        "id": "numeric-04",
+        "expression": "1.2e3+3e2",
+        "expected": "1500",
+        "basis": "1200+300=1500"
+      },
+      "candidate": {
+        "question_type": "numeric",
+        "prompt": "请计算表达式 1.2e3+3e2 的精确结果，不作近似。",
+        "options": [],
+        "answer": "1500",
+        "explanation": "1.2e3 表示 1.2 × 10^3 = 1200；3e2 表示 3 × 10^2 = 300。相加得到 1200 + 300 = 1500。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "numeric_exact_decimal",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "04a2c9330d5ee5cde31a45ab7edf77e8fc88ee21d32ea4b0bec929f4c134132d",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    },
+    {
+      "case_id": "numeric-05",
+      "source": {
+        "id": "numeric-05",
+        "expression": "-2+2",
+        "expected": "0",
+        "basis": "相反数相加为0，正负零十进制等价"
+      },
+      "candidate": {
+        "question_type": "numeric",
+        "prompt": "请计算表达式 -2 + 2 的精确结果，不作近似。",
+        "options": [],
+        "answer": "0",
+        "explanation": "按整数加法计算：-2 + 2 表示负二加正二，二者互为相反数，相加结果为 0。",
+        "scoring_rule": {
+          "version": 1,
+          "strategy": "numeric_exact_decimal",
+          "max_score": "1"
+        }
+      },
+      "response_sha256": "1ed77268c8ccd8ef34592e159eb97606ccb280b363088f1cedea87c45af8db88",
+      "reviews": [
+        {
+          "slot": 1,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        },
+        {
+          "slot": 2,
+          "reviewer_ref": null,
+          "decision": null,
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

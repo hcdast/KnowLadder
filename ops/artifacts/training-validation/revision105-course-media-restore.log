@@ -1,0 +1,18 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 正式视频课程：扫描来源绑定/独立发布/进度与完整加密恢复
+ok 1 - 正式视频课程：扫描来源绑定/独立发布/进度与完整加密恢复
+  ---
+  duration_ms: 62577.2454
+  type: 'test'
+  ...
+# {"course":"6ac360e61f1c358dabc6d028","original_bytes":5839,"encrypted":true,"restore_status":"ready","media_bytes_equal":true,"progress_restored":2}
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 62748.031

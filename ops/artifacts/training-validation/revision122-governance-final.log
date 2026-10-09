@@ -1,0 +1,158 @@
+TAP version 13
+# Subtest: IAM replicaSet：未首次改密的初始化账号也占治理引导配额
+ok 1 - IAM replicaSet：未首次改密的初始化账号也占治理引导配额
+  ---
+  duration_ms: 4241.8068
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+ok 2 - IAM replicaSet：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+  ---
+  duration_ms: 5431.6334
+  type: 'test'
+  ...
+# Subtest: IAM standalone：未首次改密的初始化账号也占治理引导配额
+ok 3 - IAM standalone：未首次改密的初始化账号也占治理引导配额
+  ---
+  duration_ms: 2105.3293
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+ok 4 - IAM standalone：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+  ---
+  duration_ms: 3914.16
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 12.8802
+      type: 'test'
+      ...
+    1..1
+ok 5 - IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 3948.2327
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 4.9987
+      type: 'test'
+      ...
+    1..1
+ok 6 - IAM standalone：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 1901.4054
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 168.0985
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 426.4248
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 208.9224
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 470.2277
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 447.5613
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 2.8036
+      type: 'test'
+      ...
+    1..6
+ok 7 - IAM replicaSet：精确登录名目录查询
+  ---
+  duration_ms: 8471.2623
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 147.0001
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 336.4016
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 173.0213
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 402.9487
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 381.6236
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 1.7493
+      type: 'test'
+      ...
+    # Subtest: 操作者真实写后隔离仍阻止精确目录读取
+    ok 7 - 操作者真实写后隔离仍阻止精确目录读取
+      ---
+      duration_ms: 24.3298
+      type: 'test'
+      ...
+    1..7
+ok 8 - IAM standalone：精确登录名目录查询
+  ---
+  duration_ms: 5356.8709
+  type: 'test'
+  ...
+1..8
+# tests 23
+# suites 0
+# pass 23
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 36094.9116

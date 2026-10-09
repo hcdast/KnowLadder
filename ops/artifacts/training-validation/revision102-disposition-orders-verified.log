@@ -1,0 +1,18 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 保全与清理双顺序：先保全拒绝调度，调度后保全阻止领取，删除后拒绝保全
+ok 1 - 保全与清理双顺序：先保全拒绝调度，调度后保全阻止领取，删除后拒绝保全
+  ---
+  duration_ms: 23753.0755
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 23934.0411

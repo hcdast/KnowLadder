@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-05",
+  "syntax_scripts": 2,
+  "syntax_exit": 0,
+  "links": {
+    "count": 258,
+    "issues": []
+  },
+  "runtime_exit": [
+    0,
+    0
+  ],
+  "tabs_closed": true,
+  "download": "not captured; remains unverified",
+  "scope": "student training desktop only",
+  "review": "主机/Origin隔离、正式Vue和实际扫描、名称/标签/焦点证据、失败边界及清理核对",
+  "external_model_requests": 0,
+  "commit": false,
+  "push": false
+}

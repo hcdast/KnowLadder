@@ -1,0 +1,54 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+    # Subtest: v17严格Schema、BSON身份及未就绪索引拒绝
+    ok 1 - v17严格Schema、BSON身份及未就绪索引拒绝
+      ---
+      duration_ms: 54.6412
+      type: 'test'
+      ...
+    # Subtest: 授权范围、严格类型、精确引用、空证据及检索不占预算
+    ok 2 - 授权范围、严格类型、精确引用、空证据及检索不占预算
+      ---
+      duration_ms: 614.5382
+      type: 'test'
+      ...
+    # Subtest: 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+    ok 3 - 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+      ---
+      duration_ms: 375.5704
+      type: 'test'
+      ...
+    # Subtest: 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+    ok 4 - 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+      ---
+      duration_ms: 271.8218
+      type: 'test'
+      ...
+    # Subtest: 调用中撤权停止结果交付并结算，不把任务留在running
+    ok 5 - 调用中撤权停止结果交付并结算，不把任务留在running
+      ---
+      duration_ms: 159.7109
+      type: 'test'
+      ...
+    # Subtest: 退役事件清除派生原文且学生不能检索旧索引
+    ok 6 - 退役事件清除派生原文且学生不能检索旧索引
+      ---
+      duration_ms: 81.2818
+      type: 'test'
+      ...
+    1..6
+ok 1 - 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+  ---
+  duration_ms: 8488.5143
+  type: 'test'
+  ...
+1..1
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8713.9837

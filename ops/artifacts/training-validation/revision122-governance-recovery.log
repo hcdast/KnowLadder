@@ -1,0 +1,367 @@
+TAP version 13
+# Subtest: IAM replicaSet：未首次改密的初始化账号也占治理引导配额
+ok 1 - IAM replicaSet：未首次改密的初始化账号也占治理引导配额
+  ---
+  duration_ms: 4431.8545
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+ok 2 - IAM replicaSet：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+  ---
+  duration_ms: 5629.6623
+  type: 'test'
+  ...
+# Subtest: IAM standalone：未首次改密的初始化账号也占治理引导配额
+ok 3 - IAM standalone：未首次改密的初始化账号也占治理引导配额
+  ---
+  duration_ms: 1903.6133
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+ok 4 - IAM standalone：必须改密的治理者不算可用，CLI不能停用最后可登录治理者
+  ---
+  duration_ms: 3681.8346
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 11.3824
+      type: 'test'
+      ...
+    1..1
+not ok 5 - IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 3771.4415
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-operations.integration.test.cjs:12:3'
+  failureType: 'testCodeFailure'
+  error: 'OBJECT_ID_VALUE_REQUIRED:administration_operations:_id'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    scalar (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:67:15)
+    encodeValue (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:97:20)
+    encodeFilter (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:141:50)
+    Proxy.filter (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:268:89)
+    TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-operations.integration.test.cjs:40:71)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 5.5029
+      type: 'test'
+      ...
+    1..1
+not ok 6 - IAM standalone：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 1897.4993
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-operations.integration.test.cjs:12:3'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    + actual - expected
+    
+    + 'active'
+    - 'disabled'
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 'disabled'
+  actual: 'active'
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-operations.integration.test.cjs:46:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 183.7435
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 425.7949
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 210.9729
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 563.0935
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 464.7269
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 2.8524
+      type: 'test'
+      ...
+    1..6
+ok 7 - IAM replicaSet：精确登录名目录查询
+  ---
+  duration_ms: 8916.8523
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 134.7347
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 369.7838
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 178.8474
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 450.7503
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 389.6608
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 2.4229
+      type: 'test'
+      ...
+    # Subtest: 操作者真实写后隔离仍阻止精确目录读取
+    ok 7 - 操作者真实写后隔离仍阻止精确目录读取
+      ---
+      duration_ms: 23.2101
+      type: 'test'
+      ...
+    1..7
+ok 8 - IAM standalone：精确登录名目录查询
+  ---
+  duration_ms: 5300.842
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：claim 后管理隔离、自然过期/接管/processed 与到期投影公平消费
+    # Subtest: grading_v1 已工作 claim 后主体隔离：不发布并返还本次 attempt
+    not ok 1 - grading_v1 已工作 claim 后主体隔离：不发布并返还本次 attempt
+      ---
+      duration_ms: 259.246
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:300:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:306:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:300:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: grading_v1 新 token 不被旧 worker 退还，组织隔离下已过期原 token 仍只退一次
+    not ok 2 - grading_v1 新 token 不被旧 worker 退还，组织隔离下已过期原 token 仍只退一次
+      ---
+      duration_ms: 30299.2351
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:318:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:330:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:318:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: grading_v1 后继真实消费 processed 后，隔离旧 worker 不得退款或重写发布
+    not ok 3 - grading_v1 后继真实消费 processed 后，隔离旧 worker 不得退款或重写发布
+      ---
+      duration_ms: 30882.2169
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:354:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:366:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:354:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: learning_projection_v1 已工作 claim 后主体隔离：不发布并返还本次 attempt
+    not ok 4 - learning_projection_v1 已工作 claim 后主体隔离：不发布并返还本次 attempt
+      ---
+      duration_ms: 468.2846
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:300:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:306:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:300:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: learning_projection_v1 新 token 不被旧 worker 退还，组织隔离下已过期原 token 仍只退一次
+    not ok 5 - learning_projection_v1 新 token 不被旧 worker 退还，组织隔离下已过期原 token 仍只退一次
+      ---
+      duration_ms: 30553.9013
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:318:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:330:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:318:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: learning_projection_v1 后继真实消费 processed 后，隔离旧 worker 不得退款或重写发布
+    not ok 6 - learning_projection_v1 后继真实消费 processed 后，隔离旧 worker 不得退款或重写发布
+      ---
+      duration_ms: 30593.5424
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:354:18'
+      failureType: 'testCodeFailure'
+      error: |-
+        The validation function is expected to return "true". Received false
+        
+        Caught error:
+        
+        Error: OBJECT_ID_VALUE_REQUIRED:administration_operations:_id
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      stack: |-
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async isolate (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:174:3)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:366:27)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:354:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    # Subtest: 51 个真实 HTTP 生成的隔离到期 heads 在前：processDue 仍发布正常成员且不改隔离 head
+    not ok 7 - 51 个真实 HTTP 生成的隔离到期 heads 在前：processDue 仍发布正常成员且不改隔离 head
+      ---
+      duration_ms: 281.5202
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:379:16'
+      failureType: 'testCodeFailure'
+      error: 'OBJECT_ID_VALUE_REQUIRED:subjects:_id'
+      code: 'ERR_TEST_FAILURE'
+      stack: |-
+        scalar (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:67:15)
+        encodeValue (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:97:20)
+        encodeValue (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:113:27)
+        encodeDocument (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:129:12)
+        D:\my-workspace\KnowLadder\server\dist\database\object-id.js:264:123
+        Array.map (<anonymous>)
+        Proxy.<anonymous> (D:\my-workspace\KnowLadder\server\dist\database\object-id.js:264:110)
+        TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-worker-races.integration.test.cjs:383:39)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async Test.run (node:internal/test_runner/test:1054:7)
+      ...
+    1..7
+not ok 9 - IAM standalone：claim 后管理隔离、自然过期/接管/processed 与到期投影公平消费
+  ---
+  duration_ms: 128082.4667
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-worker-races.integration.test.cjs:294:1'
+  failureType: 'subtestsFailed'
+  error: '7 subtests failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..9
+# tests 31
+# suites 0
+# pass 21
+# fail 10
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 165137.9241

@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-05",
+  "source": "existing local synthetic MP3 fixture; generation was not performed by this independent test",
+  "bytes": 24540,
+  "sha256": "05b9d2b50bf213da982839a56ade818b50853c6761c622efdb1ab8504d7cc72b",
+  "scan_status": "not_scanned",
+  "external_material": false,
+  "external_model_requests": 0,
+  "generation_this_independent_turn": false
+}

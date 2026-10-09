@@ -1,7 +1,7 @@
 "use strict";
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { randomUUID } = require("node:crypto");
+const { newId } = require("../dist/database/object-id");
 const { fixture, status } = require("./helpers.cjs");
 const { executeAdministrationOperation, inspectAdministrationOperations, recoverAdministrationOperation } = require("../dist/administration/operations.js");
 const { assertAdministrationAccess } = require("../dist/administration/authorization.js");
@@ -22,7 +22,7 @@ for (const topology of ["replicaSet", "standalone"]) {
       assert.equal(await runInTxn(f.client, session => fenceEvidenceSubject(f.db, session, user.user_id, org)), true);
       assert.equal((await f.db.collection("users").findOne({ _id: user.user_id })).identity_revision, before.identity_revision + 1);
     });
-    const operation_id = randomUUID();
+    const operation_id = newId();
     const input = {
       client: f.client, db: f.db, actor: "iam-fault-operator", action: "iam.verify.disable", reason: "本地合成数据写后故障验证", operation_id,
       payload: { user_id: user.user_id, status: "disabled" }, targets: { user_ids: [user.user_id] },

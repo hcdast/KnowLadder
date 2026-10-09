@@ -1,0 +1,46 @@
+TAP version 13
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 1 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 24358.7193
+  type: 'test'
+  ...
+# Subtest: standalone lease: independent clients, takeover and stale token rejection
+ok 2 - standalone lease: independent clients, takeover and stale token rejection
+  ---
+  duration_ms: 1501.351
+  type: 'test'
+  ...
+# Subtest: standalone recovery: real v10/control migration, drift and restore isolation
+ok 3 - standalone recovery: real v10/control migration, drift and restore isolation
+  ---
+  duration_ms: 3965.126
+  type: 'test'
+  ...
+# Subtest: standalone recovery: complete business schemas and privacy classification
+ok 4 - standalone recovery: complete business schemas and privacy classification
+  ---
+  duration_ms: 1675.053
+  type: 'test'
+  ...
+# Subtest: standalone control migration: stopped writers, failed initialization/resume and registration race
+ok 5 - standalone control migration: stopped writers, failed initialization/resume and registration race
+  ---
+  duration_ms: 1691.8362
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+ok 6 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 11427.1985
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 47046.3339

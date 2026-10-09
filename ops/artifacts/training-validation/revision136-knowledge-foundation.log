@@ -1,0 +1,58 @@
+TAP version 13
+# Subtest: 知识来源严格限制类型及字段
+ok 1 - 知识来源严格限制类型及字段
+  ---
+  duration_ms: 1.4952
+  type: 'test'
+  ...
+# Subtest: 章节复用当前 owner 授权，组织查询及输出字段白名单
+ok 2 - 章节复用当前 owner 授权，组织查询及输出字段白名单
+  ---
+  duration_ms: 0.8016
+  type: 'test'
+  ...
+# Subtest: 课程使用当前范围授权且拒绝草稿及非文本课时
+ok 3 - 课程使用当前范围授权且拒绝草稿及非文本课时
+  ---
+  duration_ms: 0.3128
+  type: 'test'
+  ...
+# Subtest: 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+ok 4 - 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+  ---
+  duration_ms: 1.5418
+  type: 'test'
+  ...
+# Subtest: 知识分片保留原文UTF-16引用，重叠且不切开代理对
+ok 5 - 知识分片保留原文UTF-16引用，重叠且不切开代理对
+  ---
+  duration_ms: 2.391
+  type: 'test'
+  ...
+# Subtest: 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+ok 6 - 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+  ---
+  duration_ms: 5.9394
+  type: 'test'
+  ...
+# Subtest: 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+ok 7 - 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+  ---
+  duration_ms: 0.4883
+  type: 'test'
+  ...
+# Subtest: 候选引用严格限定最多五条
+ok 8 - 候选引用严格限定最多五条
+  ---
+  duration_ms: 20.6306
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 797.3783

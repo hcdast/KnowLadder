@@ -1,0 +1,209 @@
+{
+  "version": 1,
+  "model": "gpt-5.5",
+  "transport": "real-gateway-choice-supplement",
+  "corpus_sha256": "17c9d294ecd2eb1599344fdaa84d9f51edce43ceedcb0deee6ca1a0a04187b04",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "cost_usd": null,
+  "request_attempts": 4,
+  "records": [
+    {
+      "case_id": "choice-single-01",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5858,
+      "usage": {
+        "prompt_tokens": 251,
+        "completion_tokens": 151,
+        "reasoning_tokens": 44
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"single\\\",\\\"prompt\\\":\\\"选出2加3的结果\\\",\\\"options\\\":[{\\\"id\\\":\\\"A\\\",\\\"text\\\":\\\"4\\\"},{\\\"id\\\":\\\"B\\\",\\\"text\\\":\\\"5\\\"},{\\\"id\\\":\\\"C\\\",\\\"text\\\":\\\"6\\\"}],\\\"answer\\\":\\\"B\\\",\\\"explanation\\\":\\\"2加3等于5，因此正确选项是B。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"single_exact\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"choice-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "choice_validation": {
+        "status": "pass",
+        "candidate": {
+          "question_type": "single",
+          "prompt": "选出2加3的结果",
+          "options": [
+            {
+              "id": "A",
+              "text": "4"
+            },
+            {
+              "id": "B",
+              "text": "5"
+            },
+            {
+              "id": "C",
+              "text": "6"
+            }
+          ],
+          "answer": "B",
+          "explanation": "2加3等于5，因此正确选项是B。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "single_exact",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed"
+      }
+    },
+    {
+      "case_id": "choice-single-02",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 2008,
+      "usage": {
+        "prompt_tokens": 257,
+        "completion_tokens": 116,
+        "reasoning_tokens": null
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"single\\\",\\\"prompt\\\":\\\"选出三个连续整数4、5、6中最大的数\\\",\\\"options\\\":[{\\\"id\\\":\\\"A\\\",\\\"text\\\":\\\"4\\\"},{\\\"id\\\":\\\"B\\\",\\\"text\\\":\\\"6\\\"},{\\\"id\\\":\\\"C\\\",\\\"text\\\":\\\"5\\\"}],\\\"answer\\\":\\\"B\\\",\\\"explanation\\\":\\\"三个连续整数4、5、6中，6最大，对应选项B。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"single_exact\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"choice-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "choice_validation": {
+        "status": "pass",
+        "candidate": {
+          "question_type": "single",
+          "prompt": "选出三个连续整数4、5、6中最大的数",
+          "options": [
+            {
+              "id": "A",
+              "text": "4"
+            },
+            {
+              "id": "B",
+              "text": "6"
+            },
+            {
+              "id": "C",
+              "text": "5"
+            }
+          ],
+          "answer": "B",
+          "explanation": "三个连续整数4、5、6中，6最大，对应选项B。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "single_exact",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed"
+      }
+    },
+    {
+      "case_id": "choice-multiple-01",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5641,
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 174,
+        "reasoning_tokens": 44
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"multiple\\\",\\\"prompt\\\":\\\"选出以下全部偶数\\\",\\\"options\\\":[{\\\"id\\\":\\\"A\\\",\\\"text\\\":\\\"2\\\"},{\\\"id\\\":\\\"B\\\",\\\"text\\\":\\\"3\\\"},{\\\"id\\\":\\\"C\\\",\\\"text\\\":\\\"4\\\"},{\\\"id\\\":\\\"D\\\",\\\"text\\\":\\\"5\\\"}],\\\"answer\\\":\\\"A,C\\\",\\\"explanation\\\":\\\"2和4能被2整除，是偶数；3和5不能被2整除，不是偶数。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"multiple_exact_set\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"choice-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "choice_validation": {
+        "status": "pass",
+        "candidate": {
+          "question_type": "multiple",
+          "prompt": "选出以下全部偶数",
+          "options": [
+            {
+              "id": "A",
+              "text": "2"
+            },
+            {
+              "id": "B",
+              "text": "3"
+            },
+            {
+              "id": "C",
+              "text": "4"
+            },
+            {
+              "id": "D",
+              "text": "5"
+            }
+          ],
+          "answer": "A,C",
+          "explanation": "2和4能被2整除，是偶数；3和5不能被2整除，不是偶数。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "multiple_exact_set",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed"
+      }
+    },
+    {
+      "case_id": "choice-multiple-02",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 4440,
+      "usage": {
+        "prompt_tokens": 264,
+        "completion_tokens": 173,
+        "reasoning_tokens": 43
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"multiple\\\",\\\"prompt\\\":\\\"选出以下全部大于10的整数\\\",\\\"options\\\":[{\\\"id\\\":\\\"A\\\",\\\"text\\\":\\\"11\\\"},{\\\"id\\\":\\\"B\\\",\\\"text\\\":\\\"10\\\"},{\\\"id\\\":\\\"C\\\",\\\"text\\\":\\\"12\\\"},{\\\"id\\\":\\\"D\\\",\\\"text\\\":\\\"9\\\"}],\\\"answer\\\":\\\"A,C\\\",\\\"explanation\\\":\\\"11和12都大于10；10等于10，不大于10；9小于10。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"multiple_exact_set\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"choice-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "choice_validation": {
+        "status": "pass",
+        "candidate": {
+          "question_type": "multiple",
+          "prompt": "选出以下全部大于10的整数",
+          "options": [
+            {
+              "id": "A",
+              "text": "11"
+            },
+            {
+              "id": "B",
+              "text": "10"
+            },
+            {
+              "id": "C",
+              "text": "12"
+            },
+            {
+              "id": "D",
+              "text": "9"
+            }
+          ],
+          "answer": "A,C",
+          "explanation": "11和12都大于10；10等于10，不大于10；9小于10。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "multiple_exact_set",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed"
+      }
+    }
+  ],
+  "human_quality": "not_reviewed",
+  "finished_at": "2026-10-05T02:54:39.528Z"
+}

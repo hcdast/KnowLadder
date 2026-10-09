@@ -1,0 +1,10 @@
+{
+  "command": "ffprobe -v error -show_entries format=duration,size:stream=codec_name,codec_type,width,height -of json revision103-original-video.mp4",
+  "exit": 0,
+  "codec_name": "h264",
+  "codec_type": "video",
+  "width": 320,
+  "height": 180,
+  "duration": "2.940500",
+  "size": "5839"
+}

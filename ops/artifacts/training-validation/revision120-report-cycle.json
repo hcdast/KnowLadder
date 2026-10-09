@@ -1,0 +1,21 @@
+{
+  "rejectBeforeFix": "BODY",
+  "rejectAfterFix": {
+    "tag": "P",
+    "text": "报告状态已更新"
+  },
+  "saveAfterFix": {
+    "tag": "P",
+    "text": "草稿已保存"
+  },
+  "authorSelfPublish": false,
+  "final": {
+    "body": "原创班级验收报告 状态：已发布 · 事实日期：2026/10/5 21:49:48 有效学情：证据不足；班级人数 1，有投影证据 0。  近30天有效提交 0；达到掌握分类 0。 报告标题报告正文 审核意见：独立复核最终修订，明确实践行动和证据不足边界。",
+    "disabledFields": [
+      true,
+      true
+    ],
+    "focus": "报告状态已更新",
+    "tag": "P"
+  }
+}

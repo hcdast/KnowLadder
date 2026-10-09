@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-05",
+  "test": "revision106-audio.integration.test.cjs",
+  "pass": 1,
+  "fail": 0,
+  "skip": 0,
+  "seconds": 61.9657034,
+  "syntax_exit": 0,
+  "diff_check_exit": 0,
+  "links_checked": 238,
+  "issues": [],
+  "review": "固定MP3摘要、真实官方扫描与ready、独立发布、完整/Range字节、撤权拒绝、隔离清理已核对",
+  "scope": "independent file authorization only",
+  "external_model_calls": 0,
+  "commit": false,
+  "push": false
+}

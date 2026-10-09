@@ -1,0 +1,46 @@
+{
+  "environment": "Windows Node22.19.0 / Mongo8.0.17 disposable replicaSet / real API and Vue",
+  "approval_rejected": {
+    "persisted_on_refresh": true,
+    "screenshot": "revision126-approval-rejected.png"
+  },
+  "requester_own_pending": {
+    "approve_enabled": false,
+    "reject_enabled": false,
+    "reason": "本人申请不能批准或拒绝"
+  },
+  "mobile_roles": [
+    {
+      "role": "student",
+      "path": "/learning",
+      "width": 320,
+      "document_width": 305,
+      "h1_count": 1,
+      "missing_form_labels": 0
+    },
+    {
+      "role": "teacher",
+      "path": "/teaching",
+      "width": 320,
+      "document_width": 305,
+      "h1_count": 1,
+      "missing_form_labels": 0
+    },
+    {
+      "role": "content_editor",
+      "path": "/content",
+      "width": 320,
+      "document_width": 305,
+      "h1_count": 1,
+      "missing_form_labels": 0
+    }
+  ],
+  "remaining_roles": {
+    "content_reviewer": "会话状态待确认，真实限流 Retry-After 300；不算正常落点通过",
+    "organization_admin": "未执行",
+    "platform_business": "未执行",
+    "platform_accounts": "本批未执行，前批已有成员写入证据"
+  },
+  "full_role_state_matrix": "未完成",
+  "computer_use": "用户物理 Escape 停止，未继续电脑操作"
+}

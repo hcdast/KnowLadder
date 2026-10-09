@@ -1,0 +1,21 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {setup}=require('./training-isolated-helpers.cjs');
+const {status}=require('./helpers.cjs');
+const {pathToFileURL}=require('node:url');
+const path=require('node:path');
+test('公开SSR：真实草稿/独立发布、转义、站点地图、组织禁用与私有路由拒绝',async t=>{
+ const f=await setup(t);process.env.KL_SITE_ORG_ID=f.org;
+ const editor=await f.actor(['teacher'],['site:edit']);const reviewer=await f.actor(['teacher'],['site:review']);
+ const request=(a,p,b)=>a.browser.request('/site'+p,{method:'POST',body:b,headers:{'X-Org-Id':f.org,'Idempotency-Key':require('node:crypto').randomUUID()}});
+ const draft=await request(editor,'/drafts',{page_key:'home',title:'原创 <script>alert(1)</script>',body:'培训内容 <img src=x onerror=alert(1)> & 安全'});status(draft,200);
+ const {createPublicSiteServer}=await import(pathToFileURL(path.resolve(__dirname,'../../ops/site-server.mjs')));
+ const apiOrigin=new URL(f.browser.base).origin;
+ const server=await createPublicSiteServer({apiOrigin,siteOrigin:'https://example.test'});await new Promise(r=>server.listen(0,'127.0.0.1',r));t.after(()=>new Promise(r=>server.close(r)));const base='http://127.0.0.1:'+server.address().port;
+ assert.equal((await fetch(base+'/')).status,404);
+ const pub=await request(reviewer,'/drafts/'+draft.data.data._id+'/publish',{expected_revision:draft.data.data.revision});status(pub,200);
+ const response=await fetch(base+'/',{headers:{Host:'evil.test',Cookie:'private=secret',Authorization:'Bearer secret'}});assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'no-store');const html=await response.text();assert.ok(html.includes('&lt;script&gt;'));assert.ok(!html.includes('<script>'));assert.ok(html.includes('https://example.test/'));assert.ok(!html.includes('evil.test'));assert.ok(html.includes('跳至正文'));assert.ok(html.includes('aria-current="page"'));
+ const sitemap=await(await fetch(base+'/sitemap.xml')).text();assert.ok(sitemap.includes('<loc>https://example.test/</loc>'));assert.ok(!sitemap.includes('/features'));assert.ok(!sitemap.includes('/training'));
+ assert.equal((await fetch(base+'/training')).status,404);assert.equal((await fetch(base+'/',{method:'POST'})).status,405);assert.equal(await(await fetch(base+'/',{method:'HEAD'})).text(),'');
+ await f.db.collection('organizations').updateOne({_id:f.org},{$set:{status:'disabled'}});assert.equal((await fetch(base+'/')).status,404);assert.ok(!(await(await fetch(base+'/sitemap.xml')).text()).includes('<url>'));
+});

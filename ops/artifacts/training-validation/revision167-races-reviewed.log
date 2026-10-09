@@ -1,0 +1,51 @@
+TAP version 13
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+not ok 1 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 6653.9803
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\training-phase2-privacy.integration.test.cjs:418:1'
+  failureType: 'testCodeFailure'
+  error: 'OPERATIONS_ALREADY_REGISTERED'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    registerEnvironment (D:\my-workspace\KnowLadder\server\dist\operations\control.js:165:15)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async f.register (D:\my-workspace\KnowLadder\server\test\training-phase2-privacy.integration.test.cjs:227:5)
+    async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\training-phase2-privacy.integration.test.cjs:660:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+# Subtest: standalone recovery: real v10/control migration, drift and restore isolation
+ok 2 - standalone recovery: real v10/control migration, drift and restore isolation
+  ---
+  duration_ms: 4410.0865
+  type: 'test'
+  ...
+# Subtest: standalone recovery: complete business schemas and privacy classification
+ok 3 - standalone recovery: complete business schemas and privacy classification
+  ---
+  duration_ms: 1876.7838
+  type: 'test'
+  ...
+# Subtest: standalone control migration: stopped writers, failed initialization/resume and registration race
+ok 4 - standalone control migration: stopped writers, failed initialization/resume and registration race
+  ---
+  duration_ms: 1899.3524
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+ok 5 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 9882.5191
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 4
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26987.8709

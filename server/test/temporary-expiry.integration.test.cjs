@@ -1,0 +1,27 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {fixture,status}=require('./helpers.cjs');
+test('temporary expiry preserves credentials, revokes sessions, rejects stale and changed-password accounts',async t=>{
+  const f=await fixture(t,{env:{FILE_SCAN_ENABLED:'false'}});
+  const u=await f.user();
+  const before=await f.db.collection('users').findOne({_id:u.user_id});
+  await f.browser.prepare();status(await f.browser.login(u.login_name,u.secret),200);
+  const old=f.browser.clone();
+  const expires=new Date(Date.now()+30*86400000).toISOString();
+  await f.ops.setTemporaryPasswordExpiry(f.context,{user_id:u.user_id,expires_at:expires,expected_credential_version:before.credential_version});
+  const after=await f.db.collection('users').findOne({_id:u.user_id});
+  assert.ok(after.password_hash===before.password_hash,'password hash must remain unchanged');
+  assert.equal(after.must_change_password,true);assert.equal(after.temporary_password_expires_at.toISOString(),expires);
+  assert.equal(after.credential_version,before.credential_version+1);
+  status(await old.request('/me'),401);
+  await f.browser.prepare();status(await f.browser.login(u.login_name,u.secret),200);
+  await assert.rejects(f.ops.setTemporaryPasswordExpiry(f.context,{user_id:u.user_id,expires_at:expires,expected_credential_version:before.credential_version}));
+  await assert.rejects(f.ops.setTemporaryPasswordExpiry(f.context,{user_id:u.user_id,expires_at:new Date(Date.now()+32*86400000).toISOString(),expected_credential_version:after.credential_version}));
+  await assert.rejects(f.ops.setTemporaryPasswordExpiry(f.context,{user_id:u.user_id,expires_at:new Date(0).toISOString(),expected_credential_version:after.credential_version}));
+  await f.browser.prepare();status(await f.browser.request('/auth/change-password',{method:'POST',body:{current_password:u.secret,new_password:'Isolated-new-password-42!'}}),204);
+  const changed=await f.db.collection('users').findOne({_id:u.user_id});
+  await assert.rejects(f.ops.setTemporaryPasswordExpiry(f.context,{user_id:u.user_id,expires_at:expires,expected_credential_version:changed.credential_version}));
+  assert.equal((await f.db.collection('administration_guard').findOne({_id:'administration'})).state,'idle');
+  assert.equal(await f.db.collection('audit_events').countDocuments({action:'user.temporary-expiry'}),1);
+});

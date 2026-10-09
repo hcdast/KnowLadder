@@ -1,0 +1,42 @@
+TAP version 13
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 1 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 27934.3384
+  type: 'test'
+  ...
+# Subtest: 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+ok 2 - 全业务加密备份：真实DB与文件、双遍认证、隔离恢复及旧包最新账本抑制
+  ---
+  duration_ms: 29594.5356
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+ok 3 - 完整ready附件恢复后显式release，旧会话失效且重新授权后真实HTTP读取相同字节
+  ---
+  duration_ms: 34882.3192
+  type: 'test'
+  ...
+# Subtest: 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+ok 4 - 旧包无隐私申请：源真实审批执行后亡源，仅独立最新签名账本即可恢复擦除
+  ---
+  duration_ms: 17937.4033
+  type: 'test'
+  ...
+# Subtest: legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+ok 5 - legacy真实v1备份可verify，v3扩展审计不产出自我不可读包
+  ---
+  duration_ms: 2724.37
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 113978.2055

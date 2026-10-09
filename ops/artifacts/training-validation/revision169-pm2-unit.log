@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: 扫描开关严格解析，关闭时不读取扫描配置或产生成功扫描结果
+ok 1 - 扫描开关严格解析，关闭时不读取扫描配置或产生成功扫描结果
+  ---
+  duration_ms: 3625.3559
+  type: 'test'
+  ...
+# Subtest: 文件配置、磁盘阈值与请求内路径复用安全边界
+ok 2 - 文件配置、磁盘阈值与请求内路径复用安全边界
+  ---
+  duration_ms: 4736.7835
+  type: 'test'
+  ...
+# Subtest: flags reject malformed values and unsafe combinations without echoing values
+ok 3 - flags reject malformed values and unsafe combinations without echoing values
+  ---
+  duration_ms: 2.2422
+  type: 'test'
+  ...
+# Subtest: Windows refuses legacy live processes before stopping
+ok 4 - Windows refuses legacy live processes before stopping
+  ---
+  duration_ms: 0.1946
+  type: 'test'
+  ...
+# Subtest: PM2 entry rejects a cmd shim instead of passing it to Node
+ok 5 - PM2 entry rejects a cmd shim instead of passing it to Node
+  ---
+  duration_ms: 2.0429
+  type: 'test'
+  ...
+# Subtest: PM2 online and HTTP 200 do not pass without this launch ready proof
+ok 6 - PM2 online and HTTP 200 do not pass without this launch ready proof
+  ---
+  duration_ms: 1142.1256
+  type: 'test'
+  ...
+# Subtest: storage preflight never creates a missing private root
+ok 7 - storage preflight never creates a missing private root
+  ---
+  duration_ms: 6.0368
+  type: 'test'
+  ...
+# Subtest: IPC shutdown is idempotent and disconnects after asynchronous cleanup
+ok 8 - IPC shutdown is idempotent and disconnects after asynchronous cleanup
+  ---
+  duration_ms: 108.8808
+  type: 'test'
+  ...
+# Subtest: Windows custom PM2_HOME with default pipes is rejected before stop
+ok 9 - Windows custom PM2_HOME with default pipes is rejected before stop
+  ---
+  duration_ms: 83.6956
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8437.258

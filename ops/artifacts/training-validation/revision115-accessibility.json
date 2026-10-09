@@ -1,0 +1,100 @@
+{
+  "checks": [
+    {
+      "view": "teacher class list",
+      "emptyButtons": 0,
+      "focus": "教学工作台",
+      "focusTag": "H1",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "teacher roster",
+      "emptyButtons": 0,
+      "focus": "职业沟通培训班 · 2026",
+      "focusTag": "H3",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "teacher paper form",
+      "emptyButtons": 0,
+      "focus": "\n    跳至正文知阶KnowLadder当前组织请选择组织本地职业培训验收集集成验收用户账号与安全 退出登录  练习、考试与结果  课程与",
+      "focusTag": "BODY",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "teacher paper form fixed",
+      "emptyButtons": 0,
+      "focus": "从班级创建考试草稿",
+      "focusTag": "H4",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "reviewer report desktop",
+      "emptyButtons": 0,
+      "focus": " 报告发布 ",
+      "focusTag": "BUTTON",
+      "h1": 1,
+      "scrollWidth": 1265,
+      "unlabelled": 0,
+      "width": 1280
+    },
+    {
+      "view": "reviewer report mobile",
+      "emptyButtons": 0,
+      "focus": " 报告发布 ",
+      "focusTag": "BUTTON",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "reviewer report next tab",
+      "emptyButtons": 0,
+      "focus": "课表、结业与通知",
+      "focusTag": "BUTTON",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "reviewer phase2 mobile",
+      "emptyButtons": 0,
+      "focus": "课表、结业与通知",
+      "focusTag": "BUTTON",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "reviewer certificate mobile",
+      "emptyButtons": 0,
+      "focus": "结业证书",
+      "focusTag": "BUTTON",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    }
+  ],
+  "limits": [
+    "report and certificate lists empty",
+    "no creation submission or approval",
+    "not platform governance role or full WCAG",
+    "only 320px samples plus report desktop"
+  ]
+}

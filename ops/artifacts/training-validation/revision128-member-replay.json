@@ -1,0 +1,49 @@
+{
+  "date": "2026-10-05",
+  "revision": 128,
+  "task": "IAM-05",
+  "environment": {
+    "node": "22.19.0",
+    "mongo": "8.0.17",
+    "platform": "Windows",
+    "topologies": [
+      "replicaSet",
+      "standalone"
+    ],
+    "databaseBoundary": "disposable kl_test_ databases"
+  },
+  "result": {
+    "pass": 10,
+    "fail": 0,
+    "skipped": 0,
+    "durationMs": 11193.7587,
+    "exitCode": 0
+  },
+  "verified": [
+    "real-success-response-loss",
+    "original-key-query-read-only",
+    "same-key-same-operation",
+    "no-extra-target-operation-or-audit",
+    "same-key-changed-body-rejected",
+    "stale-version-no-overwrite",
+    "fresh-version-new-operation"
+  ],
+  "checks": {
+    "serverBuild": "passed",
+    "testSyntax": "passed",
+    "review": "completed; no identified blocker",
+    "localDocLinks": "passed",
+    "planConsistency": "passed",
+    "diffCheck": "passed"
+  },
+  "pending": [
+    "original-browser-auto-retry-key-equality",
+    "manual-unknown-browser",
+    "CAS-browser",
+    "remaining-role-state-matrix"
+  ],
+  "businessCodeChanged": false,
+  "modelCalls": 0,
+  "commit": false,
+  "push": false
+}

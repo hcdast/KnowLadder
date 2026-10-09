@@ -1,0 +1,68 @@
+{
+  "checked_at": "2026-10-09T12:35:11.411Z",
+  "read_only": true,
+  "configuration": {
+    "srv": true,
+    "topology": "auto",
+    "allow_standalone": true,
+    "production": false,
+    "training": false,
+    "file_scan": false,
+    "knowledge": false,
+    "knowledge_import": false,
+    "standalone_recovery": false,
+    "standalone_managed": false
+  },
+  "database_name": "test",
+  "actual_topology": "replicaSet",
+  "writable_primary": true,
+  "collection_count": 0,
+  "schema_versions": [],
+  "topology_check": {
+    "ok": true
+  },
+  "schema_check": {
+    "ok": false,
+    "code": "SCHEMA_V10_REQUIRED"
+  },
+  "operations_check": {
+    "ok": false,
+    "code": "OPERATIONS_STATE_MISSING"
+  },
+  "environment_dependencies": {
+    "FILE_STORAGE_ROOT": false,
+    "CLAMSCAN_PATH": false,
+    "CLAMAV_DATABASE": false
+  },
+  "declared_services": [
+    "kl-api",
+    "kl-assessment-worker",
+    "kl-learning-worker"
+  ],
+  "pm2": {
+    "read_ok": true,
+    "apps": []
+  },
+  "health": [
+    {
+      "route": "/health/live",
+      "reachable": false
+    },
+    {
+      "route": "/health/ready",
+      "reachable": false
+    }
+  ],
+  "wrapper_preflight": {
+    "exit_code": 1,
+    "output": "PREFLIGHT_SCHEMA_SCHEMA_V10_REQUIRED"
+  },
+  "not_verified": [
+    "transaction_write",
+    "migration_execution",
+    "old_data_transfer",
+    "business_requests",
+    "six_service_start",
+    "automatic_restart"
+  ]
+}

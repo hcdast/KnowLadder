@@ -1,0 +1,50 @@
+{
+  "docMissing": [],
+  "diff": {
+    "exit": 0,
+    "output": ""
+  },
+  "syntax": [
+    {
+      "file": "certificate-recovery-api-runtime.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "certificate-recovery-browser-runtime.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "phase2-recovery-browser-runtime.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "original-media-browser-runtime.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "original-media-runner.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "proxy-cache.integration.test.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "coursework-disposition.integration.test.cjs",
+      "exit": 0,
+      "error": ""
+    },
+    {
+      "file": "training-media.test.cjs",
+      "exit": 0,
+      "error": ""
+    }
+  ],
+  "review": "bounded changes reviewed; no unresolved high severity issue in this scope; external coverage remains pending"
+}

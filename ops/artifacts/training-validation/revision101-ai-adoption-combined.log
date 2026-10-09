@@ -1,0 +1,24 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 保存的真实选择题产物回放：正式AI派发、人工采纳、幂等、失权及来源变化保护
+ok 1 - 保存的真实选择题产物回放：正式AI派发、人工采纳、幂等、失权及来源变化保护
+  ---
+  duration_ms: 7551.7117
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 保存的真实数值题产物回放：正式AI派发、人工采纳、幂等、失权及来源变化保护
+ok 2 - 保存的真实数值题产物回放：正式AI派发、人工采纳、幂等、失权及来源变化保护
+  ---
+  duration_ms: 7777.5644
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 16934.7215

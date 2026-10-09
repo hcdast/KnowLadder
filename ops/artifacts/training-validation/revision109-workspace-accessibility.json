@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-05",
+  "fixturePort": 5188,
+  "checks": [
+    {
+      "label": "teacher desktop",
+      "focus": "H1",
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/teaching",
+      "width": 1280
+    },
+    {
+      "label": "teacher roster desktop",
+      "focus": "BODY",
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/teaching",
+      "width": 1280
+    },
+    {
+      "label": "teacher roster fixed",
+      "focus": "H3",
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/teaching",
+      "width": 1280
+    },
+    {
+      "label": "assessment desktop",
+      "focus": "H1",
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/assessment",
+      "width": 1280
+    },
+    {
+      "label": "assessment editor desktop",
+      "focus": "BUTTON",
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/assessment",
+      "width": 1280
+    },
+    {
+      "label": "assessment editor narrow",
+      "focus": "BUTTON",
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/assessment",
+      "width": 320
+    }
+  ],
+  "keyboard": {
+    "assessmentForwardTab": "quiz-subject",
+    "assessmentBackwardTab": "quiz-title"
+  },
+  "limits": [
+    "teaching narrow navigation CDP timeout",
+    "no screen reader",
+    "content learning admin roles not covered",
+    "screenshot unavailable after browser timeout"
+  ],
+  "review": "focus after nextTick before request; guards alive/class/view; no authorization or API change",
+  "build": {
+    "vueTsc": 0,
+    "vite": 0
+  },
+  "cleanup": {
+    "viewportReset": true,
+    "tabClosed": true
+  }
+}

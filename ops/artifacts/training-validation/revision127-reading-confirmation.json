@@ -1,0 +1,16 @@
+{
+  "second_page": {
+    "completed": true,
+    "offset_utf16": 6876,
+    "progress_revision": 1
+  },
+  "stale_page": {
+    "progress_revision": 0,
+    "conflict": true,
+    "automatic_save_paused": true,
+    "local_retained": true
+  },
+  "overwrite_confirmation": "未验收通过；浏览器点击CDP超时，getJsDialog undefined，原生窗口捕获超时，取消键操作被用户物理 Escape 中断",
+  "screen_reader": "原生工具可连接；未取得真实朗读或屏幕阅读器交互证据",
+  "production": "未验收，准入及目标环境未提供"
+}

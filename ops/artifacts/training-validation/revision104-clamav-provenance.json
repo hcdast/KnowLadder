@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-05",
+  "engine": "1.5.4",
+  "source": "https://github.com/Cisco-Talos/clamav/releases/download/clamav-1.5.4/clamav-1.5.4.win.x64.zip",
+  "archive_bytes": 225774978,
+  "sha256": "0d9e0228b2674137ea1a2853566c98a0278ad52ab2582c3d6dbd75373848c395",
+  "archive_hash_verified": true,
+  "portable_cache": "C:/Users/Administrator/.cache/knowladder-clamav-104",
+  "official_database": {
+    "main": 63,
+    "daily": 28143,
+    "bytecode": 339,
+    "freshclam_exit_code": 0,
+    "signature_tests": "passed",
+    "cvd_certificates": "official portable package certs"
+  },
+  "isolated_policy_hours": 168,
+  "business_env_modified": false,
+  "system_service_installed": false,
+  "host_protection_changed": false,
+  "infection_tests_run": false
+}

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "transport": "real-system-http",
+  "model": "gpt-5.5",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "cost_usd": null,
+  "request_attempts": 4,
+  "records": [
+    {
+      "case_id": "system-numeric",
+      "kind": "questions",
+      "request_attempts": 1,
+      "status": "succeeded",
+      "adoption": "draft_confirmed",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 398,
+        "completion_tokens": 195,
+        "reasoning_tokens": 81
+      },
+      "validation": "pass",
+      "output": "{\"question_type\":\"numeric\",\"prompt\":\"计算：0.1 + 0.2 = ?\",\"options\":[],\"answer\":\"0.3\",\"explanation\":\"按小数加法计算：0.1 表示十分之一，0.2 表示十分之二；十分之一加十分之二等于十分之三，即 0.3。\",\"scoring_rule\":{\"version\":1,\"strategy\":\"numeric_exact_decimal\",\"max_score\":\"1\"}}",
+      "output_sha256": "2579673472fd886d3709a1ac20c89b4be361f4da7b04f93e15e114a4f4f0767a"
+    },
+    {
+      "case_id": "system-single",
+      "kind": "questions",
+      "request_attempts": 1,
+      "status": "succeeded",
+      "adoption": "draft_confirmed",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 353,
+        "completion_tokens": 257,
+        "reasoning_tokens": 149
+      },
+      "validation": "pass",
+      "output": "{\"question_type\":\"single\",\"prompt\":\"选出2加3的结果\",\"options\":[{\"id\":\"A\",\"text\":\"4\"},{\"id\":\"B\",\"text\":\"5\"},{\"id\":\"C\",\"text\":\"6\"}],\"answer\":\"B\",\"explanation\":\"2加3的结果是5，对应选项B。\",\"scoring_rule\":{\"version\":1,\"strategy\":\"single_exact\",\"max_score\":\"1\"}}",
+      "output_sha256": "6598e60cd4744adaae6e906457caa035d1cc9903042830e35e2d201293c21188"
+    },
+    {
+      "case_id": "system-multiple",
+      "kind": "questions",
+      "request_attempts": 1,
+      "status": "succeeded",
+      "adoption": "draft_confirmed",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 355,
+        "completion_tokens": 309,
+        "reasoning_tokens": 189
+      },
+      "validation": "pass",
+      "output": "{\"question_type\":\"multiple\",\"prompt\":\"选出以下全部偶数\",\"options\":[{\"id\":\"A\",\"text\":\"2\"},{\"id\":\"B\",\"text\":\"3\"},{\"id\":\"C\",\"text\":\"4\"},{\"id\":\"D\",\"text\":\"5\"}],\"answer\":\"A,C\",\"explanation\":\"2和4是偶数，3和5不是偶数。\",\"scoring_rule\":{\"version\":1,\"strategy\":\"multiple_exact_set\",\"max_score\":\"1\"}}",
+      "output_sha256": "7814835c7c0e8096e5beb8bc7223f903c3e5c66add8671bdbaf9e3a0ab787720"
+    },
+    {
+      "case_id": "system-prepare",
+      "kind": "prepare",
+      "request_attempts": 1,
+      "status": "succeeded",
+      "adoption": "not_applicable",
+      "http_status": 200,
+      "usage": {
+        "prompt_tokens": 267,
+        "completion_tokens": 193,
+        "reasoning_tokens": 91
+      },
+      "output": "备课建议：可围绕整数基础题型展开，包括“2加3”的单选题和“选出全部偶数”的多选题。建议先复习整数加法的含义，再引导学生辨认偶数特征，并提醒多选题需要检查所有选项。来源中还包含一个小数表达式，不属于整数题，可不作为本次重点。"
+    }
+  ],
+  "human_quality": "not_reviewed",
+  "started_at": "2026-10-05T03:09:23.699Z"
+}

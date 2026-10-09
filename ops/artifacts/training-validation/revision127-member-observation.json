@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-05",
+  "environment": {
+    "node": "22.19.0",
+    "mongo": "8.0.17",
+    "topology": "replicaSet",
+    "host": "127.0.0.16:5246",
+    "database": "kl_test_members_126"
+  },
+  "observed": {
+    "targetPutCount": 2,
+    "droppedResponses": 1,
+    "upstreamStatuses": [
+      200,
+      200
+    ],
+    "uiStatus": "applied",
+    "uiOperationId": "6ac3b5fd7e42d2f6a7052584"
+  },
+  "pending": [
+    "original-key-equality",
+    "original-operation-equality",
+    "manual-unknown-recovery",
+    "CAS-browser"
+  ],
+  "verification": {
+    "syntaxChecks": "3 passed",
+    "diffCheck": "passed",
+    "businessBuild": "not rerun; unchanged business code",
+    "firstCleanup": "stop exit 0",
+    "secondCleanup": "session unavailable; not confirmed"
+  },
+  "modelCalls": 0
+}

@@ -1,0 +1,35 @@
+{
+  "date": "2026-10-05",
+  "sample_bytes": 1755,
+  "source_sha256": "85ff7851180b176e0da715a30645c9303ccd81e62072af6b435e58c2d84a0709",
+  "keyboard": [
+    "open Enter",
+    "authorize Enter",
+    "confirm lesson Enter"
+  ],
+  "lesson_saved": true,
+  "completion_after_reload": true,
+  "download_link_visible": true,
+  "download_disk_verified": false,
+  "download_attempts": [
+    {
+      "method": "downloadMedia",
+      "result": "timeout after20s"
+    },
+    {
+      "method": "waitForEvent download and Enter",
+      "result": "timeout after10s"
+    }
+  ],
+  "after_revoke": {
+    "blobLinks": 0,
+    "courseBodyVisible": false
+  },
+  "accessibility": {
+    "documentWidth": 1265,
+    "emptyAppButtons": 0,
+    "h1": 1,
+    "width": 1280
+  },
+  "model_calls": 0
+}

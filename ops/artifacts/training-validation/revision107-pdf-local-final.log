@@ -1,0 +1,27 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 原创PDF：真实上传/官方ClamAV clean/独立发布/Range及撤销授权
+ok 1 - 原创PDF：真实上传/官方ClamAV clean/独立发布/Range及撤销授权
+  ---
+  duration_ms: 52670.464
+  type: 'test'
+  ...
+# {"original_bytes":1755,"engine":"1.5.4","database":"28143","database_updated_at":"2026-10-04T06:25:22.000Z","scanned_at":"2026-10-05T08:49:39.801Z","full":200,"range":206,"multiple":416,"after_revoke":404}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: PDF恢复放行：真实加密包、课节与班级/进度/字节完整、旧身份401
+ok 2 - PDF恢复放行：真实加密包、课节与班级/进度/字节完整、旧身份401
+  ---
+  duration_ms: 64763.683
+  type: 'test'
+  ...
+# {"bytes":1755,"encrypted":true,"course_lessons_equal":true,"class_assignment":1,"restored_progress":2,"release":"active","old_login":401,"anonymous_range":401}
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 117804.1297

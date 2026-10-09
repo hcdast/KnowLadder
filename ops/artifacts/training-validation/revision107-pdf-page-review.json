@@ -1,0 +1,39 @@
+{
+  "date": "2026-10-05",
+  "sources": {
+    "revision107-pdf-auth.integration.test.cjs": "5bd41fda2b9c90bd9bb9152e00a2901bed8966e9db633eee677be4945c69588f",
+    "revision107-pdf-release.test.cjs": "1c13d3e95f718019e1885293de2965caed6bd53a072a2d78584d38f06ad9aeea",
+    "revision107-pdf-helpers.cjs": "041ac3379bc6682a75aa8f81aabcbdcbef6bff1afe940cbffc41dbd8334c4aa9",
+    "revision107-pdf-page-api.cjs": "cbb29430f5a57967370da77e8e4326eef81074770d69567774a510e7c496e976",
+    "revision107-pdf-page-runtime.cjs": "2760004019eb3e989d96ca252e57216d2f651ce415b98ef7bfa52c6815ccc5cf"
+  },
+  "log": "revision107-pdf-local-final.log",
+  "pass": 2,
+  "fail": 0,
+  "skip": 0,
+  "seconds": 117.8041297,
+  "exit": 0,
+  "syntax_files": 5,
+  "syntax_exit": 0,
+  "local_links": 252,
+  "link_issues": [],
+  "diff_check_exit": 0,
+  "review": "源PDF只读核验/真实扫描/独立发布/字节和课程加密恢复/身份禁用/键盘完成持久化/撤权清空/隔离清理已核对；无已知Critical/High，下载磁盘未验证",
+  "browser_download_verified": false,
+  "download_attempts": [
+    {
+      "seconds": 20,
+      "result": "timeout"
+    },
+    {
+      "seconds": 10,
+      "result": "timeout"
+    }
+  ],
+  "runtime_exit": 0,
+  "agent_tab_closed": true,
+  "business_env_changed": false,
+  "model_calls": 0,
+  "commit": false,
+  "push": false
+}

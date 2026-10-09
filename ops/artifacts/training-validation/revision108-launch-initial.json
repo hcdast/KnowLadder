@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-05",
+  "passed": false,
+  "stage": "private directory setup",
+  "error": "Error:EPERM: operation not permitted, realpath 'C:\\Users\\Administrator'\nError:API_FIXTURE_EXIT\n",
+  "fallback": "approved isolated runtime exec"
+}

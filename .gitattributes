@@ -1,0 +1,9 @@
+# Preserve exact bytes of recorded acceptance evidence.
+ops/artifacts/training-validation/*.pdf binary
+ops/artifacts/training-validation/*.png binary
+ops/artifacts/training-validation/*.jpg binary
+ops/artifacts/training-validation/*.mp3 binary
+ops/artifacts/training-validation/*.mp4 binary
+# TAP diagnostics and rendered review HTML intentionally retain whitespace.
+ops/artifacts/training-validation/*.log -text whitespace=-blank-at-eol,-blank-at-eof
+ops/artifacts/training-validation/*.html -text whitespace=-blank-at-eol,-blank-at-eof

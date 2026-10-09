@@ -1,0 +1,18 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 原创MP4：真实上传/官方ClamAV clean/独立发布/Range及撤销授权
+ok 1 - 原创MP4：真实上传/官方ClamAV clean/独立发布/Range及撤销授权
+  ---
+  duration_ms: 49078.7421
+  type: 'test'
+  ...
+# {"original_bytes":5839,"engine":"1.5.4","database":"28143","database_updated_at":"2026-10-04T06:25:22.000Z","scanned_at":"2026-10-05T05:34:55.469Z","full":200,"range":206,"multiple":416,"after_revoke":404}
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 49249.1816

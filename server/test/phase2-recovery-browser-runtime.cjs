@@ -13,7 +13,7 @@ const { randomBytes } = require("node:crypto");
     lastKey = null;
   try {
     api = fork(
-      path.join(__dirname, "training-report-browser-runtime.cjs"),
+      path.join(__dirname, process.env.KL_TEST_CERTIFICATE_RECOVERY === "true" ? "certificate-recovery-api-runtime.cjs" : "training-report-browser-runtime.cjs"),
       [],
       {
         env: {
@@ -93,7 +93,7 @@ const { randomBytes } = require("node:crypto");
           if (!url.startsWith("/api/")) return next();
           const targeted =
             req.method === "POST" &&
-            url === "/api/v1/training/phase2/locations";
+            url === (process.env.KL_TEST_CERTIFICATE_RECOVERY === "true" ? "/api/v1/training/phase2/certificates" : "/api/v1/training/phase2/locations");
           if (targeted) {
             writeCount++;
             lastKey = req.headers["idempotency-key"];
@@ -140,6 +140,7 @@ const { randomBytes } = require("node:crypto");
         bootstrap: "http://127.0.0.1:5184/__test/bootstrap?nonce=" + nonce,
       }),
     );
+    process.send?.({ready:true,bootstrap:"http://127.0.0.1:5184/__test/bootstrap?nonce="+nonce});
     await new Promise((resolve) => {
       process.on("message", (m) => {
         if (m.stop) return resolve();

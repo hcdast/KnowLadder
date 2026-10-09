@@ -1,0 +1,21 @@
+{
+  "date": "2026-10-05",
+  "final_test": "server/test/revision105-media-release.test.cjs",
+  "source_sha256": "de3f6ee897ab89e4848e6f20dd232e375a94279894a7ef9717e41dddbab68244",
+  "final_log": "revision105-media-release-proof.log",
+  "pass": 1,
+  "fail": 0,
+  "skip": 0,
+  "seconds": 63.2867321,
+  "exit": 0,
+  "syntax_checks": "passed",
+  "local_links": 234,
+  "link_issues": [],
+  "review": "真实扫描/独立发布/课节和班级与进度恢复/加密字节/正式release/旧身份401/浏览器播放与清空均核对；同名外部修改保留，专用验收日志与源码摘要绑定；无已知Critical/High",
+  "runtime_cleanup_exit": 0,
+  "browser_tabs_closed": true,
+  "business_env_modified": false,
+  "model_calls": 0,
+  "commit": false,
+  "push": false
+}

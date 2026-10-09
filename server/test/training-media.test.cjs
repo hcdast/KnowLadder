@@ -82,10 +82,18 @@ Set-Acl -LiteralPath $env:KL_MEDIA_ROOT -AclObject $acl`;
       declared_mime: mime,
       declared_checksum: createHash("sha256").update(bytes).digest("hex"),
     });
-    for (const [bytes, mime] of [
-      [mp4, "video/mp4"],
-      [mp3, "audio/mpeg"],
-    ]) {
+    const samples = [[mp4, "video/mp4"], [mp3, "audio/mpeg"]];
+    if (process.env.KL_TEST_ORIGINAL_MEDIA_PATH) {
+      const expectedPath = path.resolve(__dirname, "../../ops/artifacts/training-validation/revision103-original-video.mp4");
+      assert.equal(path.resolve(process.env.KL_TEST_ORIGINAL_MEDIA_PATH), expectedPath);
+      const original = await readFile(expectedPath);
+      const metadata = JSON.parse(await readFile(expectedPath + ".json", "utf8"));
+      assert.equal(createHash("sha256").update(original).digest("hex"), metadata.sha256);
+      assert.equal(original.length, metadata.bytes);
+      assert.equal(metadata.scan_status, "not_scanned");
+      samples.push([original, "video/mp4"]);
+    }
+    for (const [bytes, mime] of samples) {
       const key = randomUUID();
       await receive(
         Readable.from([bytes.subarray(0, 7), bytes.subarray(7)]),

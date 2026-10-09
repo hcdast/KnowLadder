@@ -1,0 +1,17 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 系列补验：已保存备课输出正式采纳与学生助教直接网关
+ok 1 - 系列补验：已保存备课输出正式采纳与学生助教直接网关
+  ---
+  duration_ms: 11046.7487
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11233.4535

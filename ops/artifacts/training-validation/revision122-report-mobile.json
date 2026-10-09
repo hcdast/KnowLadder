@@ -1,0 +1,26 @@
+{
+  "checks": [
+    {
+      "step": "review detail mobile",
+      "emptyButtons": 0,
+      "focus": "原创班级验收报告",
+      "focusTag": "H4",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "step": "tab from detail",
+      "labels": [
+        "审核意见"
+      ],
+      "tag": "TEXTAREA"
+    }
+  ],
+  "limits": [
+    "review state only",
+    "no approval or rejection submitted this run",
+    "not all widths or screen reader"
+  ]
+}

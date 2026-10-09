@@ -1,0 +1,138 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 12.6582
+      type: 'test'
+      ...
+    1..1
+ok 1 - IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 3972.7704
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 6.8799
+      type: 'test'
+      ...
+    1..1
+ok 2 - IAM standalone：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 1997.1596
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 172.6305
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 449.0498
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 204.2352
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 544.3713
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 575.9305
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 4.9583
+      type: 'test'
+      ...
+    1..6
+ok 3 - IAM replicaSet：精确登录名目录查询
+  ---
+  duration_ms: 8617.6562
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：精确登录名目录查询
+    # Subtest: 规范化精确匹配、最小响应与组织归属不泄漏
+    ok 1 - 规范化精确匹配、最小响应与组织归属不泄漏
+      ---
+      duration_ms: 136.3953
+      type: 'test'
+      ...
+    # Subtest: 停用账号和成员仍可管理，隐私退役主体不进入目录
+    ok 2 - 停用账号和成员仍可管理，隐私退役主体不进入目录
+      ---
+      duration_ms: 325.3119
+      type: 'test'
+      ...
+    # Subtest: 纯治理、业务和普通身份不得通过精确名获得目录
+    ok 3 - 纯治理、业务和普通身份不得通过精确名获得目录
+      ---
+      duration_ms: 170.4365
+      type: 'test'
+      ...
+    # Subtest: 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+    ok 4 - 详情真实区分普通主体与未来生效敏感授权，不扩大可见范围
+      ---
+      duration_ms: 408.439
+      type: 'test'
+      ...
+    # Subtest: 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+    ok 5 - 旧无筛选游标兼容，规范化筛选绑定及 after/limit 生效
+      ---
+      duration_ms: 392.2034
+      type: 'test'
+      ...
+    # Subtest: 真实查询计划复用登录名唯一索引，不引入全表扫描
+    ok 6 - 真实查询计划复用登录名唯一索引，不引入全表扫描
+      ---
+      duration_ms: 2.353
+      type: 'test'
+      ...
+    # Subtest: 操作者真实写后隔离仍阻止精确目录读取
+    ok 7 - 操作者真实写后隔离仍阻止精确目录读取
+      ---
+      duration_ms: 25.6039
+      type: 'test'
+      ...
+    1..7
+ok 4 - IAM standalone：精确登录名目录查询
+  ---
+  duration_ms: 5441.6672
+  type: 'test'
+  ...
+# Subtest: 管理用户定位接受当前ObjectId，拒绝旧UUID和不规范目标
+ok 5 - 管理用户定位接受当前ObjectId，拒绝旧UUID和不规范目标
+  ---
+  duration_ms: 0.679
+  type: 'test'
+  ...
+1..5
+# tests 20
+# suites 0
+# pass 20
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 20848.0699

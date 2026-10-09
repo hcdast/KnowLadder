@@ -1,0 +1,23 @@
+[
+  {
+    "method": "GET",
+    "path": "/api/v1/site/pages/home",
+    "status": 200,
+    "targeted": false,
+    "shouldDrop": false
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/auth/csrf",
+    "status": 200,
+    "targeted": false,
+    "shouldDrop": false
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/me",
+    "status": 401,
+    "targeted": false,
+    "shouldDrop": false
+  }
+]

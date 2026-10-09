@@ -1,0 +1,27 @@
+{
+  "evidence": [
+    {
+      "step": "open review detail",
+      "h1": 1,
+      "tag": "BODY",
+      "text": "\n    跳至正文知阶KnowLadder当前组织请选择组织本地职业培训验收集集成验收用户账号与安全 退出登录  课程与培训  教学工作台 课程与培训TRAIN",
+      "unlabelled": 0
+    },
+    {
+      "step": "published detail focus fixed",
+      "detail": "培训与学情报告 报告区分培训完成情况与知识掌握情况。正文由教师确认，送审后由独立审核人发布。  刷新报告列表原创班级验收报告 · 已发布原创班级验收报告 状态：已发布 · 事实日期：2026/10/5 21:41:14 有效学情：证据不足；班级人数 1，有投影证据 0。  近30天有效提交 0；达到掌握分类 0。 报告标题报告正文 审核意见：核对原创材料与来源，保持证据不足说明，批准本地合成报告。",
+      "tag": "H4",
+      "text": "原创班级验收报告"
+    },
+    {
+      "step": "final source detail",
+      "tag": "H4",
+      "text": "原创班级验收报告"
+    }
+  ],
+  "limits": [
+    "platform governance UI not covered",
+    "post publish focus not verified",
+    "no model or actual human pedagogical evaluation"
+  ]
+}

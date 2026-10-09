@@ -21,7 +21,7 @@ for (const topology of ["replicaSet", "standalone"]) {
     Collection.prototype.findOne = async function (...args) {
       const row = await original.apply(this, args);
       if (this.namespace === `${f.db.databaseName}.administration_operations` && row === null &&
-          args[0]?.key === key && args[0]?.actor_id === f.governor.user.user_id &&
+          args[0]?.key === key && String(args[0]?.actor_id) === f.governor.user.user_id &&
           args[0]?.action === "approval.request.grant.create" && entered < 2) {
         entered++;
         if (entered === 1) await firstRelease.promise;

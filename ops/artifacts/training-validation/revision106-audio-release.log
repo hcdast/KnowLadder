@@ -1,0 +1,19 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: MP3恢复放行：真实加密包、课节与班级/进度/字节完整、旧身份401
+ok 1 - MP3恢复放行：真实加密包、课节与班级/进度/字节完整、旧身份401
+  ---
+  duration_ms: 73653.8392
+  type: 'test'
+  ...
+# {"bytes":24540,"encrypted":true,"course_lessons_equal":true,"class_assignment":1,"restored_progress":2,"release":"active","old_login":401,"anonymous_range":401}
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 73833.3569

@@ -1,0 +1,23 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 公开SSR：真实草稿/独立发布、转义、站点地图、组织禁用与私有路由拒绝
+ok 1 - 公开SSR：真实草稿/独立发布、转义、站点地图、组织禁用与私有路由拒绝
+  ---
+  duration_ms: 7185.0842
+  type: 'test'
+  ...
+# Subtest: SSR安全：不转发会话、限制响应、依赖故障关闭、配置拒绝
+ok 2 - SSR安全：不转发会话、限制响应、依赖故障关闭、配置拒绝
+  ---
+  duration_ms: 68.9027
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 7526.4735

@@ -1,0 +1,23 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识v17：v16停写升级、既有出版来源回填、重复迁移及备份注册
+ok 1 - 知识v17：v16停写升级、既有出版来源回填、重复迁移及备份注册
+  ---
+  duration_ms: 8535.9375
+  type: 'test'
+  ...
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 2 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 27622.0391
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 36833.2426

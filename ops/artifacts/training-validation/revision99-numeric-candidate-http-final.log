@@ -1,0 +1,17 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 真实数值题模型候选：正式HTTP保存隔离草稿及精确答案，不自动送审发布
+ok 1 - 真实数值题模型候选：正式HTTP保存隔离草稿及精确答案，不自动送审发布
+  ---
+  duration_ms: 6114.4839
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6883.068

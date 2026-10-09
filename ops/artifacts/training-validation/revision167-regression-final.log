@@ -1,0 +1,282 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 12.2992
+      type: 'test'
+      ...
+    1..1
+ok 1 - IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 4067.2362
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 5.9856
+      type: 'test'
+      ...
+    1..1
+ok 2 - IAM standalone：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 2388.1819
+  type: 'test'
+  ...
+# Subtest: 阶段一：真实 MongoDB 副本集 HTTP 与 CLI 行为
+    # Subtest: F01 两个真实迁移执行器并发仍只有一份完成版本
+    ok 1 - F01 两个真实迁移执行器并发仍只有一份完成版本
+      ---
+      duration_ms: 3520.3479
+      type: 'test'
+      ...
+    # Subtest: F01 活跃租约拒绝抢占、过期租约可恢复、checksum漂移拒绝
+    ok 2 - F01 活跃租约拒绝抢占、过期租约可恢复、checksum漂移拒绝
+      ---
+      duration_ms: 2765.7257
+      type: 'test'
+      ...
+    # Subtest: F01 迁移可重复且数据库格式与唯一约束仍生效
+    ok 3 - F01 迁移可重复且数据库格式与唯一约束仍生效
+      ---
+      duration_ms: 2401.4037
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F01 未迁移和关键唯一索引缺失时不就绪
+    ok 4 - F01 未迁移和关键唯一索引缺失时不就绪
+      ---
+      duration_ms: 2594.436
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F02/F03 首次改密、cookie轮换、禁止旧密码、身份不泄露
+    ok 5 - F02/F03 首次改密、cookie轮换、禁止旧密码、身份不泄露
+      ---
+      duration_ms: 2810.8982
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F04 API重启保留会话，退出不恢复，重新登录使用新会话
+    ok 6 - F04 API重启保留会话，退出不恢复，重新登录使用新会话
+      ---
+      duration_ms: 2840.4893
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F02/F05/F06 两组织隔离、实时角色替换与成员禁用
+    ok 7 - F02/F05/F06 两组织隔离、实时角色替换与成员禁用
+      ---
+      duration_ms: 2927.0742
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F06 Origin/CSRF与NoSQL、超长、未知DTO字段拒绝
+    ok 8 - F06 Origin/CSRF与NoSQL、超长、未知DTO字段拒绝
+      ---
+      duration_ms: 2484.5348
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F07 未知账号与错密统一401，无敏感回显
+    ok 9 - F07 未知账号与错密统一401，无敏感回显
+      ---
+      duration_ms: 2646.3037
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F07 Mongo限流跨两个API实例共享而非内存计数
+    ok 10 - F07 Mongo限流跨两个API实例共享而非内存计数
+      ---
+      duration_ms: 2801.0284
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F07 更换用户名仍受跨实例IP总额度约束
+    ok 11 - F07 更换用户名仍受跨实例IP总额度约束
+      ---
+      duration_ms: 3734.8659
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F07 CSRF频率在两个实例共享，不能经新cookie绕过
+    ok 12 - F07 CSRF频率在两个实例共享，不能经新cookie绕过
+      ---
+      duration_ms: 2740.5376
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F07 改密失败次数按账户共享，不能跨实例绕过
+    ok 13 - F07 改密失败次数按账户共享，不能跨实例绕过
+      ---
+      duration_ms: 2756.9243
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F05 同一预认证并发登录最多产生一个成功会话
+    ok 14 - F05 同一预认证并发登录最多产生一个成功会话
+      ---
+      duration_ms: 2374.1618
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F05 并发禁用和旧密码登录不会复活身份
+    ok 15 - F05 并发禁用和旧密码登录不会复活身份
+      ---
+      duration_ms: 2595.3609
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F05 并发重置与旧密码登录：已签发会话也即时失效
+    ok 16 - F05 并发重置与旧密码登录：已签发会话也即时失效
+      ---
+      duration_ms: 2688.0094
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: S5 隐私屏障阻止旧登录、会话续期和改密
+    ok 17 - S5 隐私屏障阻止旧登录、会话续期和改密
+      ---
+      duration_ms: 2887.7008
+      type: 'test'
+      ...
+    # Subtest: S5 erasing/erased 用户不可经管理员密码、启用、成员或能力操作复活
+    ok 18 - S5 erasing/erased 用户不可经管理员密码、启用、成员或能力操作复活
+      ---
+      duration_ms: 2907.9905
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: S5 普通 disabled 用户仍可重置临时密码并显式启用
+    ok 19 - S5 普通 disabled 用户仍可重置临时密码并显式启用
+      ---
+      duration_ms: 2483.2237
+      type: 'test'
+      ...
+    # Subtest: S5 maintenance 禁止绕过 CLI 入口直接执行管理员写入
+    ok 20 - S5 maintenance 禁止绕过 CLI 入口直接执行管理员写入
+      ---
+      duration_ms: 3214.7258
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F08 TTL未删除时仍拒绝空闲及绝对过期会话
+    ok 21 - F08 TTL未删除时仍拒绝空闲及绝对过期会话
+      ---
+      duration_ms: 3649.3747
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F08 临时密码过期与预认证到期不依赖TTL
+    ok 22 - F08 临时密码过期与预认证到期不依赖TTL
+      ---
+      duration_ms: 2618.3896
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F08 refresh不超过绝对期限，logout竞争不能复活会话
+    ok 23 - F08 refresh不超过绝对期限，logout竞争不能复活会话
+      ---
+      duration_ms: 2538.3556
+      type: 'test'
+      ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+    # Subtest: F10 真实数据库连接丢失时logout返回503而非假成功
+    ok 24 - F10 真实数据库连接丢失时logout返回503而非假成功
+      ---
+      duration_ms: 2549.5232
+      type: 'test'
+      ...
+    # Subtest: F01 standalone拒绝迁移（可选独立服务）
+    ok 25 - F01 standalone拒绝迁移（可选独立服务）
+      ---
+      duration_ms: 5.1081
+      type: 'test'
+      ...
+    1..25
+ok 3 - 阶段一：真实 MongoDB 副本集 HTTP 与 CLI 行为
+  ---
+  duration_ms: 67546.4976
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 批量预检查/分配和本人工作台真实HTTP
+ok 4 - 批量预检查/分配和本人工作台真实HTTP
+  ---
+  duration_ms: 8695.405
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+ok 5 - 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+  ---
+  duration_ms: 5541.8057
+  type: 'test'
+  ...
+# Subtest: ObjectId codec only converts declared references, leaves text/tokens intact
+ok 6 - ObjectId codec only converts declared references, leaves text/tokens intact
+  ---
+  duration_ms: 2.2862
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: v10 replicaSet: native IDs, auth, natural keys and strict UUID rejection
+ok 7 - v10 replicaSet: native IDs, auth, natural keys and strict UUID rejection
+  ---
+  duration_ms: 3909.9425
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: v10 standalone: native IDs, auth, natural keys and strict UUID rejection
+ok 8 - v10 standalone: native IDs, auth, natural keys and strict UUID rejection
+  ---
+  duration_ms: 2123.0248
+  type: 'test'
+  ...
+# Subtest: v10 replicaSet: initialization rejects legacy and resumes same-version failure
+ok 9 - v10 replicaSet: initialization rejects legacy and resumes same-version failure
+  ---
+  duration_ms: 3100.0049
+  type: 'test'
+  ...
+# Subtest: v10 standalone: initialization rejects legacy and resumes same-version failure
+ok 10 - v10 standalone: initialization rejects legacy and resumes same-version failure
+  ---
+  duration_ms: 1795.7016
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: ObjectId chapters: server allocation, parent mapping, replay and ownership
+ok 11 - ObjectId chapters: server allocation, parent mapping, replay and ownership
+  ---
+  duration_ms: 5028.1603
+  type: 'test'
+  ...
+# Subtest: v10 preserves historical v8 validators and refuses implicit conversion
+ok 12 - v10 preserves historical v8 validators and refuses implicit conversion
+  ---
+  duration_ms: 5641.5408
+  type: 'test'
+  ...
+1..12
+# tests 39
+# suites 0
+# pass 39
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 111302.1807
+An Process didnt exit with signal "SIGINT" within 10 seconds, using "SIGKILL"!
+Enable debug logs for more information

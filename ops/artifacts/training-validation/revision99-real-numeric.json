@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "model": "gpt-5.5",
+  "transport": "real-gateway-numeric-supplement",
+  "corpus_sha256": "4541f0132a7646c3ff5cf3b29d988a1c3f16d93c730b6a4703b3f720c345c04b",
+  "billing_policy": "ignored_by_explicit_user_authorization",
+  "cost_usd": null,
+  "request_attempts": 5,
+  "records": [
+    {
+      "case_id": "numeric-01",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6487,
+      "usage": {
+        "prompt_tokens": 286,
+        "completion_tokens": 220,
+        "reasoning_tokens": 85
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"numeric\\\",\\\"prompt\\\":\\\"请计算表达式 0.1+0.2 的精确结果，不作近似。\\\",\\\"options\\\":[],\\\"answer\\\":\\\"0.3\\\",\\\"explanation\\\":\\\"将 0.1 和 0.2 按十进制小数相加：0.1 表示十分之一，0.2 表示十分之二，十分之一加十分之二等于十分之三，即 0.3。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"numeric_exact_decimal\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"numeric-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "numeric_validation": {
+        "status": "pass",
+        "contract": "formal_validateQuestion",
+        "answer_check": "formal_scoreAnswer_against_authored_oracle",
+        "candidate": {
+          "question_type": "numeric",
+          "prompt": "请计算表达式 0.1+0.2 的精确结果，不作近似。",
+          "options": [],
+          "answer": "0.3",
+          "explanation": "将 0.1 和 0.2 按十进制小数相加：0.1 表示十分之一，0.2 表示十分之二，十分之一加十分之二等于十分之三，即 0.3。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "numeric_exact_decimal",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed",
+        "saved_to_question_bank": false
+      }
+    },
+    {
+      "case_id": "numeric-02",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5264,
+      "usage": {
+        "prompt_tokens": 286,
+        "completion_tokens": 183,
+        "reasoning_tokens": 59
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"numeric\\\",\\\"prompt\\\":\\\"请计算表达式 3.5 - 1.25 的精确结果，不作近似。\\\",\\\"options\\\":[],\\\"answer\\\":\\\"2.25\\\",\\\"explanation\\\":\\\"将 3.5 写成 3.50，按小数减法计算：3.50 - 1.25 = 2.25。因此精确结果为 2.25。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"numeric_exact_decimal\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"numeric-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "numeric_validation": {
+        "status": "pass",
+        "contract": "formal_validateQuestion",
+        "answer_check": "formal_scoreAnswer_against_authored_oracle",
+        "candidate": {
+          "question_type": "numeric",
+          "prompt": "请计算表达式 3.5 - 1.25 的精确结果，不作近似。",
+          "options": [],
+          "answer": "2.25",
+          "explanation": "将 3.5 写成 3.50，按小数减法计算：3.50 - 1.25 = 2.25。因此精确结果为 2.25。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "numeric_exact_decimal",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed",
+        "saved_to_question_bank": false
+      }
+    },
+    {
+      "case_id": "numeric-03",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 4429,
+      "usage": {
+        "prompt_tokens": 282,
+        "completion_tokens": 172,
+        "reasoning_tokens": 69
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"numeric\\\",\\\"prompt\\\":\\\"请计算表达式 2.5*4 的精确结果，不作近似。\\\",\\\"options\\\":[],\\\"answer\\\":\\\"10\\\",\\\"explanation\\\":\\\"将 2.5 与 4 相乘：2.5*4=10，因此精确结果为 10。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"numeric_exact_decimal\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"numeric-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "numeric_validation": {
+        "status": "pass",
+        "contract": "formal_validateQuestion",
+        "answer_check": "formal_scoreAnswer_against_authored_oracle",
+        "candidate": {
+          "question_type": "numeric",
+          "prompt": "请计算表达式 2.5*4 的精确结果，不作近似。",
+          "options": [],
+          "answer": "10",
+          "explanation": "将 2.5 与 4 相乘：2.5*4=10，因此精确结果为 10。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "numeric_exact_decimal",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed",
+        "saved_to_question_bank": false
+      }
+    },
+    {
+      "case_id": "numeric-04",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 5215,
+      "usage": {
+        "prompt_tokens": 290,
+        "completion_tokens": 222,
+        "reasoning_tokens": 89
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"numeric\\\",\\\"prompt\\\":\\\"请计算表达式 1.2e3+3e2 的精确结果，不作近似。\\\",\\\"options\\\":[],\\\"answer\\\":\\\"1500\\\",\\\"explanation\\\":\\\"1.2e3 表示 1.2 × 10^3 = 1200；3e2 表示 3 × 10^2 = 300。相加得到 1200 + 300 = 1500。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"numeric_exact_decimal\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"numeric-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "numeric_validation": {
+        "status": "pass",
+        "contract": "formal_validateQuestion",
+        "answer_check": "formal_scoreAnswer_against_authored_oracle",
+        "candidate": {
+          "question_type": "numeric",
+          "prompt": "请计算表达式 1.2e3+3e2 的精确结果，不作近似。",
+          "options": [],
+          "answer": "1500",
+          "explanation": "1.2e3 表示 1.2 × 10^3 = 1200；3e2 表示 3 × 10^2 = 300。相加得到 1200 + 300 = 1500。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "numeric_exact_decimal",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed",
+        "saved_to_question_bank": false
+      }
+    },
+    {
+      "case_id": "numeric-05",
+      "kind": "questions",
+      "status": "succeeded",
+      "http_status": 200,
+      "elapsed_ms": 6141,
+      "usage": {
+        "prompt_tokens": 279,
+        "completion_tokens": 174,
+        "reasoning_tokens": 65
+      },
+      "response_json": "{\"text\":\"{\\\"question_type\\\":\\\"numeric\\\",\\\"prompt\\\":\\\"请计算表达式 -2 + 2 的精确结果，不作近似。\\\",\\\"options\\\":[],\\\"answer\\\":\\\"0\\\",\\\"explanation\\\":\\\"按整数加法计算：-2 + 2 表示负二加正二，二者互为相反数，相加结果为 0。\\\",\\\"scoring_rule\\\":{\\\"version\\\":1,\\\"strategy\\\":\\\"numeric_exact_decimal\\\",\\\"max_score\\\":\\\"1\\\"}}\",\"source_keys\":[\"numeric-original\"]}",
+      "structure": {
+        "structure": "pass",
+        "pedagogy": "pending_two_human_reviewers"
+      },
+      "cost_usd": null,
+      "numeric_validation": {
+        "status": "pass",
+        "contract": "formal_validateQuestion",
+        "answer_check": "formal_scoreAnswer_against_authored_oracle",
+        "candidate": {
+          "question_type": "numeric",
+          "prompt": "请计算表达式 -2 + 2 的精确结果，不作近似。",
+          "options": [],
+          "answer": "0",
+          "explanation": "按整数加法计算：-2 + 2 表示负二加正二，二者互为相反数，相加结果为 0。",
+          "scoring_rule": {
+            "version": 1,
+            "strategy": "numeric_exact_decimal",
+            "max_score": "1"
+          }
+        },
+        "human_quality": "not_reviewed",
+        "saved_to_question_bank": false
+      }
+    }
+  ],
+  "human_quality": "not_reviewed",
+  "finished_at": "2026-10-05T02:44:59.028Z"
+}

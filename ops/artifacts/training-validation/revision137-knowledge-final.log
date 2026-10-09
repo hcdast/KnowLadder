@@ -1,0 +1,166 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识v17：v16停写升级、既有出版来源回填、重复迁移及备份注册
+ok 1 - 知识v17：v16停写升级、既有出版来源回填、重复迁移及备份注册
+  ---
+  duration_ms: 8036.8008
+  type: 'test'
+  ...
+# Subtest: 知识来源严格限制类型及字段
+ok 2 - 知识来源严格限制类型及字段
+  ---
+  duration_ms: 1.4715
+  type: 'test'
+  ...
+# Subtest: 章节复用当前 owner 授权，组织查询及输出字段白名单
+ok 3 - 章节复用当前 owner 授权，组织查询及输出字段白名单
+  ---
+  duration_ms: 0.6204
+  type: 'test'
+  ...
+# Subtest: 课程使用当前范围授权且拒绝草稿及非文本课时
+ok 4 - 课程使用当前范围授权且拒绝草稿及非文本课时
+  ---
+  duration_ms: 0.3022
+  type: 'test'
+  ...
+# Subtest: 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+ok 5 - 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+  ---
+  duration_ms: 1.5513
+  type: 'test'
+  ...
+# Subtest: 知识分片保留原文UTF-16引用，重叠且不切开代理对
+ok 6 - 知识分片保留原文UTF-16引用，重叠且不切开代理对
+  ---
+  duration_ms: 2.3442
+  type: 'test'
+  ...
+# Subtest: 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+ok 7 - 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+  ---
+  duration_ms: 7.7402
+  type: 'test'
+  ...
+# Subtest: 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+ok 8 - 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+  ---
+  duration_ms: 0.4928
+  type: 'test'
+  ...
+# Subtest: 候选引用严格限定最多五条
+ok 9 - 候选引用严格限定最多五条
+  ---
+  duration_ms: 20.434
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+ok 10 - 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+  ---
+  duration_ms: 7707.7524
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+    # Subtest: v17严格Schema、BSON身份及未就绪索引拒绝
+    ok 1 - v17严格Schema、BSON身份及未就绪索引拒绝
+      ---
+      duration_ms: 54.9935
+      type: 'test'
+      ...
+    # Subtest: 授权范围、严格类型、精确引用、空证据及检索不占预算
+    ok 2 - 授权范围、严格类型、精确引用、空证据及检索不占预算
+      ---
+      duration_ms: 733.81
+      type: 'test'
+      ...
+    # Subtest: 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+    ok 3 - 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+      ---
+      duration_ms: 396.9125
+      type: 'test'
+      ...
+    # Subtest: 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+    ok 4 - 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+      ---
+      duration_ms: 353.921
+      type: 'test'
+      ...
+    # Subtest: 领取后新重建事件使旧代次失效，不覆盖新pending任务
+    ok 5 - 领取后新重建事件使旧代次失效，不覆盖新pending任务
+      ---
+      duration_ms: 174.4714
+      type: 'test'
+      ...
+    # Subtest: 教师多来源备课与学习读权检索独立于模型生成能力
+    ok 6 - 教师多来源备课与学习读权检索独立于模型生成能力
+      ---
+      duration_ms: 161.1665
+      type: 'test'
+      ...
+    # Subtest: 调用中撤权停止结果交付并结算，不把任务留在running
+    ok 7 - 调用中撤权停止结果交付并结算，不把任务留在running
+      ---
+      duration_ms: 142.5838
+      type: 'test'
+      ...
+    # Subtest: 退役事件清除派生原文且学生不能检索旧索引
+    ok 8 - 退役事件清除派生原文且学生不能检索旧索引
+      ---
+      duration_ms: 87.3878
+      type: 'test'
+      ...
+    # Subtest: OpenAPI包含来源/证据/检索与可选AI预览绑定
+    ok 9 - OpenAPI包含来源/证据/检索与可选AI预览绑定
+      ---
+      duration_ms: 35.44
+      type: 'test'
+      ...
+    # Subtest: 真实216候选拒绝而非截断，检索不预留预算
+    not ok 10 - 真实216候选拒绝而非截断，检索不预留预算
+      ---
+      duration_ms: 8.5883
+      type: 'test'
+      location: 'D:\\my-workspace\\KnowLadder\\server\\test\\knowledge.integration.test.cjs:153:11'
+      failureType: 'testCodeFailure'
+      error: |-
+        HTTP 状态应为 200 (PAYLOAD_TOO_LARGE)
+        
+        413 !== 200
+        
+      code: 'ERR_ASSERTION'
+      name: 'AssertionError'
+      expected: 200
+      actual: 413
+      operator: 'strictEqual'
+      stack: |-
+        status (D:\my-workspace\KnowLadder\server\test\helpers.cjs:90:10)
+        f.good (D:\my-workspace\KnowLadder\server\test\training-isolated-helpers.cjs:118:5)
+        process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+        async course (D:\my-workspace\KnowLadder\server\test\knowledge.integration.test.cjs:10:9)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\knowledge.integration.test.cjs:156:15)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\knowledge.integration.test.cjs:153:3)
+        async Test.run (node:internal/test_runner/test:1054:7)
+        async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+      ...
+    1..10
+not ok 11 - 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+  ---
+  duration_ms: 9041.563
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\knowledge.integration.test.cjs:17:1'
+  failureType: 'subtestsFailed'
+  error: '1 subtest failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+1..11
+# tests 21
+# suites 0
+# pass 19
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 26292.8858

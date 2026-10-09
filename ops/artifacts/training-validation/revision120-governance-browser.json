@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "view": "governance overview",
+      "focus": "\n    跳至正文知阶管理后台管理组织IAM 平台合成组织集集成验收用户工作台身份与访问组织与成员角色与授权治理审批中心操作审计网站首页工作",
+      "focusTag": "BODY",
+      "h1": 1,
+      "scrollWidth": 1265,
+      "unlabelled": 0,
+      "width": 1280
+    },
+    {
+      "view": "approval detail desktop",
+      "focus": "\n    跳至正文知阶管理后台管理组织IAM 平台合成组织集集成验收用户工作台身份与访问组织与成员角色与授权治理审批中心操作审计网站首页审批",
+      "focusTag": "BODY",
+      "h1": 1,
+      "scrollWidth": 1265,
+      "unlabelled": 0,
+      "width": 1280
+    },
+    {
+      "view": "approval detail mobile",
+      "focus": "\n    跳至正文知阶管理后台管理组织IAM 平台合成组织集集成验收用户关闭导航工作台身份与访问组织与成员角色与授权治理审批中心操作审计网站",
+      "focusTag": "BODY",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "approval detail focused after fix",
+      "focus": "审批申请详情",
+      "focusTag": "H1",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "approval route focus verified",
+      "focus": "审批申请详情",
+      "focusTag": "H1",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    },
+    {
+      "view": "next tab from heading",
+      "focus": "返回审批列表",
+      "focusTag": "A",
+      "h1": 1,
+      "scrollWidth": 305,
+      "unlabelled": 0,
+      "width": 320
+    }
+  ],
+  "limits": [
+    "approval decisions not submitted",
+    "platform accounts role not checked",
+    "report mobile pending",
+    "not full screen reader or WCAG"
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "checks": [
+    {
+      "step": "cancel preserved",
+      "dialogCount": 0,
+      "focus": "保存成员变更",
+      "reason": "原创合成成员原请求恢复验收",
+      "status": [
+        "6ac3b272201138cee514d2c6",
+        "disabled"
+      ]
+    },
+    {
+      "step": "first injection missed endpoint",
+      "result": "applied normally; not unknown validation"
+    },
+    {
+      "step": "after corrected PUT injection",
+      "text": "tton \"折叠侧栏\" [expanded]:\n  - link \"知阶 管理后台\":\n    - /url: /console/overview\n    - text: 知阶\n    - generic: 管理后台\n  - generic: 管理组织\n  - combobox \"当前管理组织\":\n    - option \"IAM 平台合成组织\" [selected]\n  - button \"集成验收用户的账号菜单\":\n    - generic: 集\n    - generic: 集成验收用户\n- complementary \"后台导航\":\n  - navigation \"管理后台一级导航\":\n    - link \"工作台\":\n      - /url: /console/overview\n      - generic: 工作台\n    - heading \"身份与访问\" [level=2]\n    - link \"用户\":\n      - /url: /console/users\n      - generic: 用户\n    - link \"组织与成员\":\n      - /url: /console/organizations\n      - generic: 组织与成员\n    - heading \"治理\" [level=2]\n    - link \"审批中心\":\n      - /url: /console/approvals\n      - generic: 审批中心\n    - link \"操作审计\":\n      - /url: /console/audit\n      - generic: 操作审计\n    - link \"网站首页\":\n      - /url: /\n      - generic: 网站首页\n- main:\n  - region \"本次管理操作\":\n    - heading \"操作结果\" [level=3]\n    - status: 操作 6ac3b38530b0d5e2e85f9f5b · 已生效。\n  - heading \"成员详情与编辑 · IAM 学校A\" [level=1]\n  - paragraph: 此处显示的是操作目标组织，与顶栏当前管理身份分开。\n  - link \"返回组织成员\":\n    - /url: /console/organizations/6ac3b34e30b0d5e2e85f9ee0\n  - paragraph:\n    - text: 目标组织\n    - code: 6ac3b34e30b0d5e2e85f9ee0\n    - text: · 学校 ·\n    - generic: 已启用\n  - heading \"成员操作已生效\" [level=2]\n  - generic: 已生效\n  - paragraph: 此操作仅涉及目标组织成员，不修改全局登录密码或账号状态。\n  - paragraph:\n    - text: 操作编号\n    - code: 6ac3b38530b0d5e2e85f9f5b\n  - link \"返回组织成员\":\n    - /url: /console/organizations/6ac3b34e30b0d5e2e85f9ee0"
+    }
+  ],
+  "limits": [
+    "final applied observed; exact drop count not captured",
+    "unknown manual panel not observed",
+    "CAS conflict not tested"
+  ]
+}

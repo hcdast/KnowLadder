@@ -1,0 +1,47 @@
+TAP version 13
+# Subtest: 问卷草稿拒未知字段、重复编号、过多题项和错误窗口
+ok 1 - 问卷草稿拒未知字段、重复编号、过多题项和错误窗口
+  ---
+  duration_ms: 2.3574
+  type: 'test'
+  ...
+# Subtest: 提交严格匹配冻结题项、必答和取值，不容许评分/正文越界
+ok 2 - 提交严格匹配冻结题项、必答和取值，不容许评分/正文越界
+  ---
+  duration_ms: 0.9359
+  type: 'test'
+  ...
+# Subtest: 窗口左闭右开，发布冻结且关闭后不可重开
+ok 3 - 窗口左闭右开，发布冻结且关闭后不可重开
+  ---
+  duration_ms: 0.2992
+  type: 'test'
+  ...
+# Subtest: 汇总从当前存活受理答案计算，空数据不虚构均分，正文不进入汇总
+ok 4 - 汇总从当前存活受理答案计算，空数据不虚构均分，正文不进入汇总
+  ---
+  duration_ms: 0.516
+  type: 'test'
+  ...
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 5 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 27576.6876
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 实名反馈真实HTTP：v20、冻结发布、报名权限、一次提交、原编号与汇总
+ok 6 - 实名反馈真实HTTP：v20、冻结发布、报名权限、一次提交、原编号与汇总
+  ---
+  duration_ms: 8664.4396
+  type: 'test'
+  ...
+1..6
+# tests 6
+# suites 0
+# pass 6
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 37089.6343

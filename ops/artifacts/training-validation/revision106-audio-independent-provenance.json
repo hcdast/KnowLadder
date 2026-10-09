@@ -1,0 +1,15 @@
+{
+  "date": "2026-10-05",
+  "asset": "revision106-original-audio.mp3",
+  "asset_preexisted": true,
+  "ffmpeg_generation_this_turn": "refused overwrite because existing file",
+  "ffprobe": {
+    "codec": "mp3",
+    "sample_rate": 44100,
+    "channels": 1,
+    "duration_seconds": 3,
+    "size": 24540
+  },
+  "sha256": "05b9d2b50bf213da982839a56ade818b50853c6761c622efdb1ab8504d7cc72b",
+  "boundary": "本轮只复用既有字节，不将ffmpeg退出视为本轮生成成功"
+}

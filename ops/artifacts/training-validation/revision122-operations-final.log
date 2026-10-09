@@ -1,0 +1,38 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 11.1194
+      type: 'test'
+      ...
+    1..1
+ok 1 - IAM replicaSet：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 3945.3186
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：真实目标写后故障的原子性或隔离恢复
+    # Subtest: 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+    ok 1 - 裸非事务session不能写证据；真实事务或显式本地工作才可CAS
+      ---
+      duration_ms: 5.9081
+      type: 'test'
+      ...
+    1..1
+ok 2 - IAM standalone：真实目标写后故障的原子性或隔离恢复
+  ---
+  duration_ms: 1922.1779
+  type: 'test'
+  ...
+1..2
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6263.1564

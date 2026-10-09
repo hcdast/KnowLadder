@@ -1,0 +1,24 @@
+TAP version 13
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 1 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 26649.9769
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+ok 2 - v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+  ---
+  duration_ms: 28138.1664
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 56015.4605

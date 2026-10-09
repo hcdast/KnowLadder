@@ -1,0 +1,38 @@
+"use strict";
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const { randomUUID } = require("node:crypto");
+const { assessmentFixture, request, good } = require("./assessment-helpers.cjs");
+const { status } = require("./helpers.cjs");
+
+test("长正文非零位置：两设备冲突、采用服务器、原回执及跨连接恢复", { timeout: 120000 }, async t => {
+  const f = await assessmentFixture(t);
+  const body = "原创阅读材料：核对事实，再记录阅读位置。😀\n".repeat(300);
+  await f.db.collection("chapters").updateOne({ _id: f.chapterId }, { $set: { body } });
+  const device = { ...f.student, browser: f.student.browser.clone() };
+  const query = `/me/reading-progress?textbook_edition_id=${f.book.id}&chapter_id=${f.chapterId}`;
+  const read = async actor => (await good(actor, query)).items[0];
+  const event = (revision, offset, completed = false) => ({ event_type: "reading_progress_set", event_id: randomUUID(), textbook_edition_id: f.book.id, chapter_id: f.chapterId, edition_revision: f.book.revision, expected_revision: revision, position: { kind: "text_offset", offset_utf16: offset }, completed });
+  const send = (actor, payload) => request(actor, "/behavior-events", { method: "POST", body: payload });
+  assert.equal((await read(f.student)).progress_revision, 0);
+  assert.equal((await read(device)).progress_revision, 0);
+  const firstOffset = body.indexOf("核对事实", 2000);
+  const secondOffset = body.indexOf("记录阅读位置", 4000);
+  assert.ok(firstOffset > 0 && secondOffset > firstOffset);
+  const original = event(0, firstOffset);
+  const accepted = await send(f.student, original); status(accepted, 200);
+  const stale = await send(device, event(0, secondOffset, true)); status(stale, 409);
+  assert.equal(stale.data.error.code, "READING_REVISION_CONFLICT");
+  const adopted = await read(device);
+  assert.equal(adopted.position.offset_utf16, firstOffset);
+  assert.equal(adopted.completed, false);
+  const next = await send(device, event(adopted.progress_revision, secondOffset, true)); status(next, 200);
+  const restored = await read({ ...f.student, browser: f.student.browser.clone() });
+  assert.equal(restored.position.offset_utf16, secondOffset);
+  assert.equal(restored.progress_revision, 2);
+  assert.equal(restored.completed, true);
+  const replay = await send(f.student, original); status(replay, 200);
+  assert.deepEqual(replay.data.data, accepted.data.data);
+  assert.equal((await read(f.student)).position.offset_utf16, secondOffset, "旧回执不覆盖新位置");
+  assert.equal(await f.db.collection("behavior_events").countDocuments({ org_id: f.org, member_id: f.student.memberId }), 2);
+});

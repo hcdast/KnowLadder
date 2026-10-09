@@ -1,0 +1,34 @@
+{
+  "checked_at": "2026-10-08T14:47:42.739Z",
+  "rows": [
+    {
+      "name": "kl-api",
+      "pid": 18312,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 18040,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 11428,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "health": [
+    {
+      "route": "live",
+      "status": 200
+    },
+    {
+      "route": "ready",
+      "status": 200
+    }
+  ],
+  "context": "restored after test pipe collision; database/env unchanged; no migration or historical writer cleanup"
+}

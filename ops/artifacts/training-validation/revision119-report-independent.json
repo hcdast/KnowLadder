@@ -1,0 +1,24 @@
+{
+  "fixture": "127.0.0.9:5209",
+  "initial": "review",
+  "openedFocus": "H4",
+  "publishedFocus": "P status",
+  "refresh": {
+    "active": "H4",
+    "activeText": "原创班级验收报告",
+    "documentWidth": 1265,
+    "fields": [
+      {
+        "disabled": true,
+        "value": "原创班级验收报告"
+      },
+      {
+        "disabled": true,
+        "value": "培训完成与知识掌握分别核对，证据不足不推断已掌握。"
+      }
+    ],
+    "h1": 1,
+    "text": "原创班级验收报告 状态：已发布 · 事实日期：2026/10/5 21:45:15 有效学情：证据不足；班级人数 1，有投影证据 0。  近30天有效提交 0；达到掌握分类 0。 报告标题报告正文 审核意见：原创隔离报告独立核对，证据不足不推断掌握。",
+    "width": 1280
+  }
+}

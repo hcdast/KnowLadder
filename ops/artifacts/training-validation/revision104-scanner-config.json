@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-05",
+  "config": {
+    "CLAMSCAN_PATH": {
+      "configured": false
+    },
+    "CLAMAV_DATABASE": {
+      "configured": false
+    },
+    "SCAN_DATABASE_MAX_AGE_HOURS": {
+      "configured": false
+    }
+  },
+  "correction": "revision103 whitespace regex crossed newline and consumed following comment; current anchored horizontal whitespace parser confirms values empty",
+  "businessEnvModified": false
+}

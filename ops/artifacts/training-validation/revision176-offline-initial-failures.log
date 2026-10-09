@@ -1,0 +1,169 @@
+TAP version 13
+# Subtest: 选择题原创标准答案通过正式契约和评分器，标准答案不发给模型
+ok 1 - 选择题原创标准答案通过正式契约和评分器，标准答案不发给模型
+  ---
+  duration_ms: 2.8361
+  type: 'test'
+  ...
+# Subtest: 多选允许答案顺序变化，但少选、多选及重复答案拒绝
+ok 2 - 多选允许答案顺序变化，但少选、多选及重复答案拒绝
+  ---
+  duration_ms: 0.6868
+  type: 'test'
+  ...
+# Subtest: 错误单选、来源被改、未知字段及策略错配拒绝
+ok 3 - 错误单选、来源被改、未知字段及策略错配拒绝
+  ---
+  duration_ms: 0.4868
+  type: 'test'
+  ...
+# Subtest: five authored numeric oracles use the formal contract and deterministic scorer
+ok 4 - five authored numeric oracles use the formal contract and deterministic scorer
+  ---
+  duration_ms: 2.8484
+  type: 'test'
+  ...
+# Subtest: exact decimal equivalence accepts exponent, trailing zeros and negative zero
+ok 5 - exact decimal equivalence accepts exponent, trailing zeros and negative zero
+  ---
+  duration_ms: 0.6923
+  type: 'test'
+  ...
+# Subtest: plausible but wrong or floating-point artifacts cannot pass
+ok 6 - plausible but wrong or floating-point artifacts cannot pass
+  ---
+  duration_ms: 0.4631
+  type: 'test'
+  ...
+# Subtest: units, nonfinite answers, wrong scoring rules and changed prompts fail closed
+ok 7 - units, nonfinite answers, wrong scoring rules and changed prompts fail closed
+  ---
+  duration_ms: 0.4315
+  type: 'test'
+  ...
+# Subtest: 真实补充9候选可载入但不产生教学批准
+not ok 8 - 真实补充9候选可载入但不产生教学批准
+  ---
+  duration_ms: 2.3641
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs:4:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot find module 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\web\\src\\training\\question-candidate.ts' imported from D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs"
+  code: 'ERR_MODULE_NOT_FOUND'
+  stack: |-
+    finalizeResolution (node:internal/modules/esm/resolve:274:11)
+    moduleResolve (node:internal/modules/esm/resolve:859:10)
+    defaultResolve (node:internal/modules/esm/resolve:983:11)
+    #cachedDefaultResolve (node:internal/modules/esm/loader:717:20)
+    ModuleLoader.resolve (node:internal/modules/esm/loader:694:38)
+    ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:308:38)
+    onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:36)
+    TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    ModuleLoader.import (node:internal/modules/esm/loader:649:21)
+    defaultImportModuleDynamicallyForScript (node:internal/modules/esm/utils:235:31)
+  ...
+# Subtest: 非候选、未知操作、异常选项/答案与错配评分规则不能载入
+not ok 9 - 非候选、未知操作、异常选项/答案与错配评分规则不能载入
+  ---
+  duration_ms: 0.6556
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs:5:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot find module 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\web\\src\\training\\question-candidate.ts' imported from D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs"
+  code: 'ERR_MODULE_NOT_FOUND'
+  stack: |-
+    finalizeResolution (node:internal/modules/esm/resolve:274:11)
+    moduleResolve (node:internal/modules/esm/resolve:859:10)
+    defaultResolve (node:internal/modules/esm/resolve:983:11)
+    #cachedDefaultResolve (node:internal/modules/esm/loader:717:20)
+    ModuleLoader.resolve (node:internal/modules/esm/loader:694:38)
+    ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:308:38)
+    onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:36)
+    TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    ModuleLoader.import (node:internal/modules/esm/loader:649:21)
+    defaultImportModuleDynamicallyForScript (node:internal/modules/esm/utils:235:31)
+  ...
+# Subtest: 数值候选拒绝非有限数、单位和越界指数
+not ok 10 - 数值候选拒绝非有限数、单位和越界指数
+  ---
+  duration_ms: 1.2505
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs:6:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot find module 'D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\web\\src\\training\\question-candidate.ts' imported from D:\\my-workspace\\KnowLadder\\.cache\\commit-review-176\\verify\\server\\test\\ai-question-candidate-ui.test.cjs"
+  code: 'ERR_MODULE_NOT_FOUND'
+  stack: |-
+    finalizeResolution (node:internal/modules/esm/resolve:274:11)
+    moduleResolve (node:internal/modules/esm/resolve:859:10)
+    defaultResolve (node:internal/modules/esm/resolve:983:11)
+    #cachedDefaultResolve (node:internal/modules/esm/loader:717:20)
+    ModuleLoader.resolve (node:internal/modules/esm/loader:694:38)
+    ModuleLoader.getModuleJobForImport (node:internal/modules/esm/loader:308:38)
+    onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:650:36)
+    TracingChannel.tracePromise (node:diagnostics_channel:344:14)
+    ModuleLoader.import (node:internal/modules/esm/loader:649:21)
+    defaultImportModuleDynamicallyForScript (node:internal/modules/esm/utils:235:31)
+  ...
+# Subtest: 知识分片保留原文UTF-16引用，重叠且不切开代理对
+ok 11 - 知识分片保留原文UTF-16引用，重叠且不切开代理对
+  ---
+  duration_ms: 3.3502
+  type: 'test'
+  ...
+# Subtest: 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+ok 12 - 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+  ---
+  duration_ms: 6.432
+  type: 'test'
+  ...
+# Subtest: 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+ok 13 - 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+  ---
+  duration_ms: 0.9969
+  type: 'test'
+  ...
+# Subtest: 候选引用严格限定最多五条
+ok 14 - 候选引用严格限定最多五条
+  ---
+  duration_ms: 19.8675
+  type: 'test'
+  ...
+# Subtest: SSR安全：不转发会话、限制响应、依赖故障关闭、配置拒绝
+ok 15 - SSR安全：不转发会话、限制响应、依赖故障关闭、配置拒绝
+  ---
+  duration_ms: 78.9875
+  type: 'test'
+  ...
+# Subtest: 问卷草稿拒未知字段、重复编号、过多题项和错误窗口
+ok 16 - 问卷草稿拒未知字段、重复编号、过多题项和错误窗口
+  ---
+  duration_ms: 3.0128
+  type: 'test'
+  ...
+# Subtest: 提交严格匹配冻结题项、必答和取值，不容许评分/正文越界
+ok 17 - 提交严格匹配冻结题项、必答和取值，不容许评分/正文越界
+  ---
+  duration_ms: 0.9316
+  type: 'test'
+  ...
+# Subtest: 窗口左闭右开，发布冻结且关闭后不可重开
+ok 18 - 窗口左闭右开，发布冻结且关闭后不可重开
+  ---
+  duration_ms: 0.3048
+  type: 'test'
+  ...
+# Subtest: 汇总从当前存活受理答案计算，空数据不虚构均分，正文不进入汇总
+ok 19 - 汇总从当前存活受理答案计算，空数据不虚构均分，正文不进入汇总
+  ---
+  duration_ms: 0.497
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 16
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1976.1046

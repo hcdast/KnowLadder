@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-05",
+  "test": "revision106-audio-release.test.cjs",
+  "sha256": "38193fd21c5e98d6aec33a21f5d130e60afc9a1a2754b6f141ad695907726531",
+  "pass": 1,
+  "fail": 0,
+  "skip": 0,
+  "seconds": 73.8333569,
+  "exit": 0,
+  "syntax_files": 4,
+  "syntax_exit": 0,
+  "local_links": 244,
+  "link_issues": [],
+  "diff_check_exit": 0,
+  "runtime_exit": 0,
+  "agent_tab_closed": true,
+  "business_source_modified": false,
+  "review": "真实MP3扫描/课程审核/逐字节加密恢复/身份禁用/键盘播放和进度恢复/撤权清空及清理范围已核对，无已知Critical/High",
+  "remaining": [
+    "PDF课程专项",
+    "完整工作区无障碍及屏幕阅读器",
+    "人工教学评审",
+    "生产准入"
+  ],
+  "model_calls": 0,
+  "commit": false,
+  "push": false
+}

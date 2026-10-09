@@ -1,0 +1,46 @@
+{
+  "checks": [
+    {
+      "step": "question saved",
+      "focus": "BODY",
+      "prompt": "原创修改题干：二加二等于多少？",
+      "revision": "版本 ID：6ac36d50fb07a58e5d549797 · 修订 2 · draft"
+    },
+    {
+      "step": "reading persisted",
+      "text": "已恢复服务端确认的阅读位置。\n\n已标记已读 · 已确认 UTF-16 位置 0 · 进度修订 1。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。\n\n刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。\n\n取消已读\n保存当前阅读位置"
+    },
+    {
+      "step": "reading cancel fixed",
+      "focus": "标记已读",
+      "progress": "阅读位置与已读状态已获服务端确认。未标记已读 · 已确认 UTF-16 位置 0 · 进度修订 2。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。标记已读保存当前阅读位置"
+    },
+    {
+      "step": "reading marked fixed",
+      "focus": "取消已读",
+      "progress": "阅读位置与已读状态已获服务端确认。已标记已读 · 已确认 UTF-16 位置 0 · 进度修订 3。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。取消已读保存当前阅读位置"
+    },
+    {
+      "step": "question reopened persistent",
+      "prompt": "question-prompt",
+      "value": "原创修改题干：二加二等于多少？"
+    },
+    {
+      "step": "question save fixed",
+      "focus": "草稿已保存。送审前请确认授权和附件。",
+      "revision": "版本 ID：6ac36d50fb07a58e5d549797 · 修订 3 · draft"
+    },
+    {
+      "step": "question final settled",
+      "focus": "草稿已保存。送审前请确认授权和附件。",
+      "revision": "版本 ID：6ac36d50fb07a58e5d549797 · 修订 4 · draft",
+      "tag": "P"
+    }
+  ],
+  "limits": [
+    "short chapter offset zero only",
+    "no cross device conflicts",
+    "no independent publication"
+  ],
+  "build": "vue-tsc and vite exit0"
+}

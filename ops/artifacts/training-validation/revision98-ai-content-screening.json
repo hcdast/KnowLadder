@@ -1,0 +1,24 @@
+{
+  "corpus_sha256": "b29d6f49b53ba933a2238ef17b0d3ed76f4fa3fa5c1d0a59d34eecb6a77c5be9",
+  "human_quality": "not_reviewed",
+  "coverage": {
+    "assist": 20,
+    "prepare": 10,
+    "questions": 20,
+    "learning-report": 10,
+    "numeric_question_cases": 0
+  },
+  "findings": [
+    {
+      "case_id": "learning-report-07",
+      "response_sha256": "d757feabe19556b454930fa2e10f50086b574286b02307757878f4e9503f92b3",
+      "findings": [
+        {
+          "code": "POSSIBLE_UNSUPPORTED_EVIDENCE_BAND",
+          "status": "needs_human_review",
+          "basis": "来源的insufficient_evidence为0，但解释中出现“存在证据不足”的肯定表述。"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+process.env.KL_TEST_ORIGINAL_MEDIA_PATH=require('node:path').resolve(__dirname,'../../ops/artifacts/training-validation/revision103-original-video.mp4');process.argv.push('test/training-media.test.cjs');require('./training-supplement-runner.cjs');

@@ -1,0 +1,46 @@
+{
+  "evidence": [
+    {
+      "step": "keyboard page down auto save",
+      "progress": "阅读位置与已读状态已获服务端确认。未标记已读 · 已确认 UTF-16 位置 198 · 进度修订 1。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。标记已读保存当前阅读位置",
+      "scrollY": 998
+    },
+    {
+      "step": "reload reenter restore",
+      "progress": "已恢复服务端确认的阅读位置。未标记已读 · 已确认 UTF-16 位置 198 · 进度修订 1。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。标记已读保存当前阅读位置",
+      "scrollY": 999
+    },
+    {
+      "step": "real stale page conflict",
+      "text": "阅读进度已变化，请读取后明确选择（请求编号 7911623f-c4bf-4f64-94a5-bdde88f23420）\n\n已标记已读 · 已确认 UTF-16 位置 198 · 进度修订 1。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。\n\n刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。\n\n取消已读\n保存当前阅读位置\n\n检测到跨设备或正文修订冲突，自动保存已暂停，本页位置仍保留在内存。\n\n服务器位置 6876 · 已读 · 修订 2\n\n重新读取服务器进度\n采用服务器位置\n明确用本页进度覆盖"
+    },
+    {
+      "step": "adopt server",
+      "focusTag": "BODY",
+      "focusText": "\n    跳至正文知阶KnowLadder当前组织请选择组织评估隔离验收组织集集成验收用户账号与安全 退出登录  教材与",
+      "progress": "阅读位置与已读状态已获服务端确认。已标记已读 · 已确认 UTF-16 位置 6756 · 进度修订 3。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。取消已读保存当前阅读位置",
+      "scrollY": 8105
+    },
+    {
+      "step": "adopt server focus fixed",
+      "progress": "阅读位置与已读状态已获服务端确认。未标记已读 · 已确认 UTF-16 位置 6756 · 进度修订 5。已读仅由你明确标记，回读允许位置向前移动；附件不自动计入进度。刷新将从服务端最后确认位置恢复；未确认本地位置可能丢失。正文和位置不保存到浏览器存储。标记已读保存当前阅读位置",
+      "role": "status",
+      "scrollY": 8105,
+      "tag": "P",
+      "text": "阅读位置与已读状态已获服务端确认。"
+    },
+    {
+      "step": "tab after adopting",
+      "focus": "标记已读",
+      "h1": 1,
+      "scrollWidth": 1265,
+      "width": 1280
+    }
+  ],
+  "limits": [
+    "same browser two tabs share identity; not independent browser devices",
+    "local overwrite confirmation not tested",
+    "no narrow viewport or screen reader test",
+    "restored character line subsequently auto saves first visible legal character"
+  ]
+}

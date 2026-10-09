@@ -1,0 +1,18 @@
+{
+  "checks": [
+    {
+      "step": "member write settled",
+      "focus": "\n    跳至正文知阶管理后台管理组织IAM 平台合成组织集集成验收用户工作台身份与访问用户组织与成员治理审批中心操作审",
+      "text": "操作结果操作 6ac3b17bf35c03360f593c58 · 已生效。成员详情与编辑 · IAM 学校A此处显示的是操作目标组织，与顶栏当前管理身份分开。返回组织成员目标组织 6ac3b0a1f35c03360f593bdd · 学校 · 已启用成员操作已生效已生效此操作仅涉及目标组织成员，不修改全局登录密码或账号状态。操作编号 6ac3b17bf35c03360f593c58返回组织成员"
+    },
+    {
+      "step": "reload persisted",
+      "text": "\n      - /url: /console/organizations\n      - generic: 组织与成员\n    - heading \"治理\" [level=2]\n    - link \"审批中心\":\n      - /url: /console/approvals\n      - generic: 审批中心\n    - link \"操作审计\":\n      - /url: /console/audit\n      - generic: 操作审计\n    - link \"网站首页\":\n      - /url: /\n      - generic: 网站首页\n- main:\n  - heading \"成员详情与编辑 · IAM 学校A\" [level=1]\n  - paragraph: 此处显示的是操作目标组织，与顶栏当前管理身份分开。\n  - link \"返回组织成员\":\n    - /url: /console/organizations/6ac3b0a1f35c03360f593bdd\n  - paragraph:\n    - text: 目标组织\n    - code: 6ac3b0a1f35c03360f593bdd\n    - text: · 学校 ·\n    - generic: 已启用\n  - heading \"目标人员与保护规则\" [level=2]\n  - paragraph:\n    - strong: 集成验收用户\n    - text: · u_48aac11506024b32b272e7b6f378fa5c\n    - generic: 账号已启用\n  - paragraph:\n    - text: 用户\n    - code: 6ac3b0a2f35c03360f593c29\n    - text: · 成员\n    - code: 6ac3b0a3f35c03360f593c35\n  - paragraph: 当前服务端状态：已停用；角色：学生。版本已内部读取，不要求手填。\n  - button \"重读当前人员与权限版本（保留编辑内容）\"\n  - heading \"完整角色与成员状态\" [level=2]\n  - group \"角色（保留未变更角色期限及独立授权规则）\":\n    - generic: 角色（保留未变更角色期限及独立授权规则）\n    - checkbox \"学生\" [checked]\n    - text: 学生\n    - checkbox \"教师\"\n    - text: 教师\n    - checkbox \"内容编辑\"\n    - text: 内容编辑\n    - checkbox \"内容审核\"\n    - text: 内容审核\n    - checkbox \"组织管理员\"\n    - text: 组织管理员\n  - generic: 组织成员状态\n  - combobox \"组织成员状态\":\n    - option \"已启用\"\n    - option \"已停用\" [selected]\n  - generic \"现有角色期限\"\n  - paragraph: 停用成员只撤销本组织有效访问，服务端仍按现有规则处理失去身份前提的独立授权，不按 CLI 整表清权。新增内容审核身份必须独立审批且明确截止时间；平台运营无自动管理权。\n  - heading \"理由与变更预览\" [level=2]\n  - generic: 操作理由\n  - textbox \"操作理由\"\n  - paragraph: 集成验收用户 → IAM 学校A；学生；已停用。\n  - link \"取消\":\n    - /url: /console/organizations/6ac3b0a1f35c03360f593bdd\n  - button \"保存成员变更\" [disabled]\n  - paragraph: 取消密码确认会保留表单。遇到版本冲突请重读当前版本并核对服务端状态；不会自动覆盖编辑内容。"
+    }
+  ],
+  "limits": [
+    "ordinary synthetic student disabled only",
+    "no protected approvals or roles expansion",
+    "no unknown response UI injection"
+  ]
+}

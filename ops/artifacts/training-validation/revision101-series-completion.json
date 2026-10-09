@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "transport": "saved-prepare-replay-and-real-assist-http",
+  "prior_sha256": "3c5beb0ad34671db8732ae61ebae35755d8380f39c400726da5439d066dc0eee",
+  "request_attempts": 1,
+  "model": "gpt-5.5",
+  "cost_usd": null,
+  "human_quality": "not_reviewed",
+  "prepare_adoption": "saved_output_course_draft_confirmed",
+  "assist_status": "succeeded",
+  "http_status": 200,
+  "usage": {
+    "prompt_tokens": 237,
+    "completion_tokens": 83,
+    "total_tokens": 320
+  },
+  "output": "学习提示：题目是“2加3”，可以把它理解为从数字2开始，再往后数3个数：3、4、5，所以结果会到5。来源中也出现了“选出2加3的结果”的选项，可以用这个方法在选项中寻找对应结果。",
+  "finished_at": "2026-10-05T03:11:30.922Z"
+}

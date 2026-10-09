@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-05",
+  "playback": {
+    "currentTime": 2.9405,
+    "duration": 2.9405,
+    "ended": true,
+    "error": null,
+    "readyState": 4
+  },
+  "after_reload": {
+    "currentTime": 2,
+    "error": null,
+    "readyState": 4
+  },
+  "after_revoke": {
+    "videos": 0,
+    "blobLinks": 0,
+    "message": "教材与内容工作台\n练习、考试与结果\n学习首页\n课程与培训\n课程与培训\n\nTRAINING / 培训工作区\n\n课程、实践与反馈\n刷新工作区\n课程学习\n任务与作业\nAI 助手\n\n课程未分配到当前班级\n\n可访问的课程\n\n暂无课程，发布并分配到班级后会出现在这里。\n\n选择一门课程，开始你的下一步\n\n学习已分配的资料，完成实践任务，并查看教师反馈。"
+  },
+  "original_bytes": 5839,
+  "model_calls": 0
+}

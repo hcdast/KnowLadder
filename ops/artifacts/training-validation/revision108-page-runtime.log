@@ -1,0 +1,2 @@
+{"ready":true,"bootstrap":"http://127.0.0.1:5184/__test/bootstrap?nonce=4eb5b9f3c16fe4cc412bd700b0752f042262dd1000cf2896"}
+17:05:38 [vite] (client) hmr update /src/teaching/TeacherWorkspace.vue

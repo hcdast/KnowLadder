@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-05",
+  "realApi": true,
+  "port": 5198,
+  "checks": [
+    {
+      "label": "content list desktop",
+      "focus": {
+        "id": "",
+        "tag": "H1"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/content",
+      "width": 1280
+    },
+    {
+      "label": "content detail desktop",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/content",
+      "width": 1280
+    },
+    {
+      "label": "content detail fixed",
+      "focus": {
+        "id": "",
+        "tag": "H2"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/content",
+      "width": 1280
+    },
+    {
+      "label": "content detail 320",
+      "focus": {
+        "id": "",
+        "tag": "H2"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/content",
+      "width": 320
+    },
+    {
+      "label": "learning 320",
+      "focus": {
+        "id": "",
+        "tag": "H1"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 320
+    },
+    {
+      "label": "learning mistakes 320",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 320
+    },
+    {
+      "label": "learning recommendations 320",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 320
+    },
+    {
+      "label": "learning recommendations settled 320",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 320
+    },
+    {
+      "label": "learning recommendations desktop",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 1280
+    },
+    {
+      "label": "admin overview desktop",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/console/overview",
+      "width": 1280
+    },
+    {
+      "label": "admin users desktop",
+      "focus": {
+        "id": "",
+        "tag": "A"
+      },
+      "h1": 1,
+      "scroll": 1280,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/console/users",
+      "width": 1280
+    },
+    {
+      "label": "admin users 320",
+      "focus": {
+        "id": "",
+        "tag": "BODY"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/console/users",
+      "width": 320
+    },
+    {
+      "label": "admin navigation open 320",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/console/users",
+      "width": 320
+    },
+    {
+      "label": "admin navigation escape 320",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/console/users",
+      "width": 320
+    },
+    {
+      "label": "learning navigation fixed 320",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "unnamedButtons": 0,
+      "url": "/learning",
+      "width": 320
+    }
+  ],
+  "limitations": [
+    "no complete WCAG or screen reader",
+    "learning samples contain no submitted answers",
+    "admin sample is organization account management only",
+    "no production changes"
+  ]
+}

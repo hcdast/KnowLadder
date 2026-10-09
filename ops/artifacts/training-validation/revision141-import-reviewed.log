@@ -1,0 +1,64 @@
+TAP version 13
+# Subtest: 扫描开关严格解析，关闭时不读取扫描配置或产生成功扫描结果
+ok 1 - 扫描开关严格解析，关闭时不读取扫描配置或产生成功扫描结果
+  ---
+  duration_ms: 1970.9044
+  type: 'test'
+  ...
+# Subtest: 文件配置、磁盘阈值与请求内路径复用安全边界
+ok 2 - 文件配置、磁盘阈值与请求内路径复用安全边界
+  ---
+  duration_ms: 4664.8687
+  type: 'test'
+  ...
+# Subtest: 真实上传流完成、完整性失败与断流均释放句柄并清理临时文件
+ok 3 - 真实上传流完成、完整性失败与断流均释放句柄并清理临时文件
+  ---
+  duration_ms: 7798.5865
+  type: 'test'
+  ...
+# Subtest: 原创DOCX：纯文本及受限子进程输出一致，无HTML
+ok 4 - 原创DOCX：纯文本及受限子进程输出一致，无HTML
+  ---
+  duration_ms: 344.7786
+  type: 'test'
+  ...
+# Subtest: DOCX：坏容器、宏、外部关系、DTD和解压炸弹拒绝
+ok 5 - DOCX：坏容器、宏、外部关系、DTD和解压炸弹拒绝
+  ---
+  duration_ms: 726.6485
+  type: 'test'
+  ...
+# Subtest: DOCX：80000码点上限不静默截断、空文本和未知格式拒绝
+ok 6 - DOCX：80000码点上限不静默截断、空文本和未知格式拒绝
+  ---
+  duration_ms: 175.7803
+  type: 'test'
+  ...
+# Subtest: 原创文本PDF：页面定位和子进程提取
+ok 7 - 原创文本PDF：页面定位和子进程提取
+  ---
+  duration_ms: 549.5595
+  type: 'test'
+  ...
+# Subtest: PDF：无文本提示OCR、101页和破损文件拒绝
+ok 8 - PDF：无文本提示OCR、101页和破损文件拒绝
+  ---
+  duration_ms: 770.6294
+  type: 'test'
+  ...
+# Subtest: 文件格式开关：DOCX需要三开关，默认不改变历史MIME
+ok 9 - 文件格式开关：DOCX需要三开关，默认不改变历史MIME
+  ---
+  duration_ms: 2.5422
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 17553.1881

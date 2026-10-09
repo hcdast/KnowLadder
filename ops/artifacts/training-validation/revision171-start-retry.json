@@ -1,0 +1,54 @@
+{
+  "checked_at": "2026-10-09T02:44:16.399Z",
+  "observation_seconds": 25,
+  "before": [
+    {
+      "name": "kl-api",
+      "pid": 38008,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 28328,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 38452,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "after": [
+    {
+      "name": "kl-api",
+      "pid": 38008,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 28328,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 38452,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "health": [
+    {
+      "route": "live",
+      "status": 200
+    },
+    {
+      "route": "ready",
+      "status": 200
+    }
+  ]
+}

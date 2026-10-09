@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-05",
+  "node": "22.19.0",
+  "expiresAt": "2026-11-05T02:53:25.366Z",
+  "temporaryAccounts": 11,
+  "adminAlreadyChanged": true,
+  "build": {
+    "exit": 0
+  },
+  "isolatedTest": {
+    "command": "node test/training-supplement-runner.cjs test/temporary-expiry.integration.test.cjs",
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "durationMs": 4601.8092,
+    "exit": 0
+  },
+  "target": {
+    "topology": "standalone",
+    "appliedOperations": 11,
+    "guard": "idle",
+    "samePasswordVerify": 11,
+    "httpLoginMeLogout": 11,
+    "apiClosed": true
+  },
+  "preservation": {
+    "lastNinePasswordAndPermissionSnapshotsEqual": true,
+    "firstTwoSnapshotUnavailableAfterToolTimeout": true,
+    "adminCredentialVersion": 4
+  },
+  "review": "PASS with standalone atomicity limitation",
+  "noCommit": true,
+  "noPush": true
+}

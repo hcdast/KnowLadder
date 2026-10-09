@@ -1,0 +1,54 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 批量预检查/分配和本人工作台真实HTTP
+ok 1 - 批量预检查/分配和本人工作台真实HTTP
+  ---
+  duration_ms: 8894.8833
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+ok 2 - 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+  ---
+  duration_ms: 5836.9395
+  type: 'test'
+  ...
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 3 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 24608.9831
+  type: 'test'
+  ...
+# Subtest: standalone recovery: real v10/control migration, drift and restore isolation
+ok 4 - standalone recovery: real v10/control migration, drift and restore isolation
+  ---
+  duration_ms: 4089.9214
+  type: 'test'
+  ...
+# Subtest: standalone recovery: complete business schemas and privacy classification
+ok 5 - standalone recovery: complete business schemas and privacy classification
+  ---
+  duration_ms: 1798.9961
+  type: 'test'
+  ...
+# Subtest: standalone control migration: stopped writers, failed initialization/resume and registration race
+ok 6 - standalone control migration: stopped writers, failed initialization/resume and registration race
+  ---
+  duration_ms: 1745.3841
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+ok 7 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 11604.5662
+  type: 'test'
+  ...
+1..7
+# tests 7
+# suites 0
+# pass 7
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 61058.6163

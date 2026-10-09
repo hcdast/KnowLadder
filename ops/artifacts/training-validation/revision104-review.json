@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-05",
+  "scope": [
+    "server/test/original-media-scanned.integration.test.cjs",
+    "server/test/original-media-scanned-runner.cjs",
+    "docs/技术架构方案.md",
+    "docs/开发计划.md"
+  ],
+  "syntax_exit": 0,
+  "diff_check_exit": 0,
+  "local_link_count": 224,
+  "local_link_issues": [],
+  "final_integration": {
+    "pass": 1,
+    "fail": 0,
+    "skip": 0,
+    "seconds": 49.2491816,
+    "exit": 0
+  },
+  "review": "缺配置失败、真实官方库与worker、固定原创摘要、独立发布、Range字节、access_revision撤销、私有目录清理范围已检查并复测，无未解决Critical/High",
+  "remaining": [
+    "正式课程页面媒体播放与失权清空",
+    "完整课程媒体加密备份恢复",
+    "人工教学评审",
+    "屏幕阅读器与生产准入"
+  ],
+  "business_env_modified": false,
+  "external_model_requests": 0,
+  "commit": false,
+  "push": false
+}

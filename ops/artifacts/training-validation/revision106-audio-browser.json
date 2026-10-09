@@ -1,0 +1,28 @@
+{
+  "date": "2026-10-05",
+  "playback": {
+    "currentTime": 3,
+    "duration": 3,
+    "ended": true,
+    "error": null,
+    "readyState": 4
+  },
+  "after_reload": {
+    "currentTime": 3,
+    "duration": 3,
+    "error": null,
+    "readyState": 4
+  },
+  "after_revoke": {
+    "audioCount": 0,
+    "blobLinks": 0
+  },
+  "keyboard": {
+    "read": "Enter",
+    "play": "AX native Space",
+    "save": "Enter"
+  },
+  "native_dom_locator_miss": "native player shadow control not matched; AX native key succeeded",
+  "note": "save observed pending during request; after reload authoritative position restored to 3",
+  "model_calls": 0
+}

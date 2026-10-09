@@ -1,0 +1,36 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+ok 1 - 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+  ---
+  duration_ms: 15812.9875
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+ok 2 - 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+  ---
+  duration_ms: 34395.404
+  type: 'test'
+  ...
+# Subtest: 培训媒体：真实分块落盘仅到隔离区、格式/开关/摘要拒绝
+ok 3 - 培训媒体：真实分块落盘仅到隔离区、格式/开关/摘要拒绝
+  ---
+  duration_ms: 7915.0698
+  type: 'test'
+  ...
+# Subtest: 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+ok 4 - 二期隐私：冻结班级派生图擦除及旧快照最新账本抑制
+  ---
+  duration_ms: 23434.0915
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 82447.829

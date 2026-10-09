@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-05",
+  "host": "127.0.0.2:5192",
+  "download": {
+    "captured": false,
+    "error": "Error: Timed out after 10000ms waiting for download."
+  },
+  "checks": [
+    {
+      "page": "PDF course",
+      "emptyButtons": 0,
+      "h1": 1,
+      "scrollWidth": 1265,
+      "unlabelled": 0,
+      "width": 1280
+    },
+    {
+      "page": "tasks empty state",
+      "emptyButtons": 0,
+      "h1": 1,
+      "scrollWidth": 1280,
+      "unlabelled": 0,
+      "width": 1280
+    },
+    {
+      "page": "AI disabled",
+      "emptyButtons": 0,
+      "h1": 1,
+      "scrollWidth": 1265,
+      "unlabelled": 0,
+      "width": 1280
+    }
+  ],
+  "keyboard": {
+    "pdfLinkTab": "确认已学习本课节",
+    "tasksEnter": true,
+    "aiEnter": true,
+    "aiSelectTab": {
+      "label": "你的问题或生成要求",
+      "tag": "TEXTAREA"
+    }
+  },
+  "scope": "student training desktop PDF/task empty/AI disabled only",
+  "screen_reader": false,
+  "all_roles": false
+}

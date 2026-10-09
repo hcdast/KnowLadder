@@ -1,0 +1,74 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：成员丢响应原回执、幂等重放与失效版本
+    # Subtest: 成功响应确实丢失；原编号查询只读返回已生效
+    ok 1 - 成功响应确实丢失；原编号查询只读返回已生效
+      ---
+      duration_ms: 117.2385
+      type: 'test'
+      ...
+    # Subtest: 原key重放同一回执，不重复操作、审计或成员变更
+    ok 2 - 原key重放同一回执，不重复操作、审计或成员变更
+      ---
+      duration_ms: 49.5092
+      type: 'test'
+      ...
+    # Subtest: 同key改正文拒绝；新key旧版本冲突且不覆盖
+    ok 3 - 同key改正文拒绝；新key旧版本冲突且不覆盖
+      ---
+      duration_ms: 110.5686
+      type: 'test'
+      ...
+    # Subtest: 重读当前版本后新操作可生效，保留原操作
+    ok 4 - 重读当前版本后新操作可生效，保留原操作
+      ---
+      duration_ms: 78.0815
+      type: 'test'
+      ...
+    1..4
+ok 1 - IAM replicaSet：成员丢响应原回执、幂等重放与失效版本
+  ---
+  duration_ms: 6955.1337
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"standalone","standalone_txn_shim":true}
+# Subtest: IAM standalone：成员丢响应原回执、幂等重放与失效版本
+    # Subtest: 成功响应确实丢失；原编号查询只读返回已生效
+    ok 1 - 成功响应确实丢失；原编号查询只读返回已生效
+      ---
+      duration_ms: 87.7863
+      type: 'test'
+      ...
+    # Subtest: 原key重放同一回执，不重复操作、审计或成员变更
+    ok 2 - 原key重放同一回执，不重复操作、审计或成员变更
+      ---
+      duration_ms: 49.6015
+      type: 'test'
+      ...
+    # Subtest: 同key改正文拒绝；新key旧版本冲突且不覆盖
+    ok 3 - 同key改正文拒绝；新key旧版本冲突且不覆盖
+      ---
+      duration_ms: 91.1954
+      type: 'test'
+      ...
+    # Subtest: 重读当前版本后新操作可生效，保留原操作
+    ok 4 - 重读当前版本后新操作可生效，保留原操作
+      ---
+      duration_ms: 69.0365
+      type: 'test'
+      ...
+    1..4
+ok 2 - IAM standalone：成员丢响应原回执、幂等重放与失效版本
+  ---
+  duration_ms: 4047.7201
+  type: 'test'
+  ...
+1..2
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11193.7587

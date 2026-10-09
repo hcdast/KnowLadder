@@ -1,0 +1,115 @@
+TAP version 13
+# Subtest: 知识来源严格限制类型及字段
+ok 1 - 知识来源严格限制类型及字段
+  ---
+  duration_ms: 1.519
+  type: 'test'
+  ...
+# Subtest: 章节复用当前 owner 授权，组织查询及输出字段白名单
+ok 2 - 章节复用当前 owner 授权，组织查询及输出字段白名单
+  ---
+  duration_ms: 0.8363
+  type: 'test'
+  ...
+# Subtest: 课程使用当前范围授权且拒绝草稿及非文本课时
+ok 3 - 课程使用当前范围授权且拒绝草稿及非文本课时
+  ---
+  duration_ms: 0.3122
+  type: 'test'
+  ...
+# Subtest: 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+ok 4 - 原文 grounding 无匹配明确证据不足，撤权不返回部分结果
+  ---
+  duration_ms: 1.6076
+  type: 'test'
+  ...
+# Subtest: 知识分片保留原文UTF-16引用，重叠且不切开代理对
+ok 5 - 知识分片保留原文UTF-16引用，重叠且不切开代理对
+  ---
+  duration_ms: 2.4993
+  type: 'test'
+  ...
+# Subtest: 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+ok 6 - 索引和查询拒绝超限与畸形Unicode，不把超限变成截断成功
+  ---
+  duration_ms: 6.0208
+  type: 'test'
+  ...
+# Subtest: 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+ok 7 - 中文双字/英文规范化匹配，稳定排序且无匹配返回空
+  ---
+  duration_ms: 0.483
+  type: 'test'
+  ...
+# Subtest: 候选引用严格限定最多五条
+ok 8 - 候选引用严格限定最多五条
+  ---
+  duration_ms: 20.6246
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+ok 9 - 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+  ---
+  duration_ms: 7741.4831
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+    # Subtest: v17严格Schema、BSON身份及未就绪索引拒绝
+    ok 1 - v17严格Schema、BSON身份及未就绪索引拒绝
+      ---
+      duration_ms: 57.6644
+      type: 'test'
+      ...
+    # Subtest: 授权范围、严格类型、精确引用、空证据及检索不占预算
+    ok 2 - 授权范围、严格类型、精确引用、空证据及检索不占预算
+      ---
+      duration_ms: 719.1352
+      type: 'test'
+      ...
+    # Subtest: 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+    ok 3 - 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+      ---
+      duration_ms: 408.2934
+      type: 'test'
+      ...
+    # Subtest: 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+    ok 4 - 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+      ---
+      duration_ms: 350.906
+      type: 'test'
+      ...
+    # Subtest: 调用中撤权停止结果交付并结算，不把任务留在running
+    ok 5 - 调用中撤权停止结果交付并结算，不把任务留在running
+      ---
+      duration_ms: 157.4516
+      type: 'test'
+      ...
+    # Subtest: 退役事件清除派生原文且学生不能检索旧索引
+    ok 6 - 退役事件清除派生原文且学生不能检索旧索引
+      ---
+      duration_ms: 79.5282
+      type: 'test'
+      ...
+    # Subtest: OpenAPI包含来源/证据/检索与可选AI预览绑定
+    ok 7 - OpenAPI包含来源/证据/检索与可选AI预览绑定
+      ---
+      duration_ms: 32.5908
+      type: 'test'
+      ...
+    1..7
+ok 10 - 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+  ---
+  duration_ms: 8706.8848
+  type: 'test'
+  ...
+1..10
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 17714.5283

@@ -1,0 +1,31 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 批量预检查/分配和本人工作台真实HTTP
+ok 1 - 批量预检查/分配和本人工作台真实HTTP
+  ---
+  duration_ms: 9500.5651
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+ok 2 - 工作台开放反馈只按当前本人报名和提交展示，关闭模块保持disabled
+  ---
+  duration_ms: 5738.8888
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+ok 3 - 培训：隔离迁移、独立审核、课程分配、进度、撤权与幂等重放
+  ---
+  duration_ms: 7110.806
+  type: 'test'
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 3
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 22766.0401

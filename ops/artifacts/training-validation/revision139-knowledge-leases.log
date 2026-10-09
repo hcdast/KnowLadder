@@ -1,0 +1,97 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+ok 1 - 教材知识库：真实内容发布事件、答案排除、许可到期及撤销清理
+  ---
+  duration_ms: 8074.0391
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+    # Subtest: v17严格Schema、BSON身份及未就绪索引拒绝
+    ok 1 - v17严格Schema、BSON身份及未就绪索引拒绝
+      ---
+      duration_ms: 60.8421
+      type: 'test'
+      ...
+    # Subtest: 授权范围、严格类型、精确引用、空证据及检索不占预算
+    ok 2 - 授权范围、严格类型、精确引用、空证据及检索不占预算
+      ---
+      duration_ms: 896.1089
+      type: 'test'
+      ...
+    # Subtest: 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+    ok 3 - 明确预览绑定、证据不足不创建任务；派发和读取重新校验
+      ---
+      duration_ms: 407.2203
+      type: 'test'
+      ...
+    # Subtest: 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+    ok 4 - 旧索引哈希拒绝、重建幂等、竞争worker只有一方处理
+      ---
+      duration_ms: 356.6195
+      type: 'test'
+      ...
+    # Subtest: 领取后新重建事件使旧代次失效，不覆盖新pending任务
+    ok 5 - 领取后新重建事件使旧代次失效，不覆盖新pending任务
+      ---
+      duration_ms: 172.857
+      type: 'test'
+      ...
+    # Subtest: 知识worker：有效租约不抢占、过期唯一重领及领取后失效拒绝提交
+    ok 6 - 知识worker：有效租约不抢占、过期唯一重领及领取后失效拒绝提交
+      ---
+      duration_ms: 185.1147
+      type: 'test'
+      ...
+    # Subtest: 教师多来源备课与学习读权检索独立于模型生成能力
+    ok 7 - 教师多来源备课与学习读权检索独立于模型生成能力
+      ---
+      duration_ms: 167.947
+      type: 'test'
+      ...
+    # Subtest: 完成事务中的来源事件交错产生真实写冲突，重试停止旧结果
+    ok 8 - 完成事务中的来源事件交错产生真实写冲突，重试停止旧结果
+      ---
+      duration_ms: 266.1245
+      type: 'test'
+      ...
+    # Subtest: 调用中撤权停止结果交付并结算，不把任务留在running
+    ok 9 - 调用中撤权停止结果交付并结算，不把任务留在running
+      ---
+      duration_ms: 145.8954
+      type: 'test'
+      ...
+    # Subtest: 退役事件清除派生原文且学生不能检索旧索引
+    ok 10 - 退役事件清除派生原文且学生不能检索旧索引
+      ---
+      duration_ms: 85.2467
+      type: 'test'
+      ...
+    # Subtest: OpenAPI包含来源/证据/检索与可选AI预览绑定
+    ok 11 - OpenAPI包含来源/证据/检索与可选AI预览绑定
+      ---
+      duration_ms: 32.3285
+      type: 'test'
+      ...
+    # Subtest: 真实204候选拒绝而非截断，检索不预留预算
+    ok 12 - 真实204候选拒绝而非截断，检索不预留预算
+      ---
+      duration_ms: 767.5169
+      type: 'test'
+      ...
+    1..12
+ok 2 - 知识库：真实迁移/来源outbox/索引/授权检索/多来源AI与撤权（供应商为受控传输）
+  ---
+  duration_ms: 9711.5886
+  type: 'test'
+  ...
+1..2
+# tests 14
+# suites 0
+# pass 14
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18749.1898

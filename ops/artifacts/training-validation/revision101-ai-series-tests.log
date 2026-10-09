@@ -1,0 +1,88 @@
+TAP version 13
+# Subtest: 选择题原创标准答案通过正式契约和评分器，标准答案不发给模型
+ok 1 - 选择题原创标准答案通过正式契约和评分器，标准答案不发给模型
+  ---
+  duration_ms: 2.8423
+  type: 'test'
+  ...
+# Subtest: 多选允许答案顺序变化，但少选、多选及重复答案拒绝
+ok 2 - 多选允许答案顺序变化，但少选、多选及重复答案拒绝
+  ---
+  duration_ms: 0.6997
+  type: 'test'
+  ...
+# Subtest: 错误单选、来源被改、未知字段及策略错配拒绝
+ok 3 - 错误单选、来源被改、未知字段及策略错配拒绝
+  ---
+  duration_ms: 0.5216
+  type: 'test'
+  ...
+# Subtest: five authored numeric oracles use the formal contract and deterministic scorer
+ok 4 - five authored numeric oracles use the formal contract and deterministic scorer
+  ---
+  duration_ms: 3.0281
+  type: 'test'
+  ...
+# Subtest: exact decimal equivalence accepts exponent, trailing zeros and negative zero
+ok 5 - exact decimal equivalence accepts exponent, trailing zeros and negative zero
+  ---
+  duration_ms: 0.6766
+  type: 'test'
+  ...
+# Subtest: plausible but wrong or floating-point artifacts cannot pass
+ok 6 - plausible but wrong or floating-point artifacts cannot pass
+  ---
+  duration_ms: 0.4674
+  type: 'test'
+  ...
+# Subtest: units, nonfinite answers, wrong scoring rules and changed prompts fail closed
+ok 7 - units, nonfinite answers, wrong scoring rules and changed prompts fail closed
+  ---
+  duration_ms: 0.4257
+  type: 'test'
+  ...
+# Subtest: 真实补充9候选可载入但不产生教学批准
+ok 8 - 真实补充9候选可载入但不产生教学批准
+  ---
+  duration_ms: 49.0629
+  type: 'test'
+  ...
+# Subtest: 非候选、未知操作、异常选项/答案与错配评分规则不能载入
+ok 9 - 非候选、未知操作、异常选项/答案与错配评分规则不能载入
+  ---
+  duration_ms: 0.5935
+  type: 'test'
+  ...
+# Subtest: 数值候选拒绝非有限数、单位和越界指数
+ok 10 - 数值候选拒绝非有限数、单位和越界指数
+  ---
+  duration_ms: 0.3612
+  type: 'test'
+  ...
+# Subtest: 三题型精确评分且多选不依赖顺序、不计部分分
+ok 11 - 三题型精确评分且多选不依赖顺序、不计部分分
+  ---
+  duration_ms: 3.4079
+  type: 'test'
+  ...
+# Subtest: 数值含受限指数精确等价，不经过浮点且规范化再次输入稳定
+ok 12 - 数值含受限指数精确等价，不经过浮点且规范化再次输入稳定
+  ---
+  duration_ms: 2.0676
+  type: 'test'
+  ...
+# Subtest: 百分之一分使用BigInt，冻结满分优先且未知规则不会假零分
+ok 13 - 百分之一分使用BigInt，冻结满分优先且未知规则不会假零分
+  ---
+  duration_ms: 0.3567
+  type: 'test'
+  ...
+1..13
+# tests 13
+# suites 0
+# pass 13
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 869.2446

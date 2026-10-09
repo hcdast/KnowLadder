@@ -1,0 +1,124 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: IAM replicaSet：管理范围、独立审批与密码交付安全
+    # Subtest: 账号平台全局、本组织范围与治理无业务权限
+    ok 1 - 账号平台全局、本组织范围与治理无业务权限
+      ---
+      duration_ms: 116.2013
+      type: 'test'
+      ...
+    # Subtest: 普通账号创建单次密码；原key重放不新建、不回显
+    ok 2 - 普通账号创建单次密码；原key重放不新建、不回显
+      ---
+      duration_ms: 169.9224
+      type: 'test'
+      ...
+    # Subtest: 角色派生审核权走202；批准前无账号，独立批准后才生效
+    ok 3 - 角色派生审核权走202；批准前无账号，独立批准后才生效
+      ---
+      duration_ms: 240.4161
+      type: 'test'
+      ...
+    # Subtest: 三方独立及能力组织元组不串权
+    ok 4 - 三方独立及能力组织元组不串权
+      ---
+      duration_ms: 580.605
+      type: 'test'
+      ...
+    # Subtest: all授权包含审批后的未来组织，停用目标立即失效
+    ok 5 - all授权包含审批后的未来组织，停用目标立即失效
+      ---
+      duration_ms: 336.6412
+      type: 'test'
+      ...
+    # Subtest: 清理能力不能隐含题目答案或私有附件预览权
+    ok 6 - 清理能力不能隐含题目答案或私有附件预览权
+      ---
+      duration_ms: 833.0578
+      type: 'test'
+      ...
+    # Subtest: 未来业务授权身份不可被普通账号管理员重置接管
+    ok 7 - 未来业务授权身份不可被普通账号管理员重置接管
+      ---
+      duration_ms: 383.8972
+      type: 'test'
+      ...
+    # Subtest: 本组织敏感权限防接管，撤销后以新审批续授原元组
+    ok 8 - 本组织敏感权限防接管，撤销后以新审批续授原元组
+      ---
+      duration_ms: 867.0927
+      type: 'test'
+      ...
+    # Subtest: 原键申请遭独立拒绝后不得把操作回执误报为授权已生效
+    ok 9 - 原键申请遭独立拒绝后不得把操作回执误报为授权已生效
+      ---
+      duration_ms: 213.8539
+      type: 'test'
+      ...
+    # Subtest: 本人扩权拒绝；申请人失权后旧审批不能应用
+    ok 10 - 本人扩权拒绝；申请人失权后旧审批不能应用
+      ---
+      duration_ms: 172.5064
+      type: 'test'
+      ...
+    1..10
+ok 1 - IAM replicaSet：管理范围、独立审批与密码交付安全
+  ---
+  duration_ms: 11446.9353
+  type: 'test'
+  ...
+# Subtest: IAM standalone：管理范围、独立审批与密码交付安全
+not ok 2 - IAM standalone：管理范围、独立审批与密码交付安全
+  ---
+  duration_ms: 0.9808
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\administration-api.integration.test.cjs:10:3'
+  failureType: 'testCodeFailure'
+  error: '测试必须使用显式数据库名的 MongoDB URI'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: ~
+  operator: '=='
+  stack: |-
+    guardedUri (D:\my-workspace\KnowLadder\server\test\helpers.cjs:10:10)
+    fixture (D:\my-workspace\KnowLadder\server\test\helpers.cjs:99:15)
+    administrationFixture (D:\my-workspace\KnowLadder\server\test\administration-helpers.cjs:41:19)
+    TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\administration-api.integration.test.cjs:11:21)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1047:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:744:18)
+    Test.postRun (node:internal/test_runner/test:1173:19)
+    Test.run (node:internal/test_runner/test:1101:12)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：v14隔离迁移、有效事实、独立审核、事实过期、并发与撤权
+ok 3 - 报告：v14隔离迁移、有效事实、独立审核、事实过期、并发与撤权
+  ---
+  duration_ms: 7874.4878
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：默认关闭，不新增v14集合或默认权限
+ok 4 - 报告：默认关闭，不新增v14集合或默认权限
+  ---
+  duration_ms: 4793.604
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 报告：真实评分与学情投影，未发布成绩排除，有效事实更新要求重审
+ok 5 - 报告：真实评分与学情投影，未发布成绩排除，有效事实更新要求重审
+  ---
+  duration_ms: 7662.7961
+  type: 'test'
+  ...
+1..5
+# tests 15
+# suites 0
+# pass 14
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 32169.4368

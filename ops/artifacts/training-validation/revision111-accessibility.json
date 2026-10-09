@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-05",
+  "realApi": true,
+  "realGradingProjection": true,
+  "independentQuestions": 5,
+  "mastery": "0.00%",
+  "mistakes": 5,
+  "checks": [
+    {
+      "label": "question create Escape",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON",
+        "text": "新建题目"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "width": 1280
+    },
+    {
+      "label": "five question mastery desktop",
+      "focus": {
+        "id": "",
+        "tag": "H1",
+        "text": "学习首页"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "width": 1280
+    },
+    {
+      "label": "mistakes real five desktop",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON",
+        "text": "错题"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "width": 1280
+    },
+    {
+      "label": "mistake detail fixed",
+      "focus": {
+        "id": "",
+        "tag": "H3",
+        "text": "原创数值验收"
+      },
+      "h1": 1,
+      "scroll": 1265,
+      "unlabelled": [],
+      "width": 1280
+    },
+    {
+      "label": "mistake detail 320",
+      "focus": {
+        "id": "",
+        "tag": "H3",
+        "text": "原创数值验收"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "width": 320
+    },
+    {
+      "label": "chapter reading fixed 320",
+      "focus": {
+        "id": "",
+        "tag": "H3",
+        "text": "整数"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "width": 320
+    },
+    {
+      "label": "question navigation fixed 320",
+      "focus": {
+        "id": "",
+        "tag": "BUTTON",
+        "text": "题库管理"
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "width": 320
+    },
+    {
+      "label": "question create form 320",
+      "focus": {
+        "id": "new-title",
+        "tag": "INPUT",
+        "text": ""
+      },
+      "h1": 1,
+      "scroll": 305,
+      "unlabelled": [],
+      "width": 320
+    }
+  ],
+  "limits": [
+    "empty answers synthetic only",
+    "question draft not submitted",
+    "screen reader and complete roles not covered"
+  ]
+}

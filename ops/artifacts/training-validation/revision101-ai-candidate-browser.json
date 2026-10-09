@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "environment": "real Vue component with synthetic request props; no backend or provider access",
+  "checks": [
+    "load confirmation",
+    "cancel keeps form",
+    "four choice options imported",
+    "submit preserves options/answer/scoring_rule",
+    "add option",
+    "remove option",
+    "numeric import clears options and preserves decimal text"
+  ],
+  "status": "pass",
+  "screenshot": "revision101-ai-candidate-ui.png",
+  "human_quality": "not_reviewed"
+}

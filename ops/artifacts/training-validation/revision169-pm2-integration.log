@@ -1,0 +1,22 @@
+TAP version 13
+# Subtest: isolated Windows PM2: read-only preflight, real API/workers ready, validation preserves processes, IPC releases writers
+ok 1 - isolated Windows PM2: read-only preflight, real API/workers ready, validation preserves processes, IPC releases writers
+  ---
+  duration_ms: 61358.123
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+ok 2 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 12208.016
+  type: 'test'
+  ...
+1..2
+# tests 2
+# suites 0
+# pass 2
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 74550.1569

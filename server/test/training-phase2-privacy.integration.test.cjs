@@ -212,6 +212,10 @@ async function setup(t, assessment = false) {
     ...(await setupLedger(t)),
     KL_TRAINING_ENABLED: "true",
     KL_TRAINING_PHASE2_ENABLED: "true",
+    ...(process.env.KL_TEST_RECOVERY_PRIVACY==="true"?{KL_STANDALONE_RECOVERY_ENABLED:"true",KL_STANDALONE_MANAGED_API_ENABLED:"false",KL_MONGO_ALLOW_STANDALONE:"true"}:{}),
+    ...(process.env.KL_TEST_IMPORT_PRIVACY === "true" ? {KL_KNOWLEDGE_IMPORT_ENABLED:"true"}:{}),
+    ...(process.env.KL_TEST_SURVEY_PRIVACY === "true" ? {KL_TRAINING_SURVEYS_ENABLED:"true"}:{}),
+    ...(process.env.KL_TEST_KNOWLEDGE_PRIVACY === "true" ? { KL_KNOWLEDGE_ENABLED:"true", KL_TRAINING_REPORTS_ENABLED:"true", KL_AI_POLICY_ENABLED:"true", KL_AI_LEARNING_REPORTS_ENABLED:"true" } : {}),
   };
   const f = assessment
     ? await assessmentFixture(t, { env })
@@ -619,6 +623,34 @@ test(
         request_hash: "c".repeat(64),
         result_json: JSON.stringify(path),
       });
+    if(process.env.KL_TEST_RECOVERY_PRIVACY==='true'){
+      const plans=new (require('../dist/training/assignment-recovery-plan').AssignmentRecoveryPlans)(rawDatabase(f.db));
+      for(const u of [user,other])await plans.save({orgId:org,userId:u.user_id,memberId:u===user?member._id:survivor._id,courseId:lesson.course_id,classId,subjectId:subject,courseRevision:1,key:randomUUID(),timestamp:now});
+    }
+    const knowledgePrivacy = process.env.KL_TEST_KNOWLEDGE_PRIVACY === "true";
+    if (knowledgePrivacy) {
+      assert.equal((await f.db.collection("schema_migrations").findOne({version:17})).status, "completed");
+      for (const u of [user, other]) await f.db.collection("ai_jobs").insertOne({
+        ...base(), user_id:u.user_id, member_id:u === user ? member._id : survivor._id,
+        key:randomUUID(), request_hash:"a".repeat(64), kind:"assist", context_id:lesson.course_id,
+        context_revision:1, prompt:"原创私人问题", status:"succeeded", output:"原创私人答疑",
+        error_code:"", citations:[], dispatch_started_at:now, budget_day:"2026-10-06",
+        knowledge_scope:[{kind:"course-text",id:lesson.course_id,lesson_key:"intro"}], knowledge_fingerprint:"b".repeat(64)
+      });
+      await f.db.collection("knowledge_outbox").insertOne({ _id:newId(), org_id:org,kind:"course",owner_id:lesson.course_id,generation:1,access_revision:0,status:"running",lease_token:randomUUID(),lease_until:new Date(now.getTime()+30000),error_code:"",created_at:now,updated_at:now });
+      await f.db.collection("knowledge_sources").insertOne({ _id:newId(),org_id:org,kind:"course-text",source_id:lesson.course_id,lesson_key:"intro",owner_id:lesson.course_id,source_revision:1,source_hash:"c".repeat(64),index_version:1,title:"原创共享资料",status:"ready",error_code:"",chunks:require("../dist/training/knowledge-text").prepareKnowledgeChunks("原创共享资料：恢复后必须由当前授权来源重建正文索引。"),updated_at:now });
+    }
+    if(process.env.KL_TEST_SURVEY_PRIVACY==='true'){
+      const surveyId=newId();await f.db.collection('training_surveys').insertOne({_id:surveyId,org_id:org,course_id:lesson.course_id,title:'原创实名反馈',questions:[{id:'rating',title:'满意度',required:true,kind:'rating',options:[]}],status:'open',published_revision:2,opens_at:new Date(now.getTime()-60000),closes_at:new Date(now.getTime()+3600000),revision:2,created_at:now,updated_at:now});
+      for(const u of [user,other])await f.db.collection('training_survey_responses').insertOne({_id:newId(),org_id:org,survey_id:surveyId,course_id:lesson.course_id,user_id:u.user_id,member_id:u===user?member._id:survivor._id,frozen_revision:2,answers:[{question_id:'rating',value:4}],submitted_at:now,revision:1,created_at:now,updated_at:now});
+    }
+    if(process.env.KL_TEST_IMPORT_PRIVACY==='true'){
+      assert.equal((await f.db.collection('schema_migrations').findOne({version:18})).status,'completed');
+      for(const u of [user,other])await f.db.collection('knowledge_import_jobs').insertOne({_id:newId(),org_id:org,user_id:u.user_id,member_id:u===user?member._id:survivor._id,owner_id:newId(),file_id:newId(),source_revision:1,source_hash:'d'.repeat(64),revision:1,generation:1,status:'preview-ready',lease_token:null,lease_until:null,error_code:'',expires_at:new Date(now.getTime()+86400000),created_at:now,updated_at:now,preview:[{ordinal:0,page:1,text:'原创私人导入预览'}],warnings:[],format:'pdf',applied_revision:null,chapter_ids:[],license_json:''});
+    }
+    if(process.env.KL_TEST_IMPORT_PRIVACY==='true'){
+      for await(const job of f.db.collection('knowledge_import_jobs').find({})){await f.db.collection('knowledge_import_provenance').insertOne({_id:job._id,org_id:job.org_id,owner_id:job.owner_id,file_id:job.file_id,source_hash:job.source_hash,applied_revision:2,chapter_ids:[newId()],license_json:JSON.stringify({license:{source:'共享原创声明',granted:true,expires_at:null},rights_type:'original',proof_reference:'原创授权编号',usage_restrictions:''}),created_at:now});}
+    }
     const env = { KL_SAFETY_LEDGER_ROOT: process.env.KL_SAFETY_LEDGER_ROOT },
       sourceRoot = await courseworkPrivateChild(env, "source-files"),
       sourceFs = require("node:fs/promises"),
@@ -675,6 +707,14 @@ test(
     ];
     for (const name of graph)
       assert.equal(await f.db.collection(name).countDocuments({}), 0, name);
+    if (knowledgePrivacy) {
+      assert.equal(await f.db.collection("ai_jobs").countDocuments({user_id:user.user_id}),0);
+      assert.equal(await f.db.collection("ai_jobs").countDocuments({user_id:other.user_id}),1);
+      assert.equal(await f.db.collection("knowledge_sources").countDocuments({}),1,"共享资料不按个人删除");
+    }
+    if(process.env.KL_TEST_SURVEY_PRIVACY==='true'){assert.equal(await f.db.collection('training_survey_responses').countDocuments({user_id:user.user_id}),0);assert.equal(await f.db.collection('training_survey_responses').countDocuments({user_id:other.user_id}),1);assert.equal(await f.db.collection('training_surveys').countDocuments({}),1);}
+    if(process.env.KL_TEST_IMPORT_PRIVACY==='true'){assert.equal(await f.db.collection('knowledge_import_provenance').countDocuments({}),2);assert.equal(await f.db.collection('knowledge_import_jobs').countDocuments({user_id:user.user_id}),0);assert.equal(await f.db.collection('knowledge_import_jobs').countDocuments({user_id:other.user_id}),1);}
+    if(process.env.KL_TEST_RECOVERY_PRIVACY==='true'){assert.equal(await f.db.collection('training_assignment_recovery_plans').countDocuments({userId:user.user_id}),0);assert.equal(await f.db.collection('training_assignment_recovery_plans').countDocuments({userId:other.user_id}),1);}
     const targetName = "kl_restore_phase2_" + randomUUID().replaceAll("-", ""),
       restoreClient = new MongoClient(f.uri),
       target = objectIdDatabase(restoreClient.db(targetName));
@@ -692,6 +732,7 @@ test(
     for (const [name, saved] of Object.entries(archive)) {
       if (
         [
+          "training_standalone_writer",
           "operational_state",
           "operational_writers",
           "backup_restore_runs",
@@ -769,6 +810,28 @@ test(
         .privacy_state,
       "erased",
     );
+    if (knowledgePrivacy) {
+      for (const db of [target,encryptedTarget]) {
+        assert.equal(await db.collection("ai_jobs").countDocuments({user_id:user.user_id}),0,"旧包个人AI任务必须被抑制");
+        assert.equal(await db.collection("ai_jobs").countDocuments({user_id:other.user_id}),1,"保留其他用户任务");
+      }
+      assert.equal(await encryptedTarget.collection("knowledge_sources").countDocuments({}),0,"恢复不复用旧正文索引");
+      const event=await encryptedTarget.collection("knowledge_outbox").findOne({owner_id:lesson.course_id});
+      assert.equal(event.status,"pending");assert.equal(event.generation,2);assert.equal(event.lease_token,null);assert.equal(event.lease_until,null);
+      await encryptedTarget.collection("knowledge_outbox").updateOne({_id:event._id},{$set:{status:"running",lease_token:randomUUID(),lease_until:new Date(Date.now()+30000)}});
+      assert.equal((await backup.verifyRestore({db:encryptedTarget,file:packageFile,key:encryptionKey,root:restoreRoot,restoreId:restored.restore_id,apply:true})).status,"quarantined","遗留知识租约不能通过恢复验收");
+    }
+    if(process.env.KL_TEST_IMPORT_PRIVACY==='true'){
+      assert.equal(await encryptedTarget.collection('knowledge_import_jobs').countDocuments({user_id:user.user_id}),0,'旧包删除人导入被抑制');
+      const imported=await encryptedTarget.collection('knowledge_import_jobs').findOne({user_id:other.user_id});assert.equal(imported.status,'failed');assert.equal(imported.error_code,'IMPORT_RESTORE_INVALIDATED');assert.deepEqual(imported.preview,[]);assert.equal(imported.generation,2);assert.equal(imported.lease_token,null);
+    }
+    if(process.env.KL_TEST_SURVEY_PRIVACY==='true'){assert.equal(await encryptedTarget.collection('training_survey_responses').countDocuments({user_id:user.user_id}),0);assert.equal(await encryptedTarget.collection('training_survey_responses').countDocuments({user_id:other.user_id}),1);assert.equal(await encryptedTarget.collection('training_surveys').countDocuments({}),1);}
+    if(process.env.KL_TEST_IMPORT_PRIVACY==='true'){assert.equal(await encryptedTarget.collection('knowledge_import_provenance').countDocuments({}),2,'共享证明不按个人导入任务擦除或旧包抑制');const proof=await encryptedTarget.collection('knowledge_import_provenance').findOne({});assert.ok(!('user_id' in proof));assert.equal(JSON.parse(proof.license_json).proof_reference,'原创授权编号');}
+    if(process.env.KL_TEST_RECOVERY_PRIVACY==='true'){
+      assert.equal(await target.collection('training_assignment_recovery_plans').countDocuments({userId:user.user_id}),0,'旧手工快照个人计划被擦除');assert.equal(await target.collection('training_assignment_recovery_plans').countDocuments({userId:other.user_id}),1);
+      for(const name of require('../dist/training/standalone-recovery-lifecycle').RECOVERY_COLLECTIONS.filter(n=>n!=='training_standalone_writer'))assert.equal(await encryptedTarget.collection(name).countDocuments({}),0,'加密旧包不重放 '+name);
+      await require('../dist/training/standalone-recovery-lifecycle').assertRecoveryQuiescent(encryptedTarget);
+    }
     encryptionKey.fill(0);
   },
 );

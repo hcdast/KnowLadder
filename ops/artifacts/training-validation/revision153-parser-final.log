@@ -1,0 +1,70 @@
+TAP version 13
+# Subtest: 原创DOCX：纯文本及受限子进程输出一致，无HTML
+ok 1 - 原创DOCX：纯文本及受限子进程输出一致，无HTML
+  ---
+  duration_ms: 338.6132
+  type: 'test'
+  ...
+# Subtest: DOCX：坏容器、宏、外部关系、DTD和解压炸弹拒绝
+ok 2 - DOCX：坏容器、宏、外部关系、DTD和解压炸弹拒绝
+  ---
+  duration_ms: 749.2957
+  type: 'test'
+  ...
+# Subtest: DOCX：80000码点上限不静默截断、空文本和未知格式拒绝
+ok 3 - DOCX：80000码点上限不静默截断、空文本和未知格式拒绝
+  ---
+  duration_ms: 211.2436
+  type: 'test'
+  ...
+# Subtest: 原创文本PDF：页面定位和子进程提取
+ok 4 - 原创文本PDF：页面定位和子进程提取
+  ---
+  duration_ms: 613.5513
+  type: 'test'
+  ...
+# Subtest: PDF：无文本提示OCR、101页和破损文件拒绝
+ok 5 - PDF：无文本提示OCR、101页和破损文件拒绝
+  ---
+  duration_ms: 881.4526
+  type: 'test'
+  ...
+# Subtest: 文件格式开关：DOCX需要三开关，默认不改变历史MIME
+ok 6 - 文件格式开关：DOCX需要三开关，默认不改变历史MIME
+  ---
+  duration_ms: 1.9017
+  type: 'test'
+  ...
+# Subtest: 解析真实子进程监管：stall
+ok 7 - 解析真实子进程监管：stall
+  ---
+  duration_ms: 30103.2405
+  type: 'test'
+  ...
+# Subtest: 解析真实子进程监管：exit
+ok 8 - 解析真实子进程监管：exit
+  ---
+  duration_ms: 56.8949
+  type: 'test'
+  ...
+# Subtest: 解析真实子进程监管：malformed
+ok 9 - 解析真实子进程监管：malformed
+  ---
+  duration_ms: 56.5126
+  type: 'test'
+  ...
+# Subtest: 真实解析模块：输入前父IPC断开后子进程退出
+ok 10 - 真实解析模块：输入前父IPC断开后子进程退出
+  ---
+  duration_ms: 156.312
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 33364.0643
