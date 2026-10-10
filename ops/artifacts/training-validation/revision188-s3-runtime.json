@@ -1,0 +1,93 @@
+{
+  "checked_at": "2026-10-10T13:32:01.277Z",
+  "apps": [
+    {
+      "name": "kl-api",
+      "pid": 30600,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-files-worker",
+      "pid": 38980,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 32112,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 44300,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-knowledge-worker",
+      "pid": 33928,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-import-worker",
+      "pid": 35428,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "health": {
+    "live": {
+      "status": 200,
+      "ms": 29
+    },
+    "ready": {
+      "status": 200,
+      "ms": 17508
+    }
+  },
+  "writers": [
+    {
+      "kind": "files",
+      "pid": 38980
+    },
+    {
+      "kind": "api",
+      "pid": 30600
+    },
+    {
+      "kind": "assessment",
+      "pid": 32112
+    },
+    {
+      "kind": "learning",
+      "pid": 44300
+    },
+    {
+      "kind": "learning",
+      "pid": 33928
+    },
+    {
+      "kind": "api",
+      "pid": 35428
+    },
+    {
+      "kind": "learning",
+      "pid": 35428
+    }
+  ],
+  "storage_driver": "s3",
+  "application_objects": {
+    "tmp": 0,
+    "quarantine": 0,
+    "ready": 0
+  },
+  "file_resources": 0,
+  "capability_probe": {
+    "read_write_publish_integrity_delete": true,
+    "probe_objects_cleaned": true,
+    "directory_markers_preserved": true
+  }
+}

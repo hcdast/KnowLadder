@@ -1,0 +1,82 @@
+{
+  "checked_at": "2026-10-10T13:18:32.396Z",
+  "apps": [
+    {
+      "name": "kl-api",
+      "pid": 35992,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-files-worker",
+      "pid": 4080,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 16300,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 43444,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-knowledge-worker",
+      "pid": 16748,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-import-worker",
+      "pid": 31612,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "health": {
+    "live": {
+      "status": 200,
+      "ms": 32
+    },
+    "ready": {
+      "status": 200,
+      "ms": 17719
+    }
+  },
+  "writers": [
+    {
+      "kind": "api",
+      "pid": 35992
+    },
+    {
+      "kind": "files",
+      "pid": 4080
+    },
+    {
+      "kind": "assessment",
+      "pid": 16300
+    },
+    {
+      "kind": "learning",
+      "pid": 43444
+    },
+    {
+      "kind": "learning",
+      "pid": 16748
+    },
+    {
+      "kind": "api",
+      "pid": 31612
+    },
+    {
+      "kind": "learning",
+      "pid": 31612
+    }
+  ],
+  "old_running": 0
+}

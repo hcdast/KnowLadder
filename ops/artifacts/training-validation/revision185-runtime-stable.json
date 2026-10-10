@@ -1,0 +1,71 @@
+{
+  "checked_at": "2026-10-10T11:01:53.588Z",
+  "node": "v22.19.0",
+  "platform": "win32",
+  "apps": [
+    {
+      "name": "kl-api",
+      "pid": 31468,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-files-worker",
+      "pid": 40328,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-assessment-worker",
+      "pid": 36176,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-learning-worker",
+      "pid": 11928,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-knowledge-worker",
+      "pid": 27708,
+      "status": "online",
+      "restarts": 0
+    },
+    {
+      "name": "kl-import-worker",
+      "pid": 11244,
+      "status": "online",
+      "restarts": 0
+    }
+  ],
+  "health": {
+    "live": {
+      "status": 200,
+      "ms": 23
+    },
+    "ready": {
+      "status": 200,
+      "ms": 3425
+    }
+  },
+  "current_writer_count": 7,
+  "remaining_old_writers": [
+    {
+      "kind": "api",
+      "pid": 38564
+    },
+    {
+      "kind": "files",
+      "pid": 4480
+    }
+  ],
+  "file_resources": 0,
+  "storage_driver": "local",
+  "local_area_entries": {
+    "tmp": 0,
+    "quarantine": 0,
+    "ready": 0
+  }
+}
