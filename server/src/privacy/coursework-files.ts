@@ -1,8 +1,10 @@
+import { storageHead, deleteStorageObject, storageDriver } from "../files/storage";
 import { courseworkMaintenanceFence } from "../files/coursework-cleanup";
 import type { Db, Document } from "mongodb";
 import { randomUUID } from "node:crypto";
-import { lstat, unlink } from "node:fs/promises";
-import { storageRoot, storagePath } from "../files/config";
+import { readdir } from "node:fs/promises";
+import path from "node:path";
+import { storageRoot } from "../files/config";
 import { runInTxn } from "../database/txn";
 import { readSafetyLedger } from "../operations/ledger";
 const LEASE = 120000;
@@ -127,6 +129,9 @@ export async function eraseCourseworkFileBytes(
     throw Error("PRIVACY_FILE_ERASURE_PROOF_REQUIRED");
   if (await courseworkFilesHeld(db, userId)) return;
   const root = await storageRoot();
+  if(storageDriver()==="s3") {
+    for(const area of ["tmp","quarantine","ready"]) if((await readdir(path.join(root,area))).length)throw Error("PRIVACY_SPOOL_CLEANUP_REQUIRED");
+  }
   for await (const candidate of rows(db, "file_resources").find({
     owner_type: "coursework",
     created_by: userId,
@@ -144,7 +149,7 @@ export async function eraseCourseworkFileBytes(
       ))
         for (const area of ["tmp", "quarantine", "ready"] as const) {
           try {
-            await lstat(await storagePath(area, key, root));
+            if(!await storageHead(area,key))continue;
             throw Error("PRIVACY_FILE_TOMBSTONE_HAS_BYTES");
           } catch (error) {
             if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -264,15 +269,7 @@ export async function eraseCourseworkFileBytes(
           ).matchedCount !== 1
         )
           throw Error("PRIVACY_FILE_LEASE_LOST");
-        const filename = await storagePath(area, key, root);
-        try {
-          const info = await lstat(filename);
-          if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)
-            throw Error("PRIVACY_FILE_PATH_UNSAFE");
-          await unlink(filename);
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-        }
+        await deleteStorageObject(area,key);
       }
     await renew();
     if (

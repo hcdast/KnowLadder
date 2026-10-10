@@ -1,6 +1,7 @@
 const {objectIdDatabase, rawDatabase, decodeDocument, newId} = require("../server/dist/database/object-id.js");
 const OID = /^[0-9a-f]{24}$/;
 "use strict";
+const storageAccess=require("./storage-access.cjs");
 const { MongoClient, BSON } = require('../server/node_modules/mongodb');
 const { fs, path, crypto, ensure, hash, privateDirectory, openFile, writeAll, createArchive, readArchive, CHUNK } = require('./system-backup-archive.cjs');
 const schema = require('../server/dist/migrations/schema.js');
@@ -36,10 +37,10 @@ async function filesInventory(root, resources, checkpoint = () => {}) {
     ensure(KEY.test(key)); ensure(!owners.has(key) || owners.get(key)._id === row._id, 'AMBIGUOUS_STORAGE_KEY'); owners.set(key, row);
   }
   let total = 0; const descriptors = [];
-  for (const area of AREAS) for (const key of (await fs.readdir(path.join(root, area))).sort()) {
+  for (const area of AREAS) for (const key of (await storageAccess.entries(root,area))) {
     checkpoint();
     ensure(KEY.test(key), 'UNKNOWN_STORAGE_ENTRY'); ensure(descriptors.length < 1000, 'BACKUP_LIMIT_EXCEEDED');
-    const handle = await openFile(path.join(root, area, key), root);
+    const handle = await storageAccess.openSource(root,area,key);
     try {
       const before = await handle.stat(); ensure(before.size <= MAX_FILE, 'BACKUP_LIMIT_EXCEEDED'); total += before.size; ensure(total <= MAX_FILES, 'BACKUP_LIMIT_EXCEEDED');
       const digest = crypto.createHash('sha256'), buffer = Buffer.allocUnsafe(CHUNK); let offset = 0;
@@ -87,7 +88,7 @@ async function backup({ client, db, file, key, root, maintenanceToken }) {
   checkpoint();
   await schema.assertSchema(db);
   if (process.env.KL_STANDALONE_RECOVERY_ENABLED === 'true') await require('../server/dist/training/standalone-recovery-lifecycle').assertRecoveryQuiescent(db);
-  root = await fileRoot(root); const registry = schema.systemBackupRegistry();
+  root = await storageAccess.sourceRoot(root); const registry = schema.systemBackupRegistry();
   const names = (await db.listCollections({}, { nameOnly: true }).toArray()).map(c => c.name);
   ensure(names.length === registry.collections.length + registry.excluded.filter(n => !registry.collections.includes(n)).length && names.every(n => registry.collections.includes(n) || registry.excluded.includes(n)), 'UNKNOWN_COLLECTION');
   const safety = await ledgerApi.readSafetyLedger(gate.environmentId, 0); ensure(!safety.pending, 'SUPPRESSION_LEDGER_REQUIRED');
@@ -114,7 +115,7 @@ async function backup({ client, db, file, key, root, maintenanceToken }) {
     const inventory = await filesInventory(root, resources, checkpoint); manifest.files = inventory.descriptors; manifest.missing = inventory.missing;
     for (const descriptor of manifest.files) {
       checkpoint();
-      const handle = await openFile(path.join(root, descriptor.area, descriptor.key), root);
+      const handle = await storageAccess.openSource(root,descriptor.area,descriptor.key);
       try {
         const digest = crypto.createHash('sha256'); let position = 0, part = 0; const buffer = Buffer.allocUnsafe(CHUNK);
         do { const { bytesRead } = await handle.read(buffer, 0, Math.min(CHUNK, descriptor.size - position), position); ensure(bytesRead > 0 || descriptor.size === 0); const bytes = buffer.subarray(0, bytesRead); digest.update(bytes); position += bytesRead; await archive.frame({ kind: 'file', area: descriptor.area, key: descriptor.key, part: part++, last: position === descriptor.size, data: bytes.toString('base64') }); } while (position < descriptor.size);
@@ -301,7 +302,7 @@ async function verifyRestore({ db, file, key, root, restoreId, apply = false }) 
 }
 async function main() {
   const [command, ...args] = process.argv.slice(2);
-  if (!command || command === '--help') { console.log('LOCAL/SYNTHETIC: inspect --file <encrypted> (SYSTEM_BACKUP_KEY only; no DB connection). backup|restore --file <encrypted>. verify --file <encrypted> --restore-id <ObjectId>. release --file <encrypted> --restore-id <ObjectId> --actor <actor> --reason <reason>. Mutating/target commands require MONGODB_URI, FILE_STORAGE_ROOT and managed independent ledger. Restore never grants identities.'); return; }
+  if (!command || command === '--help') { console.log('LOCAL/SYNTHETIC: inspect --file <encrypted> (SYSTEM_BACKUP_KEY only; no DB connection). backup|restore --file <encrypted>. verify --file <encrypted> --restore-id <ObjectId>. release --file <encrypted> --restore-id <ObjectId> --actor <actor> --reason <reason>. Commands require MONGODB_URI and managed independent ledger. Backup reads FILE_STORAGE_DRIVER (local FILE_STORAGE_ROOT or S3); restore/verify require an explicit offline local FILE_STORAGE_ROOT. Restore never uploads to live S3 or grants identities.'); return; }
   ensure(['backup','restore','inspect','verify','release'].includes(command)); const options = {};
   for (let i = 0; i < args.length; i += 2) { ensure(['--file','--restore-id','--actor','--reason'].includes(args[i]) && args[i + 1] && !Object.hasOwn(options, args[i])); options[args[i]] = args[i + 1]; }
   const allowed = command === 'inspect' || command === 'backup' || command === 'restore' ? ['--file'] : command === 'verify' ? ['--file','--restore-id'] : ['--file','--restore-id','--actor','--reason'];

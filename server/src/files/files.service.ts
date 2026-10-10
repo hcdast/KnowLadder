@@ -1,9 +1,10 @@
+import { storageDriver } from "./storage";
 import {isCourseworkFile,fileOwnerCollection} from './owner';
 import { requireObjectId } from "../operations/contracts";
 import { newId } from "../database/object-id";
 import { HttpException, Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
-import { createReadStream } from 'node:fs';
+import { createReadStream, read as fsRead } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
 import type { FileHandle } from 'node:fs/promises';
 import type { Response } from 'express';
@@ -232,6 +233,25 @@ export class FilesService {
   }
   /** Preflight inside authorization's transaction, then stream the same descriptor after commit. */
   async deliverAuthorized(req:ApiRequest,res:Response,authorize:(prepare:(file:FileResource)=>Promise<void>)=>Promise<FileResource>):Promise<void> {
+    if(storageDriver()==="s3") {
+      const checkpoint=Symbol("delivery-authorized");let initial:FileResource|undefined;
+      try {await authorize(async row=>{initial=row;throw checkpoint;});}catch(error){if(error!==checkpoint)throw error;}
+      if(!initial)throw Error("FILE_DELIVERY_NOT_PREPARED");
+      const abort=new AbortController();const canceled=()=>abort.abort();req.once("aborted",canceled);res.once("close",canceled);let prepared:PreparedDelivery|undefined;
+      try {
+      prepared=await this.prepareDelivery(req,initial,res,abort.signal);let verified=false;
+      try {
+        const current=await authorize(async row=>{
+          verified=true;
+          if(row._id!==initial!._id||row.org_id!==initial!.org_id||row.storage_key!==initial!.storage_key||row.checksum!==initial!.checksum||row.size!==initial!.size||row.status!=="ready"||row.scan_status!=="clean"||row.deleted_at||row.deletion_requested_at)fail(503,"FILE_UNAVAILABLE","文件状态已变化，请重新载入");
+        });
+        if(!verified)throw Error("FILE_DELIVERY_NOT_PREPARED");
+        if(abort.signal.aborted)throw Error("STORAGE_REQUEST_CANCELED");
+        await this.streamDelivery(req,current,res,prepared);
+      }finally{if(prepared)await prepared.handle.close();}
+      }finally{req.off("aborted",canceled);res.off("close",canceled);}
+      return;
+    }
     let prepared:PreparedDelivery|undefined;
     let preparedFile:FileResource|undefined;
     try {
@@ -245,11 +265,11 @@ export class FilesService {
       await this.streamDelivery(req,file,res,prepared);
     } finally {if(prepared)await prepared.handle.close();}
   }
-  private async prepareDelivery(req:ApiRequest,file:FileResource,res:Response):Promise<PreparedDelivery> {
+  private async prepareDelivery(req:ApiRequest,file:FileResource,res:Response,signal?:AbortSignal):Promise<PreparedDelivery> {
     await assertOperationalAccess(this.database.db);
     if(file.status!=='ready'||file.scan_status!=='clean'||file.deleted_at||file.deletion_requested_at||file.size===null||!file.mime||!file.checksum)fail(409,'FILE_NOT_READY','文件不可交付');
     let handle;
-    try { handle=await openPrivate('ready',file.storage_key); } catch { fail(503,'FILE_UNAVAILABLE','文件不可用，等待对账修复'); }
+    try { handle=await openPrivate('ready',file.storage_key,undefined,signal); } catch { fail(503,'FILE_UNAVAILABLE','文件不可用，等待对账修复'); }
     try {
       const info=await handle.stat();
       if(info.size!==file.size) fail(503,'FILE_UNAVAILABLE','文件完整性异常');
@@ -282,7 +302,8 @@ export class FilesService {
       res.setHeader('Content-Type',file.mime!);res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Content-Security-Policy',"sandbox; default-src 'none'");
       res.setHeader('Cache-Control','private, no-store');
       res.setHeader('Content-Disposition',`attachment; filename="attachment"; filename*=UTF-8''${encodeURIComponent(file.display_name).replace(/['()*]/g,c=>'%'+c.charCodeAt(0).toString(16))}`);
-      const stream=createReadStream('',{fd:handle.fd,start,end,autoClose:false});
+      // FileHandle owns this fd. destroy() must release the stream without closing it twice.
+      const stream=createReadStream('',{fd:handle.fd,start,end,autoClose:false,fs:{read:fsRead,close:(_fd,callback)=>callback(null)}});
       try{await pipeline(stream,res);}finally{stream.destroy();}
     } catch(error) {
       console.warn(JSON.stringify({event:'file.delivery.failed',request_id:req.requestId,file_id:file._id}));

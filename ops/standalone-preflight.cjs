@@ -42,7 +42,7 @@ async function main() {
       : [];
     const paths = Object.fromEntries(
       [
-        "FILE_STORAGE_ROOT",
+        require("../server/dist/files/storage").storageDriver()==="s3" ? "FILE_SPOOL_ROOT" : "FILE_STORAGE_ROOT",
         "CLAMSCAN_PATH",
         "CLAMAV_DATABASE",
         "KL_SAFETY_LEDGER_ROOT",

@@ -1,3 +1,4 @@
+import { storageDriver, putStorageBytes, reserveSpool } from "./storage";
 import { createHash } from 'node:crypto';
 import { open, rename, unlink } from 'node:fs/promises';
 import { createWriteStream, constants } from 'node:fs';
@@ -8,7 +9,7 @@ import type { Readable } from 'node:stream';
 import { storagePath, storageRoot, MAX_FILE_SIZE, DOCX_FILE_MIME, importDocumentsEnabled } from './config';
 import { extractInProcess } from '../training/import-parser-process';
 import { fail } from '../errors';
-export async function receive(source: Readable, expected: {declared_size:number;declared_mime:string;declared_checksum:string}, key: string) {
+async function receiveInternal(source: Readable, expected: {declared_size:number;declared_mime:string;declared_checksum:string}, key: string, signal?:AbortSignal) {
   const root = await storageRoot();
   const temporary = await storagePath('tmp', key, root);
   const handle = await open(temporary, 'wx', 0o600);
@@ -29,7 +30,7 @@ export async function receive(source: Readable, expected: {declared_size:number;
     } catch(error) { done(error as Error); }
   }});
   try {
-    await pipeline(source, inspect, destination);
+    await pipeline(source, inspect, destination, {signal});
     await handle.sync();
     await handle.close();
     if (expected.declared_mime === 'text/plain' && textValid) { try { checkText(decoder.decode()); } catch { textValid = false; } }
@@ -57,11 +58,20 @@ export async function receive(source: Readable, expected: {declared_size:number;
     }
     const valid = mime === DOCX_FILE_MIME ? docx : mime === 'video/mp4' ? mp4 : mime === 'audio/mpeg' ? mp3 : mime === 'application/pdf' ? pdf : mime === 'image/png' ? png : mime === 'image/jpeg' ? jpeg : mime === 'text/plain' && textValid && !pdf && !png && !jpeg;
     if (!valid) fail(422,'FILE_TYPE_MISMATCH','文件正文类型与登记不符');
-    await rename(temporary, await storagePath('quarantine',key,root));
+    if(storageDriver()==='s3') {
+      const source=await open(temporary, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+      try {const bytes=await source.readFile();if(bytes.length!==size||createHash('sha256').update(bytes).digest('hex')!==checksum)throw Error('STORAGE_INTEGRITY_MISMATCH');await putStorageBytes('quarantine',key,bytes,signal);}finally{await source.close();}
+    } else await rename(temporary, await storagePath('quarantine',key,root));
     return {size,mime,checksum};
   } finally {
     destination.destroy();
     await handle.close().catch(()=>undefined);
     await unlink(temporary).catch(()=>undefined);
   }
+}
+
+export async function receive(source:Readable, expected:{declared_size:number;declared_mime:string;declared_checksum:string},key:string) {
+  const release=reserveSpool(),abort=new AbortController();const canceled=()=>abort.abort();source.once('aborted',canceled);
+  if((source as Readable & {aborted?:boolean}).aborted)canceled();
+  try{return await receiveInternal(source,expected,key,abort.signal);}finally{source.off('aborted',canceled);release();}
 }

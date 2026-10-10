@@ -113,7 +113,7 @@ export function safeErrorCode(error: unknown): string {
     return e.message;
   if (
     typeof e?.message === "string" &&
-    /^(?:INVALID_FLAG_|INVALID_CONFIG_|SCHEMA_|FEATURE_|MANAGED_|RECOVERY_|STANDALONE_|OPERATIONS_)[A-Z0-9_]{1,90}$/.test(
+    /^(?:INVALID_FLAG_|INVALID_CONFIG_|SCHEMA_|FEATURE_|MANAGED_|RECOVERY_|STANDALONE_|OPERATIONS_|S3_|STORAGE_)[A-Z0-9_]{1,90}$/.test(
       e.message,
     )
   )

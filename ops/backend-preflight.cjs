@@ -90,9 +90,12 @@ async function preflight({ verify, stopped, identity = false } = {}) {
       }
       return { ok: true };
     }
-    if (process.env.FILE_SCAN_ENABLED !== "false") {
+    const scanEnabled = process.env.FILE_SCAN_ENABLED !== "false";
+    if (scanEnabled || require("../server/dist/files/storage").storageDriver()==="s3") {
       stage = "storage";
       await require("../server/dist/files/config").assertStorageReady();
+    }
+    if (scanEnabled) {
       stage = "scanner";
       await require("../server/dist/files/scanner").assertScanner();
     }

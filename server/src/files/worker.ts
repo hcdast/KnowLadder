@@ -1,3 +1,4 @@
+import { materializeStorage, publishStorageFile, deleteStorageObject, listStorage, storageHealthDetails } from "./storage";
 import { installShutdown, notifyReady, validateRuntimeFlags, finishRuntimeFailure } from '../runtime/process-lifecycle';
 import {isCourseworkFile,fileOwnerCollection} from './owner';
 import {requireEvidenceSubject} from '../assessment/subject-access';
@@ -5,7 +6,7 @@ import { objectIdDatabase } from "../database/object-id";
 import { newId } from "../database/object-id";
 import { MongoClient, type ClientSession, type Db, type Document } from 'mongodb';
 import { randomUUID, createHash } from 'node:crypto';
-import { rename, readdir, lstat, unlink, statfs } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { CONTENT_COLLECTIONS, licensed, type BaseVersion, type FileResource } from '../content/contracts';
 import { assertSchema } from '../migrations/schema';
@@ -121,7 +122,15 @@ export async function processOne(db: Db) {
   try {
     if (await integrity('quarantine', row)) {
       stage = 'scan';
-      const scanned = await scanWithHealth(await storagePath('quarantine', row.storage_key));
+      const local = await materializeStorage('quarantine', row.storage_key);
+      let scanned;
+      try {
+        const bytes=await local.handle.readFile();
+        if(bytes.length!==row.size||createHash('sha256').update(bytes).digest('hex')!==row.checksum)throw Error('STORAGE_INTEGRITY_MISMATCH');
+        scanned=await scanWithHealth(local.filename);
+        const after=await readFile(local.filename);
+        if(after.length!==row.size||createHash('sha256').update(after).digest('hex')!==row.checksum)throw Error('STORAGE_INTEGRITY_MISMATCH');
+      } finally {await local.dispose();}
       result = scanned.result;
       if (scanned.health) { metadata = scanned.health; scannedAt = new Date(); }
     }
@@ -135,7 +144,7 @@ export async function processOne(db: Db) {
       await guardOwner(db, row);
       const renewed = await files.updateOne({ ...fence, lease_until: { $gt: new Date() } }, { $set: { lease_until: new Date(Date.now() + leaseMs), updated_at: new Date() } });
       if (renewed.modifiedCount !== 1) return true;
-      await rename(await storagePath('quarantine', row.storage_key), await storagePath('ready', row.storage_key));
+      await publishStorageFile('quarantine','ready',row.storage_key,{size:row.size,checksum:row.checksum});
       moved = true;
       await transaction(db, async session => {
         const live = await files.findOne({ ...fence, lease_until: { $gt: new Date() } }, { session });
@@ -246,8 +255,7 @@ export async function processDeletion(db: Db) {
         await guardOwner(db, row);
         const live = await files.updateOne({ ...fence, deletion_lease_until: { $gt: new Date() } }, { $set: { deletion_lease_until: new Date(Date.now() + DELETE_LEASE_MS), updated_at: new Date() } });
         if (!live.matchedCount) return true;
-        try { await unlink(await storagePath(area, key)); }
-        catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+        await deleteStorageObject(area,key);
       }
     }
   } catch { failed = true; }
@@ -294,7 +302,7 @@ export async function reconcile(db: Db) {
       if (ready) {
         const live = await files.updateOne({ ...fence, lease_until: { $gt: new Date() } }, { $set: { lease_until: new Date(Date.now() + 120000), updated_at: new Date() } });
         if (!live.matchedCount) continue;
-        await rename(await storagePath('ready', row.storage_key), await storagePath('quarantine', row.storage_key));
+        await publishStorageFile('ready','quarantine',row.storage_key,{size:row.size,checksum:row.checksum});
       }
       const valid = await integrity('quarantine', row);
       await guardFile(db, row);
@@ -307,41 +315,25 @@ export async function reconcile(db: Db) {
     }
     repaired++;
   }
-  const root = await storageRoot();
-  for (const area of AREAS) {
-    for (const entry of await readdir(`${root}/${area}`, { withFileTypes: true })) {
-      if (!entry.isFile() || !KEY.test(entry.name)) continue;
-      const filename = await storagePath(area, entry.name);
-      let info; try { info = await lstat(filename); } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
-      if (info.isSymbolicLink() || info.mtimeMs > Date.now() - 86400000) continue;
-      // Registration commits before creating bytes. Preserve every registered key, including
-      // failed uploads, expired leases and tombstones; only explicit deletion may remove them.
-      if (await files.findOne({ $or: [{ storage_key: entry.name }, { upload_storage_key: entry.name }, { upload_storage_keys: entry.name }, { upload_lease_token: entry.name }, { lease_token: entry.name }] }, { projection: { _id: 1 } })) continue;
-      try { await unlink(filename); removed++; } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    }
+  const inventories=await Promise.all(AREAS.map(area=>listStorage(area)));
+  for (const [index,area] of AREAS.entries()) for(const entry of inventories[index]) {
+    if(entry.modifiedAt.getTime()>Date.now()-86400000)continue;
+    if(await files.findOne({$or:[{storage_key:entry.key},{upload_storage_key:entry.key},{upload_storage_keys:entry.key},{upload_lease_token:entry.key},{lease_token:entry.key}]},{projection:{_id:1}}))continue;
+    await assertOperationalAccess(db);await deleteStorageObject(area,entry.key);removed++;
   }
   return { repaired, removed };
 }
 
 export async function usage(db: Db) {
   await assertOperationalAccess(db);
-  const root = await storageRoot();
-  const disk = await statfs(root, { bigint: true });
-  const areas: Record<string, { count: number; bytes: string }> = {};
-  for (const area of AREAS) {
-    let count = 0; let bytes = 0n;
-    for (const entry of await readdir(`${root}/${area}`, { withFileTypes: true })) {
-      if (!entry.isFile() || !KEY.test(entry.name)) continue;
-      try { const info = await lstat(await storagePath(area, entry.name), { bigint: true }); if (info.isFile() && !info.isSymbolicLink()) { count++; bytes += info.size; } }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
-    }
-    areas[area] = { count, bytes: bytes.toString() };
-  }
+  const capacity=await storageHealthDetails();
+  const areas:Record<string,{count:number;bytes:string}>={};
+  for(const area of AREAS){const entries=await listStorage(area);areas[area]={count:entries.length,bytes:entries.reduce((sum,e)=>sum+BigInt(e.size),0n).toString()};}
   const resources = await db.collection<FileResource>('file_resources').aggregate([
     { $group: { _id: { status: '$status', scan_status: '$scan_status', deleted: { $ne: [{ $ifNull: ['$deleted_at', null] }, null] } }, count: { $sum: 1 }, bytes: { $sum: { $ifNull: ['$size', 0] } } } },
     { $sort: { '_id.status': 1, '_id.scan_status': 1, '_id.deleted': 1 } },
   ]).toArray();
-  return { measured_at: new Date(), disk: { total_bytes: (disk.blocks * disk.bsize).toString(), available_bytes: (disk.bavail * disk.bsize).toString() }, areas, resources };
+  return { measured_at: new Date(), disk: capacity, areas, resources };
 }
 
 async function main() {

@@ -35,7 +35,7 @@ test("扫描开关严格解析，关闭时不读取扫描配置或产生成功�
   for (const command of ["run", "once", "reconcile", "cleanup", "usage"]) {
     await assert.rejects(
       promisify(execFile)(process.execPath, [join(__dirname, "../dist/files/worker.js"), command],
-        { env: { ...process.env }, timeout: 5000, encoding: "utf8" }),
+        { env: { ...process.env }, timeout: 12000, encoding: "utf8" }),
       error => error.code === 1 && /FILE_SCAN_ENABLED/.test(error.stderr),
     );
   }

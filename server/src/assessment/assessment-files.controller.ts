@@ -22,7 +22,7 @@ export class AssessmentFilesController {
   @Get('sessions/:id/items/:item_id/files/:file_id/content')
   @ApiOperation({ summary: '本人会话冻结题项附件；逐次检查授权及考试保密' })
   async download(@Req() req: ApiRequest, @Param('id') id: string, @Param('item_id') itemId: string, @Param('file_id') fileId: string, @Res() res: Response) {
-    const file = await this.access.run(req, false, async ctx => {
+    return this.files.deliverAuthorized(req,res,prepare=>this.access.run(req, false, async ctx => {
       this.access.require(ctx, 'learning:self');
       if (ctx.studentConflict || ctx.capabilities.some(capability => capability === 'content:edit' || capability === 'content:review' || capability === 'assessment:manage' || capability === 'assessment:review'))
         fail(403, 'FORBIDDEN', '学习职责冲突');
@@ -42,8 +42,9 @@ export class AssessmentFilesController {
       if (items.length !== row.item_count || items.length > 50) fail(409, 'CONTENT_UNAVAILABLE', '会话题项不完整');
       for (const source of [...items].sort((a, b) => a.snapshot.question_version_id.localeCompare(b.snapshot.question_version_id))) await sources.question(ctx, source.snapshot.question_version_id, false);
       await sources.guard(ctx, items.map(i => i.snapshot.question_version_id), row.mode, row.quiz_id ?? undefined);
-      return questionAttachment(this.database.db, ctx, item.snapshot.question_version_id, fileId);
-    });
-    await this.files.deliver(req, file, res);
+      const file=await questionAttachment(this.database.db, ctx, item.snapshot.question_version_id, fileId);
+      await prepare(file);
+      return file;
+    }));
   }
 }

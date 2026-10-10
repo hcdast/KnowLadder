@@ -1,3 +1,4 @@
+import { storageDriver, assertStorageBackendReady, storageHealthDetails, listStorage, STORAGE_AREAS } from "../files/storage";
 import { lstat, realpath, statfs } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { Db } from "mongodb";
@@ -16,6 +17,7 @@ async function observe<T>(read:()=>Promise<T>):Promise<T|{status:"unavailable"}>
   try {return await read();} catch {return {status:"unavailable"};}
 }
 async function storageHealth() {
+  if(storageDriver()==="s3")return observe(async()=>{await assertStorageBackendReady();const capacity=await storageHealthDetails();let bytes=0n,count=0;for(const area of STORAGE_AREAS){const rows=await listStorage(area);count+=rows.length;for(const row of rows)bytes+=BigInt(row.size);}return {status:"available",...capacity,object_count:count,used_bytes:bytes.toString()};});
   const root=process.env.FILE_STORAGE_ROOT;
   if(!root) return {status:"unconfigured"};
   return observe(async()=> {
@@ -33,7 +35,7 @@ async function storageHealth() {
   });
 }
 async function scannerHealth(probe:boolean,now:number) {
-  if(!["FILE_STORAGE_ROOT","CLAMSCAN_PATH","CLAMAV_DATABASE","SCAN_DATABASE_MAX_AGE_HOURS"].every(name=>!!process.env[name])) return {status:"unconfigured"};
+  if(![storageDriver()==="s3"?"FILE_SPOOL_ROOT":"FILE_STORAGE_ROOT","CLAMSCAN_PATH","CLAMAV_DATABASE","SCAN_DATABASE_MAX_AGE_HOURS"].every(name=>!!process.env[name])) return {status:"unconfigured"};
   if(!probe) return {status:"not_checked"};
   return observe(async()=>{const health=await assertScanner();return {status:"healthy",database_updated_at:health.database_updated_at,database_age_ms:age(health.database_updated_at,now)};});
 }

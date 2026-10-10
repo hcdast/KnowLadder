@@ -1,4 +1,5 @@
 "use strict";
+const storageAccess=require("./storage-access.cjs");
 // Independent encrypted file archives. Atlas owns database snapshots and restores.
 const { MongoClient, BSON } = require("../server/node_modules/mongodb");
 const {
@@ -42,12 +43,7 @@ async function backup({ db, root, file, key, atlasSnapshotId = null }) {
     typeof (await db.admin().command({ hello: 1 })).setName === "string",
     "REPLICA_SET_REQUIRED",
   );
-  root = await privateDirectory(root);
-  ensure(
-    (await fs.readdir(root)).every((name) => AREAS.includes(name)),
-    "UNKNOWN_STORAGE_ENTRY",
-  );
-  for (const area of AREAS) await privateDirectory(path.join(root, area), root);
+  root=await storageAccess.sourceRoot(root);
   ensure(
     atlasSnapshotId === null || /^[a-f0-9]{24}$/.test(atlasSnapshotId),
     "ATLAS_SNAPSHOT_ID_INVALID",
@@ -72,10 +68,7 @@ async function backup({ db, root, file, key, atlasSnapshotId = null }) {
   try {
     await archive.frame({ kind: "private-files-header", manifest });
     for (const descriptor of manifest.files) {
-      const handle = await openFile(
-        path.join(root, descriptor.area, descriptor.key),
-        root,
-      );
+      const handle=await storageAccess.openSource(root,descriptor.area,descriptor.key);
       try {
         const before = await handle.stat(),
           digest = crypto.createHash("sha256"),
@@ -383,7 +376,7 @@ async function main() {
       report = await stage({
         ...input,
         target: options["--target"],
-        storageRoot: process.env.FILE_STORAGE_ROOT,
+        storageRoot: require('../server/dist/files/storage').storageDriver()==='s3' ? process.env.FILE_SPOOL_ROOT : process.env.FILE_STORAGE_ROOT,
       });
     else report = await inspect(input);
     console.log(JSON.stringify(report));

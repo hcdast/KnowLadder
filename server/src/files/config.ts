@@ -17,8 +17,10 @@ export function assertFileScanEnabled(): void {
   if (!fileScanEnabled()) throw new Error('FILE_SCAN_DISABLED');
 }
 function configuredRoot() {
-  const root = process.env.FILE_STORAGE_ROOT;
-  if (!root || !path.isAbsolute(root)) throw new Error('必须配置绝对路径 FILE_STORAGE_ROOT');
+  const driver = process.env.FILE_STORAGE_DRIVER ?? "local";
+  if (!["local","s3"].includes(driver)) throw Error("INVALID_CONFIG_FILE_STORAGE_DRIVER");
+  const root = driver === "s3" ? process.env.FILE_SPOOL_ROOT : process.env.FILE_STORAGE_ROOT;
+  if (!root || !path.isAbsolute(root)) throw Error(driver === 's3' ? 'INVALID_CONFIG_FILE_SPOOL_ROOT' : 'INVALID_CONFIG_FILE_STORAGE_ROOT');
   return path.resolve(root);
 }
 export interface FileConfig {
@@ -100,7 +102,7 @@ export async function assertUploadCapacity(bytes: number, root?: string): Promis
   const info = await statfs(await checkedRoot(root), { bigint: true });
   if (info.bavail < 0n || info.bsize <= 0n || info.bavail * info.bsize < BigInt(bytes) + BigInt(minimum)) throw new Error('文件存储可用空间不足，暂停新上传');
 }
-export async function openPrivate(area: 'quarantine'|'ready', key: string, root?: string) {
+export async function openLocalPrivate(area: 'quarantine'|'ready', key: string, root?: string) {
   const filename = await storagePath(area, key, root);
   await noLinks(filename);
   const handle = await open(filename, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
@@ -110,7 +112,7 @@ export async function openPrivate(area: 'quarantine'|'ready', key: string, root?
 }
 
 /** Startup preflight must not mkdir/chmod or alter storage. */
-export async function assertStorageReady() {
+export async function assertLocalStorageReady() {
   const root=configuredRoot();
   for(const base of [path.resolve(__dirname,'../../..'),process.cwd()]) {
     const relative=path.relative(base,root);
@@ -124,3 +126,9 @@ export async function assertStorageReady() {
   if(process.platform==='win32')await assertWindowsPrivateDirectory(root,['tmp','quarantine','ready']);
   return root;
 }
+
+export async function openPrivate(area: "quarantine"|"ready", key: string, root?: string, signal?: AbortSignal) {
+ if ((process.env.FILE_STORAGE_DRIVER ?? "local") === "s3") { if(root!==undefined) throw Error("STORAGE_LOCAL_ROOT_UNSUPPORTED"); return (await import("./storage")).openStoredPrivate(area,key,signal); }
+ return openLocalPrivate(area,key,root);
+}
+export async function assertStorageReady() { await (await import("./storage")).assertStorageBackendReady(); }
