@@ -284,3 +284,90 @@ test("fatal startup with leaked sockets exits 78 and withholds raw error details
     fs.rmdirSync(dir);
   }
 });
+
+test("only released ready processes retry known Mongo connection failures", () => {
+  const { spawnSync } = require("node:child_process");
+  const lifecycle = path.resolve(
+    __dirname,
+    "../dist/runtime/process-lifecycle.js",
+  );
+  const identity = path.resolve(
+    __dirname,
+    "../dist/runtime/writer-identity.js",
+  );
+  const child = spawnSync(
+    process.execPath,
+    [
+      "-e",
+      [
+        "const assert=require('node:assert/strict');",
+        "const r=require(" + JSON.stringify(lifecycle) + ");",
+        "const w=require(" + JSON.stringify(identity) + ");",
+        "const e=Object.assign(Error('private connection secret'),{name:'MongoNetworkError'});",
+        "assert.equal(r.runtimeFailureExitCode(e),78);",
+        "r.notifyReady();assert.equal(r.runtimeFailureExitCode(e),1);",
+        "assert.equal(r.safeErrorCode(e),'MONGO_CONNECTION_INTERRUPTED');",
+        "assert.equal(r.safeErrorCode(Error('MONGO_CONNECTION_INTERRUPTED')),'MONGO_CONNECTION_INTERRUPTED');",
+        "w.trackWriter('held');assert.equal(r.runtimeFailureExitCode(e),78);",
+        "w.untrackWriter('held');assert.equal(r.runtimeFailureExitCode(e),1);",
+        "assert.equal(r.runtimeFailureExitCode(Error('OPERATIONS_ACCESS_BLOCKED')),78);",
+        "assert.equal(r.runtimeFailureExitCode(Error('unknown error')),78);",
+        "assert.equal(r.runtimeFailureExitCode(),78);",
+        "assert.equal(r.safeErrorCode(Object.assign(Error('private'),{name:'MongoServerSelectionError'})),'MONGO_UNREACHABLE');",
+      ].join(""),
+    ],
+    {
+      env: { ...process.env, KL_PM2_PROTOCOL: "2" },
+      encoding: "utf8",
+      windowsHide: true,
+    },
+  );
+  assert.equal(child.status, 0);
+  assert.equal(child.stdout, "");
+  assert.equal(child.stderr, "");
+});
+
+test("PM2 stop waits for delayed stopped state and rejects a lingering PID", async () => {
+  let calls = 0;
+  await backend.waitStopped(() => {
+    calls++;
+    return [
+      { pid: 0, pm2_env: { status: calls === 1 ? "stopping" : "stopped" } },
+    ];
+  }, 500);
+  assert.equal(calls, 2);
+  await assert.rejects(
+    backend.waitStopped(
+      () => [{ pid: 123, pm2_env: { status: "stopped" } }],
+      30,
+    ),
+    /PM2_STOP_NOT_CONFIRMED/,
+  );
+});
+
+test("preflight timeout is distinct from invalid output and never accepted as ready", () => {
+  assert.throws(
+    () =>
+      backend.parsePreflightResult({
+        error: { code: "ETIMEDOUT" },
+        stdout: "",
+      }),
+    /PREFLIGHT_TIMEOUT/,
+  );
+  assert.throws(
+    () =>
+      backend.parsePreflightResult({
+        error: { code: "ENOENT" },
+        stdout: '{"ok":true}',
+      }),
+    /PREFLIGHT_PROCESS_FAILED/,
+  );
+  assert.throws(
+    () => backend.parsePreflightResult({ stdout: "" }),
+    /PREFLIGHT_FAILED/,
+  );
+  assert.deepEqual(
+    backend.parsePreflightResult({ stdout: '{"ok":false,"stage":"schema"}' }),
+    { ok: false, stage: "schema" },
+  );
+});

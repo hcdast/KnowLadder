@@ -23,7 +23,7 @@ const flags = spawnSync(
   [
     "--env-file-if-exists=.env",
     "-e",
-    'try { process.stdout.write(JSON.stringify({...require("./dist/runtime/feature-flags.js").resolveFeatureFlags(), KL_PM2_DATABASE_ID:require("node:crypto").createHash("sha256").update(require("./dist/config.js").loadConfig().mongoUri).digest("hex")})); } catch(e) { process.stderr.write(require("./dist/runtime/process-lifecycle.js").safeErrorCode(e)); process.exitCode=1; }',
+    'try { process.stdout.write(JSON.stringify({...require("./dist/runtime/feature-flags.js").resolveFeatureFlags(), KL_PM2_SHUTDOWN_TIMEOUT_MS:Math.max(65000, process.env.FILE_SCAN_ENABLED === "false" ? 0 : require("./dist/files/config.js").fileConfig().timeout * 6 + 15000), KL_PM2_DATABASE_ID:require("node:crypto").createHash("sha256").update(require("./dist/config.js").loadConfig().mongoUri).digest("hex")})); } catch(e) { process.stderr.write(require("./dist/runtime/process-lifecycle.js").safeErrorCode(e)); process.exitCode=1; }',
   ],
   {
     cwd: serverRoot,
@@ -57,7 +57,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 10000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
     {
       name: "kl-files-worker",
@@ -71,7 +71,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 10000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
     {
       name: "kl-assessment-worker",
@@ -85,7 +85,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 10000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
     {
       name: "kl-learning-worker",
@@ -99,7 +99,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 10000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
     {
       name: "kl-knowledge-worker",
@@ -113,7 +113,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 10000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
     {
       name: "kl-import-worker",
@@ -127,7 +127,7 @@ module.exports = {
       node_args: `--env-file-if-exists=${envFile}`,
       watch: false,
       time: true,
-      kill_timeout: 40000,
+      kill_timeout: appEnv.KL_PM2_SHUTDOWN_TIMEOUT_MS,
     },
   ]
     .map((app) => ({
@@ -141,7 +141,7 @@ module.exports = {
       },
       min_uptime: 10000,
       max_restarts: 10,
-      // Explicit startup/runtime failure is terminal; PM2 can still recover crashes.
+      // Startup/safety failures are terminal; released transient runtime failures may retry.
       stop_exit_codes: [78],
       exp_backoff_restart_delay: 1000,
     }))

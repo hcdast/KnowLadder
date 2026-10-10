@@ -1,7 +1,25 @@
 import { activeWriterTokens } from "./writer-identity";
 import { resolveFeatureFlags } from "./feature-flags";
-export function runtimeFailureExitCode() {
-  return process.env.KL_PM2_PROTOCOL === "2" ? 78 : 1;
+let runtimeReady = false;
+const transientMongoNames = new Set([
+  "MongoNetworkError",
+  "MongoNetworkTimeoutError",
+  "MongoServerSelectionError",
+  "MongoPoolClearedError",
+  "MongoWaitQueueTimeoutError",
+]);
+export function runtimeFailureExitCode(error?: unknown) {
+  if (process.env.KL_PM2_PROTOCOL !== "2") return 1;
+  // Retry only known transient connection failures after readiness and after
+  // all owned registrations were released. Startup/safety failures stay fatal.
+  const e = error as { name?: string } | undefined;
+  if (
+    runtimeReady &&
+    activeWriterTokens().length === 0 &&
+    transientMongoNames.has(e?.name ?? "")
+  )
+    return 1;
+  return 78;
 }
 /** A rejected startup can leave driver sockets alive before Nest returns an app.
  * Ordinary finally blocks have already run; bound the failed process lifetime.
@@ -9,7 +27,7 @@ export function runtimeFailureExitCode() {
  */
 export function finishRuntimeFailure(component: string, error: unknown) {
   reportFailure(component, error);
-  const code = runtimeFailureExitCode();
+  const code = runtimeFailureExitCode(error);
   process.exitCode = code;
   if (process.connected) process.disconnect();
   const deadline = setTimeout(() => process.exit(code), 5000);
@@ -41,6 +59,7 @@ export function installShutdown(stop: () => void | Promise<void>) {
   };
 }
 export function notifyReady() {
+  runtimeReady = true;
   if (
     ["1", "2"].includes(process.env.KL_PM2_PROTOCOL ?? "") &&
     process.send &&
@@ -78,6 +97,7 @@ export function safeErrorCode(error: unknown): string {
     [
       "RUNTIME_CHECK_FAILED",
       "MONGO_UNREACHABLE",
+      "MONGO_CONNECTION_INTERRUPTED",
       "MONGO_DUPLICATE_KEY",
       "MONGO_COMMAND_RESTRICTED",
       "MONGO_NOT_AUTHORIZED",
@@ -118,7 +138,10 @@ export function safeErrorCode(error: unknown): string {
     )
   )
     return e.message;
-  if (e?.name === "MongoServerSelectionError") return "MONGO_UNREACHABLE";
+  if (typeof e?.name === "string" && transientMongoNames.has(e.name))
+    return e.name === "MongoServerSelectionError"
+      ? "MONGO_UNREACHABLE"
+      : "MONGO_CONNECTION_INTERRUPTED";
   return "RUNTIME_CHECK_FAILED";
 }
 export function reportFailure(component: string, error: unknown) {

@@ -149,6 +149,19 @@ function requireBuild() {
       throw failure("BUILD_REQUIRED");
   return apps;
 }
+function parsePreflightResult(result) {
+  if (result.error)
+    throw failure(
+      result.error.code === "ETIMEDOUT"
+        ? "PREFLIGHT_TIMEOUT"
+        : "PREFLIGHT_PROCESS_FAILED",
+    );
+  try {
+    return JSON.parse(result.stdout);
+  } catch {
+    throw failure("PREFLIGHT_FAILED");
+  }
+}
 function preflight(verify, mode = "verify", budgetMs) {
   const r = spawnSync(
     nodeBin,
@@ -163,16 +176,11 @@ function preflight(verify, mode = "verify", budgetMs) {
       encoding: "utf8",
       windowsHide: true,
       input: verify ? JSON.stringify(verify) : undefined,
-      timeout: budgetMs ?? (verify ? 45000 : 120000),
+      timeout: budgetMs ?? (verify ? 90000 : 120000),
       maxBuffer: 32768,
     },
   );
-  let result;
-  try {
-    result = JSON.parse(r.stdout);
-  } catch {
-    throw failure("PREFLIGHT_FAILED");
-  }
+  const result = parsePreflightResult(r);
   if (r.error || r.status !== 0 || !result.ok) {
     const stage = [
       "node",
@@ -212,7 +220,16 @@ function assertStopSupported(rows) {
   )
     throw failure("WINDOWS_LEGACY_SHUTDOWN_UNSUPPORTED");
 }
-function stopProject(entry, rows) {
+async function waitStopped(readProcesses, timeoutMs = 10000) {
+  const until = Date.now() + timeoutMs;
+  do {
+    const rows = readProcesses();
+    if (rows.every((p) => !p.pid && p.pm2_env.status === "stopped")) return;
+    if (Date.now() >= until) throw failure("PM2_STOP_NOT_CONFIRMED");
+    await pause(Math.min(250, Math.max(1, until - Date.now())));
+  } while (true);
+}
+async function stopProject(entry, rows) {
   assertStopSupported(rows);
   const launched = rows.filter(
     (p) => p.pid && ["1", "2"].includes(p.pm2_env.KL_PM2_PROTOCOL),
@@ -229,10 +246,13 @@ function stopProject(entry, rows) {
     : [];
   for (const app of rows)
     if (app.pm2_env.status !== "stopped")
-      runPm2(entry, ["stop", String(app.pm_id)]);
-  const remaining = projectProcesses(entry);
-  if (remaining.some((p) => p.pid || p.pm2_env.status !== "stopped"))
-    throw failure("PM2_STOP_NOT_CONFIRMED");
+      runPm2(entry, ["stop", String(app.pm_id)], {
+        timeout: Math.max(
+          75000,
+          Number(app.pm2_env.kill_timeout || 10000) + 15000,
+        ),
+      });
+  await waitStopped(() => projectProcesses(entry));
   if (launched.length) preflight(stopProof, "stopped");
 }
 function deleteProject(entry, rows) {
@@ -249,7 +269,7 @@ async function waitReady(
   entry,
   names,
   port,
-  { timeoutMs = 120000, readyProofs } = {},
+  { timeoutMs = 240000, readyProofs } = {},
 ) {
   const until = Date.now() + timeoutMs;
   let confirmed = false;
@@ -280,7 +300,12 @@ async function waitReady(
       try {
         const response = await fetch(
           "http://127.0.0.1:" + port + "/api/v1/health/ready",
-          { signal: AbortSignal.timeout(2000), redirect: "error" },
+          {
+            signal: AbortSignal.timeout(
+              Math.max(1, Math.min(10000, until - Date.now())),
+            ),
+            redirect: "error",
+          },
         );
         await response.body?.cancel();
         if (response.status === 200) {
@@ -295,13 +320,14 @@ async function waitReady(
               ),
             })),
             "verify",
-            Math.max(1, Math.min(45000, until - Date.now())),
+            Math.max(1, Math.min(90000, until - Date.now())),
           );
           if (confirmed) return;
           confirmed = true;
         } else confirmed = false;
       } catch (error) {
-        if (error.safeCode) throw error;
+        if (error.safeCode && error.safeCode !== "PREFLIGHT_TIMEOUT")
+          throw error;
         confirmed = false;
       }
     }
@@ -387,7 +413,7 @@ async function start(entry) {
   let switching = false;
   try {
     switching = true;
-    stopProject(entry, rows);
+    await stopProject(entry, rows);
     deleteProject(entry, projectProcesses(entry));
     await assertPortFree(config.port);
     preflight(); // Recheck gates after old writers have exited.
@@ -401,7 +427,7 @@ async function start(entry) {
   } catch (error) {
     // Stop only this project's newly launched processes; never restart old writers automatically.
     try {
-      if (switching) stopProject(entry, projectProcesses(entry));
+      if (switching) await stopProject(entry, projectProcesses(entry));
     } catch {
       console.error("PM2_FAILED_START_CLEANUP_UNCONFIRMED");
     }
@@ -441,7 +467,7 @@ async function main(command = process.argv[2] || "start") {
   }
   if (command === "stop") {
     const rows = projectProcesses(entry);
-    stopProject(entry, rows);
+    await stopProject(entry, rows);
     deleteProject(entry, projectProcesses(entry));
     console.log("本项目后端已停止");
     return;
@@ -471,6 +497,8 @@ module.exports = {
   main,
   waitReady,
   assertStopSupported,
+  waitStopped,
+  parsePreflightResult,
   requireBuild,
   resolvePm2Entry,
 };

@@ -26,6 +26,7 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
   readonly db: Db;
   readonly client: MongoClient;
   private checkedAt = 0;
+  private readinessCheck?: Promise<void>;
   private writerClient?: MongoClient;
   private writer?: WriterRegistration;
   constructor(@InjectConnection() connection: Connection) {
@@ -68,7 +69,14 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
   async writerStopRequested(): Promise<boolean> {
     return this.writer ? this.writer.stopRequested() : false;
   }
-  async ready() {
+  ready(): Promise<void> {
+    // Concurrent probes share the full check, including its failure.
+    // A rejected check is never cached as ready; the next probe retries.
+    return (this.readinessCheck ??= this.checkReady().finally(() => {
+      this.readinessCheck = undefined;
+    }));
+  }
+  private async checkReady() {
     await assertOperationalAccess(this.db);
     clearTopologyCache();
     const topology = await probeTopology(this.db);

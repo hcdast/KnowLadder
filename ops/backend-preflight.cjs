@@ -24,7 +24,8 @@ async function preflight({ verify, stopped, identity = false } = {}) {
     if (config.production) throw Error("LOCAL_PM2_NONPRODUCTION_REQUIRED");
     stage = "database-connect";
     client = new MongoClient(config.mongoUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 15000,
+      connectTimeoutMS: 10000,
       socketTimeoutMS: 10000,
     });
     await client.connect();
