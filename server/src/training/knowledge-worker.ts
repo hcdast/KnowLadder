@@ -1,4 +1,4 @@
-import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
+import { installShutdown, notifyReady, validateRuntimeFlags, finishRuntimeFailure } from '../runtime/process-lifecycle';
 import { randomUUID } from "node:crypto";
 import { setTimeout as sleep } from "node:timers/promises";
 import { MongoClient, type Db, type Document } from "mongodb";
@@ -232,7 +232,5 @@ async function main() {
 }
 if (require.main === module)
   main().catch((error) => {
-    reportFailure("knowledge-worker", error);
-    process.exitCode = 1;
-    if (process.connected) process.disconnect();
+    finishRuntimeFailure("knowledge-worker", error);
   });

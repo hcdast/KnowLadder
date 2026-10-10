@@ -1,0 +1,32 @@
+{
+  "time": "2026-10-10T02:22:21.763Z",
+  "database": "knowladder",
+  "migrations": [
+    {
+      "version": 10,
+      "status": "completed"
+    },
+    {
+      "version": 11,
+      "status": "completed"
+    },
+    {
+      "version": 17,
+      "status": "completed"
+    },
+    {
+      "version": 18,
+      "status": "completed"
+    },
+    {
+      "version": 19,
+      "status": "completed"
+    }
+  ],
+  "collections": 84,
+  "users": 12,
+  "organizations": 2,
+  "running_writers": 0,
+  "retired_count": 93,
+  "retirement_audit": 1
+}

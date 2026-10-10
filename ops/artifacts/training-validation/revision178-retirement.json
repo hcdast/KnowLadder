@@ -1,0 +1,10 @@
+{
+  "time": "2026-10-10T02:20:55.236Z",
+  "database": "knowladder",
+  "ok": true,
+  "retired": 23,
+  "deleted": 0,
+  "exit_proof": "operator-all-host-stop-attestation",
+  "snapshot_hash": "426451c29df5a1a418cf42a66d95cca7179fe3d5891cfd8451ba147aa9d6e3a8",
+  "remaining_running": 0
+}

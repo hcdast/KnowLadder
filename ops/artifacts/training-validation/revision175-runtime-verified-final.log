@@ -1,0 +1,48 @@
+TAP version 13
+# Subtest: 导入实际CLI入口完成双writer初始化、ready及once退出
+ok 1 - 导入实际CLI入口完成双writer初始化、ready及once退出
+  ---
+  duration_ms: 6907.8153
+  type: 'test'
+  ...
+# Subtest: isolated Windows PM2: read-only preflight, real API/workers ready, validation preserves processes, IPC releases writers
+ok 2 - isolated Windows PM2: read-only preflight, real API/workers ready, validation preserves processes, IPC releases writers
+  ---
+  duration_ms: 68021.7235
+  type: 'test'
+  ...
+# Subtest: 隔离Windows六服务：真实扫描依赖、导入双writer、原定义重启及优雅退出
+ok 3 - 隔离Windows六服务：真实扫描依赖、导入双writer、原定义重启及优雅退出
+  ---
+  duration_ms: 79109.8859
+  type: 'test'
+  ...
+# Subtest: standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+not ok 4 - standalone managed API: authorization, real child SIGKILL/recovery, cross-writer refusal
+  ---
+  duration_ms: 600.2221
+  type: 'test'
+  location: 'D:\\my-workspace\\KnowLadder\\server\\test\\standalone-managed-api.integration.test.cjs:13:1'
+  failureType: 'testCodeFailure'
+  error: 'FEATURE_IMPORT_DEPENDENCIES_REQUIRED'
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    resolveFeatureFlags (D:\my-workspace\KnowLadder\server\dist\runtime\feature-flags.js:44:15)
+    loadConfig (D:\my-workspace\KnowLadder\server\dist\config.js:6:45)
+    initializeObjectId (D:\my-workspace\KnowLadder\server\dist\migrations\object-id-v10.js:146:74)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async migrate (D:\my-workspace\KnowLadder\server\dist\migrations\schema.js:938:13)
+    async fixture (D:\my-workspace\KnowLadder\server\test\helpers.cjs:152:17)
+    async TestContext.<anonymous> (D:\my-workspace\KnowLadder\server\test\standalone-managed-api.integration.test.cjs:17:15)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:296:3)
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 3
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 155875.9629

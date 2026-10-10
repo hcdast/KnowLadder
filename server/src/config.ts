@@ -5,6 +5,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const mongoUri = env.MONGODB_URI;
   if (!mongoUri || !/^mongodb(?:\+srv)?:\/\//.test(mongoUri))
     throw new Error("必须配置 MONGODB_URI");
+  if (!/^mongodb(?:\+srv)?:\/\/[^/]+\/[^?]+/.test(mongoUri))
+    throw new Error("MONGODB_URI 必须显式指定数据库名");
   const origin = env.APP_ORIGIN;
   if (!origin) throw new Error("必须配置 APP_ORIGIN");
   const url = new URL(origin);
@@ -48,6 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   const touchMs = number("SESSION_TOUCH_MS", 60000);
   if (idleMs > absoluteMs || touchMs >= idleMs)
     throw new Error("会话时间必须满足 touch < idle <= absolute");
+  if (production && env.KL_MONGO_ALLOW_COLLECTION_REBUILD === "true") throw Error("SCHEMA_REBUILD_NONPRODUCTION_REQUIRED");
   const topologyRaw = env.KL_MONGO_TOPOLOGY ?? "replicaSet";
   if (!["replicaSet", "standalone", "auto"].includes(topologyRaw)) {
     throw new Error("KL_MONGO_TOPOLOGY 必须是 replicaSet、standalone 或 auto");

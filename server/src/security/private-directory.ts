@@ -63,7 +63,7 @@ foreach ($name in (ConvertFrom-Json $env:KNOWLADDER_PRIVATE_CHILDREN)) {
       {
         windowsHide: true,
         timeout: 10000,
-        env: { ...process.env, KNOWLADDER_SECRET_PARENT: parent, KNOWLADDER_PRIVATE_CHILDREN: JSON.stringify(children) },
+        env: { ...process.env, PSModulePath: resolve(process.env.SystemRoot ?? "C:\\Windows", "System32/WindowsPowerShell/v1.0/Modules"), KNOWLADDER_SECRET_PARENT: parent, KNOWLADDER_PRIVATE_CHILDREN: JSON.stringify(children) },
       },
     );
   } catch {

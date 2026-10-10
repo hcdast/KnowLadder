@@ -1,0 +1,9 @@
+{
+  "database": "knowladder",
+  "temporary_probe": true,
+  "create_validator": true,
+  "validator_visible": true,
+  "transaction_commit": true,
+  "rename_same_database": true,
+  "owned_probe_cleaned": true
+}

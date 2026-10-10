@@ -1,0 +1,12 @@
+{
+  "database": "knowladder",
+  "counts": {
+    "users": 12,
+    "organizations": 2,
+    "textbooks": 0,
+    "questions": 0,
+    "file_resources": 0
+  },
+  "writer_running_count": 23,
+  "checked_at": "2026-10-09T12:52:55.208Z"
+}

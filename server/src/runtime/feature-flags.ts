@@ -12,6 +12,7 @@ export const FEATURE_FLAGS = [
   "KL_STANDALONE_RECOVERY_ENABLED",
   "KL_STANDALONE_MANAGED_API_ENABLED",
   "KL_MONGO_ALLOW_STANDALONE",
+  "KL_MONGO_ALLOW_COLLECTION_REBUILD",
   "ALLOW_INSECURE_HTTP",
 ] as const;
 export function resolveFeatureFlags(env: NodeJS.ProcessEnv = process.env) {
@@ -33,6 +34,7 @@ export function resolveFeatureFlags(env: NodeJS.ProcessEnv = process.env) {
           "KL_STANDALONE_RECOVERY_ENABLED",
           "KL_STANDALONE_MANAGED_API_ENABLED",
           "KL_MONGO_ALLOW_STANDALONE",
+          "KL_MONGO_ALLOW_COLLECTION_REBUILD",
           "ALLOW_INSECURE_HTTP",
         ].includes(key) && on(key),
     )

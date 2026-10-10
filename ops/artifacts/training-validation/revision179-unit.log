@@ -1,0 +1,71 @@
+TAP version 13
+# Subtest: flags reject malformed values and unsafe combinations without echoing values
+ok 1 - flags reject malformed values and unsafe combinations without echoing values
+  ---
+  duration_ms: 2.704
+  type: 'test'
+  ...
+# Subtest: Windows refuses legacy live processes before stopping
+ok 2 - Windows refuses legacy live processes before stopping
+  ---
+  duration_ms: 0.2343
+  type: 'test'
+  ...
+# Subtest: PM2 entry rejects a cmd shim instead of passing it to Node
+ok 3 - PM2 entry rejects a cmd shim instead of passing it to Node
+  ---
+  duration_ms: 2.1952
+  type: 'test'
+  ...
+# {"event":"startup.ready-timeout","processes":[{"name":"kl-api","pid":12,"status":"online","ready_proof":false}]}
+# Subtest: PM2 online and HTTP 200 do not pass without this launch ready proof
+ok 4 - PM2 online and HTTP 200 do not pass without this launch ready proof
+  ---
+  duration_ms: 1193.6436
+  type: 'test'
+  ...
+# Subtest: storage preflight never creates a missing private root
+ok 5 - storage preflight never creates a missing private root
+  ---
+  duration_ms: 6.3229
+  type: 'test'
+  ...
+# Subtest: IPC shutdown is idempotent and disconnects after asynchronous cleanup
+ok 6 - IPC shutdown is idempotent and disconnects after asynchronous cleanup
+  ---
+  duration_ms: 109.0606
+  type: 'test'
+  ...
+# Subtest: Windows custom PM2_HOME with default pipes is rejected before stop
+ok 7 - Windows custom PM2_HOME with default pipes is rejected before stop
+  ---
+  duration_ms: 79.3327
+  type: 'test'
+  ...
+# Subtest: numeric Mongo diagnostics never expose document keys or credentials
+ok 8 - numeric Mongo diagnostics never expose document keys or credentials
+  ---
+  duration_ms: 0.1639
+  type: 'test'
+  ...
+# Subtest: Mongo URI must name the application database explicitly
+ok 9 - Mongo URI must name the application database explicitly
+  ---
+  duration_ms: 1.2815
+  type: 'test'
+  ...
+# Subtest: fatal startup with leaked sockets exits 78 and withholds raw error details
+ok 10 - fatal startup with leaked sockets exits 78 and withholds raw error details
+  ---
+  duration_ms: 5067.1666
+  type: 'test'
+  ...
+1..10
+# tests 10
+# suites 0
+# pass 10
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6527.8758

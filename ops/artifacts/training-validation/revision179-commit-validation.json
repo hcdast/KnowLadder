@@ -1,0 +1,30 @@
+{
+  "revision": 179,
+  "checked_at": "2026-10-10T02:48:19.608Z",
+  "scope": "PM2 lifecycle, Atlas offline migration tools, scanner preparation, private file backups and validated evidence",
+  "current_validation": {
+    "unit_pass": 10,
+    "unit_fail": 0,
+    "unit_skipped": 0,
+    "duration_ms": 6527.8758,
+    "node_syntax_files": 15,
+    "powershell_syntax_files": 2,
+    "diff_check": "passed",
+    "secret_shape_review": "passed"
+  },
+  "historical_validation": {
+    "revision177": "isolated lifecycle, metadata, import and private-file backup tests; see recorded logs",
+    "revision178": "real migrations, six-service startup and same-definition restart; seven writers; live/ready 200; stability 142 seconds"
+  },
+  "npm_cache_ignored": true,
+  "atlas_backup": "deferred by user; no service gate",
+  "commit_scope_files": 66,
+  "push_authorized": false,
+  "excluded": [
+    "server/.env",
+    "server/.npm-cache/",
+    "credential document",
+    "revision137/revision145 regenerated OpenAPI artifacts",
+    "private runtime and keys"
+  ]
+}

@@ -1,4 +1,4 @@
-import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
+import { installShutdown, notifyReady, validateRuntimeFlags, finishRuntimeFailure } from '../runtime/process-lifecycle';
 import { objectIdDatabase } from "../database/object-id";
 import { newId } from "../database/object-id";
 import { parseReconcileOptions, validateReconcileOptions, type ReconcileOptions } from './reconcile-options';
@@ -376,7 +376,5 @@ async function main() {
 }
 if (require.main === module)
   main().catch((error) => {
-    reportFailure("assessment-worker", error);
-    process.exitCode = 1;
-    if (process.connected) process.disconnect();
+    finishRuntimeFailure("assessment-worker", error);
   });

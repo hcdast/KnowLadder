@@ -1,3 +1,4 @@
+import { changeCollectionOptions } from "../migrations/collection-options";
 import { createHash, randomUUID } from "node:crypto";
 import { ObjectId, type Db } from "mongodb";
 import { isDeepStrictEqual } from "node:util";
@@ -234,7 +235,7 @@ export async function migrateKnowledge(
           )
         )
           throw Error("Training schema drift:" + name);
-        await db.command({
+        await changeCollectionOptions(db, {
           collMod: name,
           validator: schema.validator,
           validationAction: "error",

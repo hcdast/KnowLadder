@@ -1,4 +1,20 @@
+import { activeWriterTokens } from "./writer-identity";
 import { resolveFeatureFlags } from "./feature-flags";
+export function runtimeFailureExitCode() {
+  return process.env.KL_PM2_PROTOCOL === "2" ? 78 : 1;
+}
+/** A rejected startup can leave driver sockets alive before Nest returns an app.
+ * Ordinary finally blocks have already run; bound the failed process lifetime.
+ * Stop verification still rejects any unreleased registration.
+ */
+export function finishRuntimeFailure(component: string, error: unknown) {
+  reportFailure(component, error);
+  const code = runtimeFailureExitCode();
+  process.exitCode = code;
+  if (process.connected) process.disconnect();
+  const deadline = setTimeout(() => process.exit(code), 5000);
+  deadline.unref();
+}
 /** PM2 IPC on Windows; signals remain supported for ordinary CLI/Unix launches. */
 export function installShutdown(stop: () => void | Promise<void>) {
   let requested = false;
@@ -8,8 +24,7 @@ export function installShutdown(stop: () => void | Promise<void>) {
     void Promise.resolve()
       .then(stop)
       .catch((error) => {
-        reportFailure("shutdown", error);
-        process.exitCode = 1;
+        finishRuntimeFailure("shutdown", error);
       });
   };
   const message = (value: unknown) => {
@@ -27,7 +42,7 @@ export function installShutdown(stop: () => void | Promise<void>) {
 }
 export function notifyReady() {
   if (
-    process.env.KL_PM2_PROTOCOL === "1" &&
+    ["1", "2"].includes(process.env.KL_PM2_PROTOCOL ?? "") &&
     process.send &&
     process.connected
   ) {
@@ -37,6 +52,7 @@ export function notifyReady() {
         event: "kl-ready",
         pid: process.pid,
         token: process.env.KL_WRITER_LAUNCH_TOKEN,
+        writerTokens: activeWriterTokens(),
       },
     });
     process.send("ready");
@@ -54,10 +70,18 @@ const nodeCodes = new Set([
 ]);
 export function safeErrorCode(error: unknown): string {
   const e = error as { code?: unknown; message?: unknown; name?: unknown };
+  if (e?.code === 11000) return "MONGO_DUPLICATE_KEY";
+  if (e?.code === 8000) return "MONGO_COMMAND_RESTRICTED";
+  if (e?.code === 13) return "MONGO_NOT_AUTHORIZED";
+  if (e?.code === 121) return "MONGO_DOCUMENT_VALIDATION_FAILED";
   if (
     [
       "RUNTIME_CHECK_FAILED",
       "MONGO_UNREACHABLE",
+      "MONGO_DUPLICATE_KEY",
+      "MONGO_COMMAND_RESTRICTED",
+      "MONGO_NOT_AUTHORIZED",
+      "MONGO_DOCUMENT_VALIDATION_FAILED",
       "NODE_VERSION_REQUIRED",
       "LOCAL_PM2_NONPRODUCTION_REQUIRED",
       "FEATURE_RESOLUTION_FAILED",
@@ -66,8 +90,14 @@ export function safeErrorCode(error: unknown): string {
   )
     return String(e.message);
   if (typeof e?.message === "string") {
-    if (e.message.startsWith("ObjectId validator mismatch:")) return "SCHEMA_VALIDATOR_MISMATCH";
-    if (e.message.startsWith("ObjectId index mismatch:")) return "SCHEMA_INDEX_MISMATCH";
+    if (e.message.startsWith("ObjectId validator mismatch:"))
+      return "SCHEMA_VALIDATOR_MISMATCH";
+    if (e.message.startsWith("ObjectId index mismatch:"))
+      return "SCHEMA_INDEX_MISMATCH";
+    if (e.message === "ObjectId collection registry mismatch")
+      return "SCHEMA_COLLECTION_REGISTRY_MISMATCH";
+    if (/resolve dependencies/.test(e.message) && e.message.startsWith("Nest"))
+      return "NEST_DEPENDENCY_RESOLUTION_FAILED";
     if (e.message === "UNKNOWN_COLLECTION") return "SCHEMA_UNKNOWN_COLLECTION";
     const schema = e.message.match(
       /\bv(1[0-9]|20|21)\b.*(?:migration|required|incomplete)/i,

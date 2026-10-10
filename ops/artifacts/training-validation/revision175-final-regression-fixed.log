@@ -1,0 +1,39 @@
+TAP version 13
+# Subtest: offline collection rebuild preserves BSON/markers, aborts races and never drops original on a copy fault
+ok 1 - offline collection rebuild preserves BSON/markers, aborts races and never drops original on a copy fault
+  ---
+  duration_ms: 3098.5561
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+ok 2 - v18停写迁移、备份注册、真实HTTP导入/领取/应用/幂等及旧来源拒绝
+  ---
+  duration_ms: 28842.4625
+  type: 'test'
+  ...
+# Subtest: 旧库writer处置：明确停写声明、准确快照、事务审计和保留记录
+ok 3 - 旧库writer处置：明确停写声明、准确快照、事务审计和保留记录
+  ---
+  duration_ms: 4002.2796
+  type: 'test'
+  ...
+# {"event":"schema.metadata.repaired","collection":"users"}
+# {"event":"schema.metadata.repaired","collection":"auth_sessions"}
+# {"event":"schema.metadata.repaired","collection":"class_members"}
+# Subtest: copied v10 schema repair preserves documents/checksum and validates all data before DDL
+ok 4 - copied v10 schema repair preserves documents/checksum and validates all data before DDL
+  ---
+  duration_ms: 3668.6449
+  type: 'test'
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 42115.0696

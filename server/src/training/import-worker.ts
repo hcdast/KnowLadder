@@ -1,11 +1,11 @@
-import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
+import { installShutdown, notifyReady, validateRuntimeFlags, finishRuntimeFailure } from '../runtime/process-lifecycle';
 import { randomUUID, createHash } from "node:crypto";
-import { Database } from "../database/database";
-import { AuthService, type Identity } from "../auth.service";
-import { ContentAccess, type ContentContext } from "../content/access";
+import type { Database } from "../database/database";
+import type { AuthService, Identity } from "../auth.service";
+import type { ContentAccess, ContentContext } from "../content/access";
 import { openPrivate } from "../files/config";
 import { extractInProcess } from "./import-parser-process";
-import { importSource, requireImports, type ImportJob } from "./import.service";
+import type { ImportJob } from "./import.service";
 import { User } from "../database/contracts";
 
 /** Claim is durable before local parsing. Finish checks current authority and lease. */
@@ -14,6 +14,7 @@ export async function processImportOne(
   auth: AuthService,
   access: ContentAccess,
 ): Promise<boolean> {
+  const { importSource, requireImports } = await import("./import.service");
   requireImports();
   const jobs = database.db.collection<ImportJob>("knowledge_import_jobs");
   const now = new Date();
@@ -218,8 +219,14 @@ async function main() {
   validateRuntimeFlags();
   const command = process.argv[2];
   if (!["run", "once"].includes(command)) throw Error("IMPORT_COMMAND");
-  requireImports();
+  // Load the application before decorated providers; Database/schema imports
+  // can otherwise freeze AuthService constructor metadata with an undefined token.
   const { createApp } = await import("../app");
+  const { requireImports } = await import("./import.service");
+  const { Database } = await import("../database/database");
+  const { AuthService } = await import("../auth.service");
+  const { ContentAccess } = await import("../content/access");
+  requireImports();
   const app = await createApp({ shutdownHooks: false });
   let stopped = false;
   const stop = () => {
@@ -259,7 +266,5 @@ async function main() {
 }
 if (require.main === module)
   main().catch((error) => {
-    reportFailure("import-worker", error);
-    process.exitCode = 1;
-    if (process.connected) process.disconnect();
+    finishRuntimeFailure("import-worker", error);
   });

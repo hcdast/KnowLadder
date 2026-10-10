@@ -1,0 +1,552 @@
+{
+  "database": "knowladder",
+  "issues": [
+    {
+      "collection": "users",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "organizations",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "organization_members",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "roles",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "member_roles",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "auth_sessions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": [
+        "auth_sessions_expires_ttl"
+      ]
+    },
+    {
+      "collection": "auth_rate_limits",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": [
+        "auth_rate_limits_expires_ttl"
+      ]
+    },
+    {
+      "collection": "audit_events",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "textbooks",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "textbook_editions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "chapters",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "questions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "question_versions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "education_stages",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "subjects",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "knowledge_points",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "content_idempotency",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "file_resources",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "member_capability_grants",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "quizzes",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "papers",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "paper_items",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "quiz_audiences",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "attempt_counters",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "sessions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": [
+        "sessions_active_quiz"
+      ]
+    },
+    {
+      "collection": "session_items",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "answers",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "submissions",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "grading_runs",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "grading_results",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "outbox_events",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "consumer_receipts",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "idempotency_records",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "assessment_resource_references",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "assessment_question_states",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "student_projection_states",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_tracking_config",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_scope_states",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_question_states",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_attempt_contexts",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_projection_heads",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_projection_builds",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_projection_retirements",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "learning_projection_inputs",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "mastery_evidence",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "mastery_snapshots",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "mistake_entries",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "report_snapshots",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "recommendations",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "behavior_events",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "reading_progress",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "privacy_deletion_requests",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "privacy_operation_receipts",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "privacy_tombstones",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "privacy_step_receipts",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "operational_state",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "operational_writers",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "backup_restore_runs",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "classes",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "class_members",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": [
+        "class_members_active"
+      ]
+    },
+    {
+      "collection": "teaching_assignments",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": [
+        "teaching_assignments_active"
+      ]
+    },
+    {
+      "collection": "administrative_grants",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "authorization_requests",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "administration_operations",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "administration_guard",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "schema_migrations",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    },
+    {
+      "collection": "object_id_allocations",
+      "invalid_documents": 0,
+      "validator_present": false,
+      "validator_matches": false,
+      "validation_level": null,
+      "missing_indexes": []
+    }
+  ],
+  "checked_at": "2026-10-09T12:54:45.227Z"
+}

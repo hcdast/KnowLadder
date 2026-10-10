@@ -78,20 +78,27 @@ export async function assertObjectIdSchema(db: Db, schemas: Record<string, Schem
   db = rawDatabase(db);
   const marker = await db.collection("schema_migrations").findOne({version:10,status:"completed",checksum,completed_at:{$type:"date"}});
   if (!marker) throw new Error("Required ObjectId v10 initialization incomplete");
-  const names = (await db.listCollections({}, {nameOnly:true}).toArray()).map(row=>row.name);
-  if (names.some(n=>!schemas[n])) throw new Error("UNKNOWN_COLLECTION");
-  if (names.length !== Object.keys(schemas).length) throw new Error("ObjectId collection registry mismatch");
-  for (const [name,schema] of Object.entries(schemas)) {
-    const info = await db.listCollections({name}, {nameOnly:false}).next();
-    if (!info || !isDeepStrictEqual(info.options?.validator,schema.validator) || info.options?.validationAction!=="error" || info.options?.validationLevel!=="strict") throw new Error("ObjectId validator mismatch:"+name);
-    const indexes = await db.collection(name).listIndexes().toArray();
-    for (const expected of schema.indexes) {
-      const actual=indexes.find(i=>i.name===expected.name);
-      if (!actual || !isDeepStrictEqual(actual.key,expected.key) || !!actual.unique!==!!expected.unique ||
-          actual.expireAfterSeconds!==expected.expireAfterSeconds || !isDeepStrictEqual(actual.partialFilterExpression,expected.partialFilterExpression) ||
-          actual.sparse || actual.hidden || actual.collation) throw new Error("ObjectId index mismatch:"+name);
+  // One metadata inventory and bounded index reads keep remote startup checks
+  // within readiness budgets without relaxing any schema or registry checks.
+  const collections = await db.listCollections({}, {nameOnly:false}).toArray();
+  if (collections.some(info=>!schemas[info.name])) throw new Error("UNKNOWN_COLLECTION");
+  if (collections.length !== Object.keys(schemas).length) throw new Error("ObjectId collection registry mismatch");
+  const metadata = new Map(collections.map(info=>[info.name,info]));
+  const entries = Object.entries(schemas); let next = 0;
+  await Promise.all(Array.from({length:Math.min(8,entries.length)},async()=>{
+    while(next<entries.length) {
+      const [name,schema] = entries[next++]!;
+      const info = metadata.get(name);
+      if (!info || !isDeepStrictEqual(info.options?.validator,schema.validator) || info.options?.validationAction!=="error" || info.options?.validationLevel!=="strict") throw new Error("ObjectId validator mismatch:"+name);
+      const indexes = await db.collection(name).listIndexes().toArray();
+      for (const expected of schema.indexes) {
+        const actual=indexes.find(i=>i.name===expected.name);
+        if (!actual || !isDeepStrictEqual(actual.key,expected.key) || !!actual.unique!==!!expected.unique ||
+            actual.expireAfterSeconds!==expected.expireAfterSeconds || !isDeepStrictEqual(actual.partialFilterExpression,expected.partialFilterExpression) ||
+            actual.sparse || actual.hidden || actual.collation) throw new Error("ObjectId index mismatch:"+name);
+      }
     }
-  }
+  }));
   for (const [name,key] of [["operational_state","environment"],["administration_guard","administration"],["learning_tracking_config","tracking"]]) {
     if (!await db.collection(name!).findOne({key})) throw new Error("ObjectId state missing:"+name);
   }

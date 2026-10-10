@@ -6,7 +6,7 @@ import { Database } from "./database/database";
 import {
   installShutdown,
   notifyReady,
-  reportFailure,
+  finishRuntimeFailure,
 } from "./runtime/process-lifecycle";
 async function main() {
   const config = loadConfig();
@@ -60,7 +60,5 @@ async function main() {
   }
 }
 main().catch((error) => {
-  reportFailure("api", error);
-  process.exitCode = 1;
-  if (process.connected) process.disconnect();
+  finishRuntimeFailure("api", error);
 });

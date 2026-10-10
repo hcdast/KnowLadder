@@ -1,13 +1,26 @@
 import { objectIdDatabase } from "./object-id";
-import { Injectable, OnModuleInit, OnApplicationShutdown } from "@nestjs/common";
+import {
+  Injectable,
+  OnModuleInit,
+  OnApplicationShutdown,
+} from "@nestjs/common";
 import { InjectConnection } from "@nestjs/mongoose";
 import type { Connection } from "mongoose";
 import { MongoClient, type Db, type ClientSession } from "mongodb";
-import { assertSchema } from "../migrations/schema";
-import { acquireWriter, assertOperationalAccess, type WriterRegistration } from "../operations/control";
+import {
+  acquireWriter,
+  assertOperationalAccess,
+  type WriterRegistration,
+} from "../operations/control";
 import { loadConfig } from "../config";
 import { assertTopology, clearTopologyCache, probeTopology } from "./topology";
 import { runInTxn } from "./txn";
+// Schema depends on content DTOs/providers. Load it after this decorated
+// Database provider has finished evaluating to avoid undefined DI metadata.
+async function assertRuntimeSchema(db: Db) {
+  const { assertSchema } = await import("../migrations/schema");
+  await assertSchema(db);
+}
 @Injectable()
 export class Database implements OnModuleInit, OnApplicationShutdown {
   readonly db: Db;
@@ -30,12 +43,15 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
           topology.mode === "standalone" && config.mongoAllowStandalone,
       }),
     );
-    await assertSchema(this.db);
+    await assertRuntimeSchema(this.db);
     // Keep registration alive until Nest has closed HTTP and its business connection.
     this.writerClient = new MongoClient(loadConfig().mongoUri);
     try {
       await this.writerClient.connect();
-      this.writer = await acquireWriter(objectIdDatabase(this.writerClient.db()), "api");
+      this.writer = await acquireWriter(
+        objectIdDatabase(this.writerClient.db()),
+        "api",
+      );
     } catch (error) {
       await this.writerClient.close();
       throw error;
@@ -43,8 +59,11 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
     this.checkedAt = Date.now();
   }
   async onApplicationShutdown() {
-    try { await this.writer?.release(); }
-    finally { await this.writerClient?.close(); }
+    try {
+      await this.writer?.release();
+    } finally {
+      await this.writerClient?.close();
+    }
   }
   async writerStopRequested(): Promise<boolean> {
     return this.writer ? this.writer.stopRequested() : false;
@@ -62,7 +81,7 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
       throw new Error("数据库未就绪");
     }
     if (Date.now() - this.checkedAt > 10000) {
-      await assertSchema(this.db);
+      await assertRuntimeSchema(this.db);
       this.checkedAt = Date.now();
     }
   }

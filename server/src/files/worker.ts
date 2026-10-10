@@ -1,4 +1,4 @@
-import { installShutdown, notifyReady, validateRuntimeFlags, reportFailure } from '../runtime/process-lifecycle';
+import { installShutdown, notifyReady, validateRuntimeFlags, finishRuntimeFailure } from '../runtime/process-lifecycle';
 import {isCourseworkFile,fileOwnerCollection} from './owner';
 import {requireEvidenceSubject} from '../assessment/subject-access';
 import { objectIdDatabase } from "../database/object-id";
@@ -417,7 +417,5 @@ async function main() {
 }
 if (require.main === module)
   main().catch((error) => {
-    reportFailure("files-worker", error);
-    process.exitCode = 1;
-    if (process.connected) process.disconnect();
+    finishRuntimeFailure("files-worker", error);
   });

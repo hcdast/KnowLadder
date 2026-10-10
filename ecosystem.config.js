@@ -17,21 +17,32 @@ const envFile = path.join(serverRoot, ".env");
 /** 使用当前 Node.js 22.19.0 解释器；可用 KL_NODE_BIN 显式覆盖。 */
 const interpreter = process.env.KL_NODE_BIN || process.execPath;
 
-// Use the same Node/env-file precedence and parser as the backend, not PM2's Node.
-const scanFlag = spawnSync(
+// Resolve every flag once with the exact interpreter/env precedence used by runtime.
+const flags = spawnSync(
   interpreter,
   [
     "--env-file-if-exists=.env",
     "-e",
-    'process.stdout.write(require("./dist/files/config.js").fileScanEnabled() ? "true" : "false")',
+    'try { process.stdout.write(JSON.stringify({...require("./dist/runtime/feature-flags.js").resolveFeatureFlags(), KL_PM2_DATABASE_ID:require("node:crypto").createHash("sha256").update(require("./dist/config.js").loadConfig().mongoUri).digest("hex")})); } catch(e) { process.stderr.write(require("./dist/runtime/process-lifecycle.js").safeErrorCode(e)); process.exitCode=1; }',
   ],
-  { cwd: serverRoot, env: process.env, encoding: "utf8", windowsHide: true },
+  {
+    cwd: serverRoot,
+    env: process.env,
+    encoding: "utf8",
+    windowsHide: true,
+    timeout: 10000,
+  },
 );
-if (scanFlag.error || scanFlag.status !== 0 || !["true", "false"].includes(scanFlag.stdout)) {
-  throw new Error("无法解析 FILE_SCAN_ENABLED；请检查 Node 22.19.0、server 构建和配置");
-}
-const scanEnabled = scanFlag.stdout === "true";
-const appEnv = { FILE_SCAN_ENABLED: scanFlag.stdout };
+if (flags.error || flags.status !== 0)
+  throw Error(
+    /^(INVALID_FLAG_|INVALID_CONFIG_|FEATURE_)[A-Z0-9_]+$/.test(
+      flags.stderr || "",
+    )
+      ? flags.stderr
+      : "FEATURE_RESOLUTION_FAILED",
+  );
+const appEnv = { ...JSON.parse(flags.stdout), KL_PM2_PROTOCOL: "2" };
+const scanEnabled = appEnv.FILE_SCAN_ENABLED === "true";
 
 module.exports = {
   apps: [
@@ -90,5 +101,58 @@ module.exports = {
       time: true,
       kill_timeout: 10000,
     },
-  ].filter((app) => scanEnabled || app.name !== "kl-files-worker"),
+    {
+      name: "kl-knowledge-worker",
+      cwd: serverRoot,
+      script: "dist/training/knowledge-worker.js",
+      args: "run",
+      instances: 1,
+      exec_mode: "fork",
+      interpreter,
+      env: { ...appEnv },
+      node_args: `--env-file-if-exists=${envFile}`,
+      watch: false,
+      time: true,
+      kill_timeout: 10000,
+    },
+    {
+      name: "kl-import-worker",
+      cwd: serverRoot,
+      script: "dist/training/import-worker.js",
+      args: "run",
+      instances: 1,
+      exec_mode: "fork",
+      interpreter,
+      env: { ...appEnv },
+      node_args: `--env-file-if-exists=${envFile}`,
+      watch: false,
+      time: true,
+      kill_timeout: 40000,
+    },
+  ]
+    .map((app) => ({
+      ...app,
+      shutdown_with_message: true,
+      wait_ready: true,
+      listen_timeout: 60000,
+      env: {
+        ...app.env,
+        KL_WRITER_LAUNCH_TOKEN: require("node:crypto").randomUUID(),
+      },
+      min_uptime: 10000,
+      max_restarts: 10,
+      // Explicit startup/runtime failure is terminal; PM2 can still recover crashes.
+      stop_exit_codes: [78],
+      exp_backoff_restart_delay: 1000,
+    }))
+    .filter(
+      (app) =>
+        (appEnv.KL_STANDALONE_MANAGED_API_ENABLED !== "true" ||
+          app.name === "kl-api") &&
+        (scanEnabled || app.name !== "kl-files-worker") &&
+        (appEnv.KL_KNOWLEDGE_ENABLED === "true" ||
+          app.name !== "kl-knowledge-worker") &&
+        (appEnv.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ||
+          app.name !== "kl-import-worker"),
+    ),
 };

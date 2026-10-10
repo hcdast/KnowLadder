@@ -1,0 +1,191 @@
+{
+  "ok": true,
+  "before": {
+    "ok": true,
+    "time": "2026-10-10T02:25:04.546Z",
+    "database": "knowladder",
+    "processes": [
+      {
+        "name": "kl-api",
+        "pid": 37844,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "ce4cd1813ec1b5dd6eab86c9d21ce90df3f504c75a8b16ba3a19efc42992cdd6",
+        "writer_hashes": [
+          "83ef35eb0386a6ba60161118e0e3b1736c3d5800009dd363f4aec71bd8977db3"
+        ],
+        "writer_kinds": [
+          "api"
+        ]
+      },
+      {
+        "name": "kl-files-worker",
+        "pid": 2340,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "98e9034b1faae21bf78b38b81330b6112302c4e58e75fe4ee762ad1316139205",
+        "writer_hashes": [
+          "4ef5067ea0af415c470f014f07a3f225925b1d06138fe9574cab9500a7be25c7"
+        ],
+        "writer_kinds": [
+          "files"
+        ]
+      },
+      {
+        "name": "kl-assessment-worker",
+        "pid": 34436,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "cd261ae2a17f7d522c2ac8413a6afac55e296a77b388c2a55ff6aad629e3823c",
+        "writer_hashes": [
+          "6f0b8b6162178f320472fb5305d669c227c5e98460c327cc069f939a79fa6a89"
+        ],
+        "writer_kinds": [
+          "assessment"
+        ]
+      },
+      {
+        "name": "kl-learning-worker",
+        "pid": 19160,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "b443243e5dcd2ff074ab748f881e5518a2d5a629603593332a6618730bdd607a",
+        "writer_hashes": [
+          "475a2ec45b822e60fa32b073042d7937475ee63fdf8bbbe05e101f8bc260bbed"
+        ],
+        "writer_kinds": [
+          "learning"
+        ]
+      },
+      {
+        "name": "kl-knowledge-worker",
+        "pid": 39644,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "c1d039f08fab3dcba2b7706ee4111a9af987438209c3b31de2267c11f2f4d37b",
+        "writer_hashes": [
+          "148ad33c9eefb703c6014d2dd0eed5e19704f432d1565e5dc134e0b720bc0001"
+        ],
+        "writer_kinds": [
+          "learning"
+        ]
+      },
+      {
+        "name": "kl-import-worker",
+        "pid": 36100,
+        "status": "online",
+        "restarts": 0,
+        "deployment_hash": "708742a9509aefe6b58b7817e0964acbe271a817db6ed1d3195f919e25da6a13",
+        "writer_hashes": [
+          "2f877c1ce826bb68e4f6264f70fa05cc77328101dd1588dd4620efa43ae83aec",
+          "39f7008fdfeb270f7ceec0631ab5844b0b058ed211b81387222db41fcf825f0d"
+        ],
+        "writer_kinds": [
+          "api",
+          "learning"
+        ]
+      }
+    ],
+    "writer_count": 7,
+    "health": {
+      "live": 200,
+      "ready": 200
+    }
+  },
+  "after": {
+    "time": "2026-10-10T02:29:06.428Z",
+    "database": "knowladder",
+    "processes": [
+      {
+        "name": "kl-api",
+        "pid": 38564,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "ce4cd1813ec1b5dd6eab86c9d21ce90df3f504c75a8b16ba3a19efc42992cdd6",
+        "writer_hashes": [
+          "a3fa8bd481ff128b70f035046aee007311e6e6b40addb2e9a439c2a348c811ed"
+        ],
+        "writer_kinds": [
+          "api"
+        ]
+      },
+      {
+        "name": "kl-files-worker",
+        "pid": 4480,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "98e9034b1faae21bf78b38b81330b6112302c4e58e75fe4ee762ad1316139205",
+        "writer_hashes": [
+          "b0345780f1f89e2f28e5e5945bc70d364ace1723fe0ea7c5b4673119710c1aa9"
+        ],
+        "writer_kinds": [
+          "files"
+        ]
+      },
+      {
+        "name": "kl-assessment-worker",
+        "pid": 42236,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "cd261ae2a17f7d522c2ac8413a6afac55e296a77b388c2a55ff6aad629e3823c",
+        "writer_hashes": [
+          "13149585b62bf31b300e2ba6bd9f9dabb7e5d492c6ab44c76d82d6dcb4da8259"
+        ],
+        "writer_kinds": [
+          "assessment"
+        ]
+      },
+      {
+        "name": "kl-learning-worker",
+        "pid": 40988,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "b443243e5dcd2ff074ab748f881e5518a2d5a629603593332a6618730bdd607a",
+        "writer_hashes": [
+          "8963ba757a8c38cbc9d60c4c204aeb7e3a463103cf2ab6c54bd27a6fe1d26a81"
+        ],
+        "writer_kinds": [
+          "learning"
+        ]
+      },
+      {
+        "name": "kl-knowledge-worker",
+        "pid": 37284,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "c1d039f08fab3dcba2b7706ee4111a9af987438209c3b31de2267c11f2f4d37b",
+        "writer_hashes": [
+          "256673b14dcf2a99d8b10db24c158c773d54692066ede9b2aef8667cc322d429"
+        ],
+        "writer_kinds": [
+          "learning"
+        ]
+      },
+      {
+        "name": "kl-import-worker",
+        "pid": 31300,
+        "status": "online",
+        "restarts": 1,
+        "deployment_hash": "708742a9509aefe6b58b7817e0964acbe271a817db6ed1d3195f919e25da6a13",
+        "writer_hashes": [
+          "8c73f6abab98f31744ddc2240f556bd4fad3bd1c7a122fa0161d75ddc75a3f40",
+          "99748fc12dd3579b5a08fed69c79d79ccfeccb162a9f413232c21692e133cce2"
+        ],
+        "writer_kinds": [
+          "api",
+          "learning"
+        ]
+      }
+    ],
+    "writer_count": 7,
+    "health": {
+      "live": 200,
+      "ready": 200
+    }
+  },
+  "old_running": 0,
+  "strict_preflight": {
+    "ok": true
+  },
+  "verification": "read-only after intentional same-definition restart; initial-start-only counter assertion corrected"
+}

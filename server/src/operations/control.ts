@@ -1,3 +1,4 @@
+import { trackWriter, untrackWriter } from "../runtime/writer-identity";
 import { requireObjectId } from "../operations/contracts";
 import { newId } from "../database/object-id";
 import { createHash, randomUUID } from "node:crypto";
@@ -45,7 +46,11 @@ export async function acquireWriter(db:Db,kind:WriterKind,legacyMigration=false)
   if(!WRITER_KINDS.includes(kind)) throw new Error("OPERATIONS_WRITER_KIND_INVALID");
   if(kind==="migration") await bootstrapOperations(db);
   if(legacyMigration && (kind!=="migration" || await db.collection("schema_migrations").findOne({version:10}))) throw new Error("LEGACY_WRITER_NOT_ALLOWED");
-  const id=legacyMigration?randomUUID():newId(),token=process.env.KL_WRITER_LAUNCH_TOKEN??randomUUID(); requireUuid(token);
+  // Protocol 2 keeps the launch token as deployment correlation only. Every
+  // registration gets its own UUID, including multiple writers in one process.
+  // Preserve the explicit owner token for managed/operations CLI launch proofs.
+  if(process.env.KL_WRITER_LAUNCH_TOKEN) requireUuid(process.env.KL_WRITER_LAUNCH_TOKEN);
+  const id=legacyMigration?randomUUID():newId(),token=process.env.KL_PM2_PROTOCOL==='2'&&!process.env.KL_MANAGED_WRITER_OWNER&&!process.env.KL_OPERATION_LAUNCH_TOKEN?randomUUID():(process.env.KL_WRITER_LAUNCH_TOKEN??randomUUID()); requireUuid(token);
   const schemaFingerprint=async(session:ClientSession)=>JSON.stringify(await db.collection('schema_migrations').find({},{session,projection:{_id:0,version:1,status:1,checksum:1,started_at:1,completed_at:1,failed_at:1}}).sort({version:1}).toArray());
   await transaction(db.client,async session=> {
     const schemaBefore=await schemaFingerprint(session);
@@ -62,6 +67,7 @@ export async function acquireWriter(db:Db,kind:WriterKind,legacyMigration=false)
       throw Error('OPERATIONS_REVISION_CONFLICT');
     }
   });
+  trackWriter(token);
   let released=false,heartbeatFailed=false,inflight=Promise.resolve();
   const timer=setInterval(()=> {
     inflight=inflight.then(async()=> { if(released) return; const result=await db.collection("operational_writers").updateOne({_id:id as never,token,state:"running"},{$set:{heartbeat_at:new Date()}}); if(result.modifiedCount!==1) heartbeatFailed=true; }).catch(()=>{heartbeatFailed=true;});
@@ -72,7 +78,7 @@ export async function acquireWriter(db:Db,kind:WriterKind,legacyMigration=false)
     return !row||row.shutdown_nonce!==null;
   },release:async()=> {
     if(released) return; released=true; clearInterval(timer); await inflight;
-    try { const result=await db.collection<Document>("operational_writers").updateOne({_id:id,token,state:"running"},{$set:{state:"stopped",stopped_at:new Date(),heartbeat_at:new Date()}}); if(result.modifiedCount!==1) throw new Error("OPERATIONS_WRITER_RELEASE_CONFLICT"); }
+    try { const result=await db.collection<Document>("operational_writers").updateOne({_id:id,token,state:"running"},{$set:{state:"stopped",stopped_at:new Date(),heartbeat_at:new Date()}}); if(result.modifiedCount!==1) throw new Error("OPERATIONS_WRITER_RELEASE_CONFLICT"); untrackWriter(token); }
     catch(error) { released=false; throw error; }
   }};
 }

@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-10-09T14:04:44.717Z",
+  "database": "knowladder",
+  "collections": 67,
+  "migrations": [
+    {
+      "version": 10,
+      "status": "completed"
+    }
+  ],
+  "counts": {
+    "users": 12,
+    "organizations": 2,
+    "textbooks": 0,
+    "questions": 0,
+    "file_resources": 0
+  },
+  "writers_running": 23
+}
