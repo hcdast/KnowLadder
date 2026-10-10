@@ -1,0 +1,1236 @@
+{
+  "format": "knowladder-openapi-evidence-summary-1",
+  "source": {
+    "artifact": "revision145-import-openapi.json",
+    "kind": "git-committed-snapshot",
+    "revision": "e18aed0efaa328d7444d6cdb8bc660a6ab95538b"
+  },
+  "source_sha256": "06945b4da3f538f2fa60e7105e62c80106095120b76cc63bb6d891f2ac79bc86",
+  "source_bytes": 2537924,
+  "openapi_version": "3.0.0",
+  "api_version": "2.0.0",
+  "path_count": 198,
+  "operation_count": 228,
+  "component_schema_count": 114,
+  "purpose": "Historical validation fingerprint and route inventory; use the application's full OpenAPI for type generation.",
+  "routes": [
+    {
+      "path": "/api/v1/admin/assessment-members",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/assessment-questions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/assessment-questions/{version_id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/assessment-questions/{version_id}/files/{file_id}/content",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/audit-events",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/content-options",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/content-requests",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/files",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/files/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/files/{id}/content",
+      "methods": [
+        "get",
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/files/{id}/schedule-deletion",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}",
+      "methods": [
+        "get",
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}/retire",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}/return",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}/revoke-access",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/question-versions/{id}/submit-review",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/quizzes",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/quizzes/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/submissions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/submissions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}",
+      "methods": [
+        "get",
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/chapters",
+      "methods": [
+        "get",
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/retire",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/return",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/revoke-access",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{id}/submit-review",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports/{jobId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports/{jobId}/apply",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports/{jobId}/cancel",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports/provenance",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/admin/textbook-editions/{ownerId}/imports/requests/{key}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/auth/change-password",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/auth/csrf",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/auth/login",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/auth/logout",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/auth/refresh",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/behavior-events",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/chapters/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/approvals",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/approvals/{approvalId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/approvals/{approvalId}/decision",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/audit",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/assessment-members",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/assessment-questions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/assessment-questions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/assessment-questions/{version_id}/files/{file_id}/content",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/audit-events",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/quizzes",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/quizzes/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/submissions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/admin/submissions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/quizzes",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/quizzes/{id}",
+      "methods": [
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/quizzes/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/requests",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/assessment/submissions/{id}/regrades",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/audit-events",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/content-options",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/files",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/files/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/files/{id}/content",
+      "methods": [
+        "get",
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/files/{id}/schedule-deletion",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}",
+      "methods": [
+        "get",
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}/retire",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}/return",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}/revoke-access",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/question-versions/{id}/submit-review",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}",
+      "methods": [
+        "get",
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/chapters",
+      "methods": [
+        "get",
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/retire",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/return",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/revoke-access",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/admin/textbook-editions/{id}/submit-review",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/content/requests",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/reports/classes/{classId}/subjects/{subjectId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/reports/classes/{classId}/subjects/{subjectId}/students/{memberId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/business/reports/options",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/context",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/grants",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/grants/{grantId}/revoke",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/members/{memberId}",
+      "methods": [
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/console/operations",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/operations/{operationId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/organizations",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/organizations/{orgId}/members",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/users",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/users/{userId}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/users/{userId}/members",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/console/users/{userId}/password-reset",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/console/users/{userId}/status",
+      "methods": [
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/files/{id}/content",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/health/live",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/health/ready",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/knowledge-points/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/idempotency-requests",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/mastery",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/mistakes",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/mistakes/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/mistakes/{id}/practice-sessions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/me/reading-progress",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/recommendations",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/recommendations/{id}/practice-sessions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/me/reports",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/me/sessions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/practice-options",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/practice-sessions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/privacy/deletion-requests",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/privacy/deletion-requests/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/quizzes",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/quizzes/{id}",
+      "methods": [
+        "get",
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/quizzes/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/quizzes/{id}/sessions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/sessions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/sessions/{id}/answers/{session_item_id}",
+      "methods": [
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/sessions/{id}/items",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/sessions/{id}/items/{item_id}/files/{file_id}/content",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/sessions/{id}/submissions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/site/consultations",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/site/consultations/{receipt}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/site/drafts",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/site/drafts/{id}/publish",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/site/leads",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/site/leads/{id}/status",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/site/pages/{key}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/submissions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/submissions/{id}/items",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/submissions/{id}/regrades",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/assignments",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/assignments/{id}/end",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}",
+      "methods": [
+        "patch"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}/members",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}/members/remove",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}/roster",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}/subjects/{subjectId}/report",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/teacher/classes/{id}/subjects/{subjectId}/students/{memberId}/report",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/textbook-editions",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/textbook-editions/{id}/chapters",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training-public/verification/{token}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/config",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/accept",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/accept-question",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/accept-report",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/cancel",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/dispatch",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/jobs/{id}/recover",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/recovery",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/ai/status",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/catalog",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/courses",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/courses/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/courses/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/courses/{id}/assign",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/courses/{id}/progress",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/coursework-files/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/coursework-files/{id}/content",
+      "methods": [
+        "get",
+        "put"
+      ]
+    },
+    {
+      "path": "/api/v1/training/knowledge/rebuild",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/knowledge/search",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/knowledge/sources",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/knowledge/status",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2-catalog",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2-overview",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/{kind}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/certificates",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/certificates/{id}/revoke",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/completions/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/leave",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/leave/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/locations",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/notifications/{id}/read",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/paths",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/paths/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/receipts/query",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/schedule",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/schedule/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/phase2/schedule/{id}/attendance",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/receipts/query",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/reports",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/reports/{id}",
+      "methods": [
+        "get"
+      ]
+    },
+    {
+      "path": "/api/v1/training/reports/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks/{id}/actions",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks/{id}/coursework",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks/{id}/feedback",
+      "methods": [
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks/{id}/files",
+      "methods": [
+        "get",
+        "post"
+      ]
+    },
+    {
+      "path": "/api/v1/training/tasks/{id}/submissions",
+      "methods": [
+        "get"
+      ]
+    }
+  ]
+}

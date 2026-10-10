@@ -1,0 +1,67 @@
+TAP version 13
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+ok 1 - 受控清理：维护态、引用拒绝、CAS、原操作重试、真实字节与账本
+  ---
+  duration_ms: 16403.4185
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+ok 2 - 擦除主体：保全解除再处置、报告派生擦除、幂等及完整旧备份抑制
+  ---
+  duration_ms: 35151.1332
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 保全与清理双顺序：先保全拒绝调度，调度后保全阻止领取，删除后拒绝保全
+ok 3 - 保全与清理双顺序：先保全拒绝调度，调度后保全阻止领取，删除后拒绝保全
+  ---
+  duration_ms: 21274.1414
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 并发补验：保全在删除事务读取后提交，领取冲突重试保留字节
+ok 4 - 并发补验：保全在删除事务读取后提交，领取冲突重试保留字节
+  ---
+  duration_ms: 8997.8531
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 并发补验：删除已领取且尚未unlink时迟到保全拒绝
+ok 5 - 并发补验：删除已领取且尚未unlink时迟到保全拒绝
+  ---
+  duration_ms: 11095.7707
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 并发补验：另一主体引用阻止普通清理及worker删除
+ok 6 - 并发补验：另一主体引用阻止普通清理及worker删除
+  ---
+  duration_ms: 7546.8132
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 本地代理：双身份私有读取和匿名拒绝均不缓存、不串会话
+ok 7 - 本地代理：双身份私有读取和匿名拒绝均不缓存、不串会话
+  ---
+  duration_ms: 6384.4822
+  type: 'test'
+  ...
+# {"event":"mongo.topology","mode":"replicaSet","standalone_txn_shim":false}
+# Subtest: 公开SSR：真实草稿/独立发布、转义、站点地图、组织禁用与私有路由拒绝
+ok 8 - 公开SSR：真实草稿/独立发布、转义、站点地图、组织禁用与私有路由拒绝
+  ---
+  duration_ms: 7212.6525
+  type: 'test'
+  ...
+1..8
+# tests 8
+# suites 0
+# pass 8
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 114632.0015

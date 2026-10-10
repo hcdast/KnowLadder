@@ -142,3 +142,17 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Operational output is local by default; add only reviewed evidence with an exact path.
+/ops/artifacts/
+/ops/runtime/
+/ops/backups/
+/ops/secrets/
+/ops/clamav/
+/ops/clamav-db/
+/ops/mongo-data/
+/ops/**/backup-keys/
+/ops/**/file-backups/
+/ops/**/*.klb
+/ops/**/*.key
+/docs/账号密码.md
