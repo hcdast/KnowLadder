@@ -29,6 +29,48 @@ test("S3 HTTPS/v4 protocol and storage lifecycle", async (t) => {
     },
   );
   await t.test(
+    "Data Capsule client header is exact and limited to its endpoints",
+    async () => {
+      const sdk = require("@aws-sdk/client-s3"),
+        https = require("node:https");
+      for (const [endpoint, expected] of [
+        ["https://s3.cstcloud.cn", "S3Drive"],
+        ["https://s3.data.cstcloud.cn", "S3Drive"],
+        ["https://s3.cstcloud.cn.attacker.invalid", null],
+        [f.endpoint, null],
+      ]) {
+        const client = new sdk.S3Client({
+          endpoint: f.endpoint,
+          region: "us-east-1",
+          credentials: { accessKeyId: f.access, secretAccessKey: f.secret },
+          forcePathStyle: true,
+          maxAttempts: 1,
+          requestHandler: {
+            httpsAgent: new https.Agent({ ca: await fs.readFile(f.ca) }),
+          },
+        });
+        let observed;
+        storage.applyS3ClientCompatibility(client, endpoint);
+        client.middlewareStack.add(
+          (next) => async (args) => {
+            observed = args.request.headers["user-agent"];
+            return next(args);
+          },
+          { step: "finalizeRequest", priority: "low", name: "observeHeader" },
+        );
+        try {
+          await client.send(
+            new sdk.HeadBucketCommand({ Bucket: "test-bucket" }),
+          );
+          if (expected) assert.equal(observed, expected);
+          else assert.match(observed, /aws-sdk-js/);
+        } finally {
+          client.destroy();
+        }
+      }
+    },
+  );
+  await t.test(
     "preflight is read-only and validates real TLS and SigV4",
     async () => {
       await storage.assertStorageBackendReady();
@@ -112,6 +154,61 @@ test("S3 HTTPS/v4 protocol and storage lifecycle", async (t) => {
       );
       f.modes.deny = false;
       assert.ok(await storage.storageHead("ready", key));
+    },
+  );
+  await t.test(
+    "HTTP 401 is a credential rejection and never missing",
+    async () => {
+      f.modes.unauthorized = true;
+      try {
+        await assert.rejects(
+          storage.assertStorageBackendReady(),
+          /S3_CREDENTIALS_REJECTED/,
+        );
+        await assert.rejects(
+          storage.storageHead("ready", key),
+          /S3_CREDENTIALS_REJECTED/,
+        );
+        await assert.rejects(
+          storage.deleteStorageObject("ready", key),
+          /S3_CREDENTIALS_REJECTED/,
+        );
+      } finally {
+        f.modes.unauthorized = false;
+      }
+      assert.ok(await storage.storageHead("ready", key));
+    },
+  );
+  await t.test(
+    "inventory accepts only the exact empty area marker",
+    async () => {
+      const marker = "isolated/ready/";
+      f.objects.set(marker, { bytes: Buffer.alloc(0), modified: new Date() });
+      try {
+        assert.ok(
+          (await storage.listStorage("ready")).some((x) => x.key === key),
+        );
+        f.objects.set(marker, {
+          bytes: Buffer.from("not empty"),
+          modified: new Date(),
+        });
+        await assert.rejects(
+          storage.listStorage("ready"),
+          /STORAGE_INVENTORY_INVALID/,
+        );
+        f.objects.delete(marker);
+        f.objects.set(marker + "nested/", {
+          bytes: Buffer.alloc(0),
+          modified: new Date(),
+        });
+        await assert.rejects(
+          storage.listStorage("ready"),
+          /STORAGE_INVENTORY_INVALID/,
+        );
+      } finally {
+        f.objects.delete(marker);
+        f.objects.delete(marker + "nested/");
+      }
     },
   );
   await t.test("versioned or locked buckets refuse erasure", async () => {

@@ -117,7 +117,8 @@ function safeS3Error(error: unknown): Error {
   const code =
     name === "AccessDenied" || e?.$metadata?.httpStatusCode === 403
       ? "S3_ACCESS_DENIED"
-      : ["SignatureDoesNotMatch", "InvalidAccessKeyId"].includes(name)
+      : e?.$metadata?.httpStatusCode === 401 ||
+          ["SignatureDoesNotMatch", "InvalidAccessKeyId"].includes(name)
         ? "S3_CREDENTIALS_REJECTED"
         : ["AbortError", "TimeoutError"].includes(name)
           ? "S3_TIMEOUT"
@@ -127,6 +128,19 @@ function safeS3Error(error: unknown): Error {
               ? "S3_CAPABILITY_UNSUPPORTED"
               : "S3_REQUEST_FAILED";
   return Error(code);
+}
+export function applyS3ClientCompatibility(client: S3Client, endpoint: string) {
+  const hostname = new URL(endpoint).hostname;
+  if (!["s3.cstcloud.cn", "s3.data.cstcloud.cn"].includes(hostname)) return;
+  // Data Capsule keys are bound to a client application (S3Drive).
+  client.middlewareStack.add(
+    (next) => async (args) => {
+      const request = args.request as { headers: Record<string, string> };
+      request.headers["user-agent"] = "S3Drive";
+      return next(args);
+    },
+    { step: "finalizeRequest", priority: "low", name: "dataCapsuleUserAgent" },
+  );
 }
 async function withS3<T>(
   work: (client: S3Client, signal: AbortSignal) => Promise<T>,
@@ -159,6 +173,7 @@ async function withS3<T>(
     requestChecksumCalculation: "WHEN_REQUIRED",
     responseChecksumValidation: "WHEN_REQUIRED",
   });
+  applyS3ClientCompatibility(client, config.endpoint);
   const bounded = signal
     ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
     : AbortSignal.timeout(30000);
@@ -444,6 +459,8 @@ export async function listStorage(area: StorageArea): Promise<StorageEntry[]> {
         { abortSignal: signal },
       );
       for (const o of r.Contents ?? []) {
+        // Some S3-compatible providers materialize the area directory itself.
+        if (o.Key === prefix && o.Size === 0) continue;
         const key = o.Key?.slice(prefix.length) ?? "";
         if (
           !o.Key?.startsWith(prefix) ||

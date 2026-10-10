@@ -95,6 +95,7 @@ async function createS3Fixture() {
     versioned: false,
     locked: false,
     deny: false,
+    unauthorized: false,
     brokenPage: false,
     corrupt: false,
     versionOnDelete: false,
@@ -123,6 +124,7 @@ async function createS3Fixture() {
       };
       if (!validSignature(req, body))
         return error("SignatureDoesNotMatch", 403);
+      if (modes.unauthorized) return error("Unauthorized", 401);
       if (modes.deny) return error("AccessDenied", 403);
       const segments = url.pathname.split("/").filter(Boolean),
         bucket = segments.shift();
