@@ -90,6 +90,7 @@ test(
       KL_PM2_BIN: entry,
       PORT: String(port),
       MONGODB_URI: f.uri,
+      FILE_STORAGE_DRIVER: "local",
     };
     const helper = path.join(root, "ops/pm2-backend.cjs");
     async function rows() {
@@ -163,6 +164,81 @@ test(
           .countDocuments({ state: "running" }),
         3,
       );
+      const writersBeforeReuse = await f.db
+        .collection("operational_writers")
+        .find({ state: "running" })
+        .toArray();
+      const reuseAt = Date.now(),
+        reused = await command(helper, ["start"], env);
+      assert.equal(
+        reused.code,
+        0,
+        "healthy exact start reuses: " +
+          (reused.output.match(/[A-Z][A-Z0-9_]{3,}/g) || []).join(","),
+      );
+      assert.match(reused.output, /已验证并复用/);
+      assert.deepEqual(
+        (await rows()).map((p) => p.pid),
+        initial.map((p) => p.pid),
+      );
+      assert.deepEqual(
+        (
+          await f.db
+            .collection("operational_writers")
+            .find({ state: "running" })
+            .toArray()
+        )
+          .map((r) => r.token)
+          .sort(),
+        writersBeforeReuse.map((r) => r.token).sort(),
+      );
+      const stages = reused.output
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('{"event":"startup.stage"'))
+        .map((line) => JSON.parse(line));
+      assert.equal(
+        stages.filter(
+          (r) =>
+            r.scope === "preflight" &&
+            r.stage === "schema" &&
+            r.state === "started",
+        ).length,
+        1,
+        "only initial full schema remains",
+      );
+      assert.equal(
+        stages.filter(
+          (r) =>
+            r.scope === "ready" &&
+            r.stage === "writer-verify" &&
+            r.state === "completed",
+        ).length,
+        2,
+      );
+      assert.ok(
+        !stages.some(
+          (r) =>
+            r.scope === "backend" &&
+            ["stop", "delete", "process-start"].includes(r.stage),
+        ),
+      );
+      console.log(
+        JSON.stringify({
+          event: "isolated.start.timings",
+          cold_ms: reuseAt - startupAt,
+          reuse_ms: Date.now() - reuseAt,
+        }),
+      );
+      const changed = await command(helper, ["start"], {
+        ...env,
+        PORT: String(port + 1),
+      });
+      assert.notEqual(changed.code, 0);
+      assert.match(changed.output, /DEPLOYMENT_CHANGED_RESTART_REQUIRED/);
+      assert.deepEqual(
+        (await rows()).map((p) => p.pid),
+        initial.map((p) => p.pid),
+      );
       const ready = await fetch(
         "http://127.0.0.1:" + port + "/api/v1/health/ready",
       );
@@ -200,33 +276,128 @@ test(
       );
 
       // Reuse the same PM2 definition: the previous regression only delete/start'ed it.
-      const launchTokens = initial.map(p=>p.pm2_env.KL_WRITER_LAUNCH_TOKEN);
-      const priorWriters = await f.db.collection("operational_writers").find({state:"running"}).toArray();
-      assert.equal((await command(entry,["restart","kl-api","kl-assessment-worker","kl-learning-worker"],env)).code,0);
-      const deadline=Date.now()+45000;let replacement;
+      const launchTokens = initial.map((p) => p.pm2_env.KL_WRITER_LAUNCH_TOKEN);
+      const priorWriters = await f.db
+        .collection("operational_writers")
+        .find({ state: "running" })
+        .toArray();
+      assert.equal(
+        (
+          await command(
+            entry,
+            ["restart", "kl-api", "kl-assessment-worker", "kl-learning-worker"],
+            env,
+          )
+        ).code,
+        0,
+      );
+      const deadline = Date.now() + 45000;
+      let replacement;
       do {
-        replacement=await rows();
-        if(replacement.length===3 && replacement.every(p=>p.pm2_env.status==="online" && !initial.some(old=>old.pid===p.pid)) && await f.db.collection("operational_writers").countDocuments({state:"running"})===3) break;
-        await new Promise(r=>setTimeout(r,250));
-      } while(Date.now()<deadline);
-      assert.ok(replacement.every(p=>p.pm2_env.status==="online" && !initial.some(old=>old.pid===p.pid)),"same-definition restart reaches ready with new PIDs");
-      assert.deepEqual(replacement.map(p=>p.pm2_env.KL_WRITER_LAUNCH_TOKEN),launchTokens,"deployment identities remain stable");
-      const newWriters=await f.db.collection("operational_writers").find({state:"running"}).toArray();
-      assert.equal(newWriters.length,3);
-      assert.ok(newWriters.every(row=>!priorWriters.some(old=>old.token===row.token)),"each restart gets fresh writer identities");
-      assert.equal(await f.db.collection("operational_writers").countDocuments({_id:{$in:priorWriters.map(r=>r._id)},state:"stopped"}),3);
+        replacement = await rows();
+        if (
+          replacement.length === 3 &&
+          replacement.every(
+            (p) =>
+              p.pm2_env.status === "online" &&
+              !initial.some((old) => old.pid === p.pid),
+          ) &&
+          (await f.db
+            .collection("operational_writers")
+            .countDocuments({ state: "running" })) === 3
+        )
+          break;
+        await new Promise((r) => setTimeout(r, 250));
+      } while (Date.now() < deadline);
+      assert.ok(
+        replacement.every(
+          (p) =>
+            p.pm2_env.status === "online" &&
+            !initial.some((old) => old.pid === p.pid),
+        ),
+        "same-definition restart reaches ready with new PIDs",
+      );
+      assert.deepEqual(
+        replacement.map((p) => p.pm2_env.KL_WRITER_LAUNCH_TOKEN),
+        launchTokens,
+        "deployment identities remain stable",
+      );
+      const newWriters = await f.db
+        .collection("operational_writers")
+        .find({ state: "running" })
+        .toArray();
+      assert.equal(newWriters.length, 3);
+      assert.ok(
+        newWriters.every(
+          (row) => !priorWriters.some((old) => old.token === row.token),
+        ),
+        "each restart gets fresh writer identities",
+      );
+      assert.equal(
+        await f.db
+          .collection("operational_writers")
+          .countDocuments({
+            _id: { $in: priorWriters.map((r) => r._id) },
+            state: "stopped",
+          }),
+        3,
+      );
 
-      const crashed=replacement.find(p=>p.name==="kl-assessment-worker");
-      const oldOwner=await f.db.collection("operational_writers").findOne({pid:crashed.pid,state:"running"});
-      process.kill(crashed.pid,"SIGKILL"); // Only this dedicated-pipe fixture's child.
-      const crashDeadline=Date.now()+45000;let recovered;
-      do { recovered=(await rows()).find(p=>p.name===crashed.name);if(recovered?.pm2_env.status==="online"&&recovered.pid!==crashed.pid&&await f.db.collection("operational_writers").findOne({pid:recovered.pid,state:"running"}))break;await new Promise(r=>setTimeout(r,250)); } while(Date.now()<crashDeadline);
-      assert.ok(recovered?.pm2_env.status==="online"&&recovered.pid!==crashed.pid,"PM2 automatically recovers a raw Windows crash");
-      assert.equal(recovered.pm2_env.restart_time,crashed.pm2_env.restart_time+1);
-      assert.equal(recovered.pm2_env.KL_WRITER_LAUNCH_TOKEN,crashed.pm2_env.KL_WRITER_LAUNCH_TOKEN);
-      assert.ok(await f.db.collection("operational_writers").findOne({_id:oldOwner._id,token:oldOwner.token,state:"running"}),"crashed owner is preserved, never silently marked stopped");
-      historicalRunning=1;
+      const crashed = replacement.find(
+        (p) => p.name === "kl-assessment-worker",
+      );
+      const oldOwner = await f.db
+        .collection("operational_writers")
+        .findOne({ pid: crashed.pid, state: "running" });
+      process.kill(crashed.pid, "SIGKILL"); // Only this dedicated-pipe fixture's child.
+      const crashDeadline = Date.now() + 45000;
+      let recovered;
+      do {
+        recovered = (await rows()).find((p) => p.name === crashed.name);
+        if (
+          recovered?.pm2_env.status === "online" &&
+          recovered.pid !== crashed.pid &&
+          (await f.db
+            .collection("operational_writers")
+            .findOne({ pid: recovered.pid, state: "running" }))
+        )
+          break;
+        await new Promise((r) => setTimeout(r, 250));
+      } while (Date.now() < crashDeadline);
+      assert.ok(
+        recovered?.pm2_env.status === "online" && recovered.pid !== crashed.pid,
+        "PM2 automatically recovers a raw Windows crash",
+      );
+      assert.equal(
+        recovered.pm2_env.restart_time,
+        crashed.pm2_env.restart_time + 1,
+      );
+      assert.equal(
+        recovered.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+        crashed.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+      );
+      assert.ok(
+        await f.db
+          .collection("operational_writers")
+          .findOne({
+            _id: oldOwner._id,
+            token: oldOwner.token,
+            state: "running",
+          }),
+        "crashed owner is preserved, never silently marked stopped",
+      );
+      historicalRunning = 1;
       const stopped = await command(helper, ["stop"], env);
+      if (stopped.code !== 0)
+        console.log(
+          stopped.output
+            .split(/\r?\n/)
+            .filter(
+              (line) =>
+                line.startsWith('{"event":"startup.') || /^[A-Z_]+$/.test(line),
+            )
+            .join("\n"),
+        );
       assert.equal(
         stopped.code,
         0,

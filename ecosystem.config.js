@@ -23,7 +23,7 @@ const flags = spawnSync(
   [
     "--env-file-if-exists=.env",
     "-e",
-    'try { process.stdout.write(JSON.stringify({...require("./dist/runtime/feature-flags.js").resolveFeatureFlags(), KL_PM2_SHUTDOWN_TIMEOUT_MS:Math.max(65000, process.env.FILE_SCAN_ENABLED === "false" ? 0 : require("./dist/files/config.js").fileConfig().timeout * 6 + 15000), KL_PM2_DATABASE_ID:require("node:crypto").createHash("sha256").update(require("./dist/config.js").loadConfig().mongoUri).digest("hex")})); } catch(e) { process.stderr.write(require("./dist/runtime/process-lifecycle.js").safeErrorCode(e)); process.exitCode=1; }',
+    'try { process.stdout.write(JSON.stringify({...require("./dist/runtime/feature-flags.js").resolveFeatureFlags(), KL_PM2_DEPLOYMENT_ID:require("../ops/deployment-identity.cjs").deploymentIdentity(require("node:path").resolve("..")), KL_PM2_SHUTDOWN_TIMEOUT_MS:Math.max(65000, process.env.FILE_SCAN_ENABLED === "false" ? 0 : require("./dist/files/config.js").fileConfig().timeout * 6 + 15000), KL_PM2_DATABASE_ID:require("node:crypto").createHash("sha256").update(require("./dist/config.js").loadConfig().mongoUri).digest("hex")})); } catch(e) { process.stderr.write(require("./dist/runtime/process-lifecycle.js").safeErrorCode(e)); process.exitCode=1; }',
   ],
   {
     cwd: serverRoot,

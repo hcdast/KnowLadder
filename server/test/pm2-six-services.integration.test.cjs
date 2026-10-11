@@ -78,6 +78,7 @@ test(
         KL_TRAINING_ENABLED: "true",
         KL_KNOWLEDGE_ENABLED: "true",
         KL_KNOWLEDGE_IMPORT_ENABLED: "true",
+        FILE_STORAGE_DRIVER: "local",
         FILE_SCAN_ENABLED: "true",
         FILE_STORAGE_ROOT: storage,
         CLAMSCAN_PATH: process.env.TEST_CLAMSCAN_PATH,
@@ -167,6 +168,29 @@ test(
       assert.equal(
         initialWriters.filter((w) => w.pid === imports.pid).length,
         2,
+      );
+      const repeated = await command(helper, ["start"], env);
+      assert.equal(
+        repeated.code,
+        0,
+        (repeated.output.match(/[A-Z][A-Z0-9_]{3,}/g) || []).join(","),
+      );
+      assert.match(repeated.output, /已验证并复用/);
+      assert.deepEqual(
+        (await rows()).map((p) => p.pid),
+        initial.map((p) => p.pid),
+      );
+      assert.deepEqual(
+        (
+          await f.db
+            .collection("operational_writers")
+            .find({ state: "running" })
+            .toArray()
+        )
+          .map((w) => w.token)
+          .sort(),
+        initialWriters.map((w) => w.token).sort(),
+        "six-service reuse preserves all seven writers including imports",
       );
       const restart = await command(
         entry,

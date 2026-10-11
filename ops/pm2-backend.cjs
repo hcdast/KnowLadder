@@ -3,6 +3,9 @@ const { spawnSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const net = require("node:net");
+const { timing } = require("./startup-timing.cjs");
+const { effectiveBudget } = require("./preflight-budget.cjs");
+const { deploymentIdentity } = require("./deployment-identity.cjs");
 const root = path.resolve(__dirname, ".."),
   serverRoot = path.join(root, "server");
 const ecosystem = path.join(root, "ecosystem.config.js");
@@ -95,19 +98,65 @@ function projectProcesses(entry) {
   if (r.error || r.status !== 0) throw failure("PM2_LIST_FAILED");
   try {
     const rows = JSON.parse(r.stdout.trim().split(/\r?\n/).at(-1));
-    if (!Array.isArray(rows)) throw Error();
-    const apps = rows.filter((p) => projectNames.includes(p.name));
-    for (const p of apps) {
-      if (path.resolve(p.pm2_env.pm_cwd || "") !== serverRoot)
-        throw failure("PM2_NAME_OWNERSHIP_CONFLICT");
-    }
-    if (new Set(apps.map((p) => p.name)).size !== apps.length)
-      throw failure("PM2_DUPLICATE_NAME");
-    return apps;
+    return validateProjectRows(rows);
   } catch (error) {
     if (error.safeCode) throw error;
     throw failure("PM2_LIST_INVALID");
   }
+}
+function validateProjectRows(rows) {
+  if (!Array.isArray(rows)) throw failure("PM2_LIST_INVALID");
+  const apps = rows.filter((p) => projectNames.includes(p.name));
+  if (apps.some((p) => path.resolve(p.pm2_env?.pm_cwd || "") !== serverRoot))
+    throw failure("PM2_NAME_OWNERSHIP_CONFLICT");
+  if (new Set(apps.map((p) => p.name)).size !== apps.length)
+    throw failure("PM2_DUPLICATE_NAME");
+  return apps;
+}
+function processIdentity(rows) {
+  return JSON.stringify(
+    rows
+      .map((p) => [
+        p.name,
+        p.pid,
+        p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+        p.pm2_env.restart_time,
+      ])
+      .sort((a, b) => a[0].localeCompare(b[0])),
+  );
+}
+function chooseStartAction(apps, rows, restart = false) {
+  if (restart || !rows.some((p) => p.pid)) return "launch";
+  if (
+    rows.length !== apps.length ||
+    apps.some(
+      (a) =>
+        !rows.some(
+          (p) => p.name === a.name && p.pid && p.pm2_env.status === "online",
+        ),
+    )
+  )
+    throw failure("PARTIAL_DEPLOYMENT_RESTART_REQUIRED");
+  const args = (value) =>
+    JSON.stringify(
+      Array.isArray(value) ? value : typeof value === "string" ? [value] : [],
+    );
+  for (const app of apps) {
+    const p = rows.find((p) => p.name === app.name),
+      e = p.pm2_env;
+    if (
+      e.KL_PM2_PROTOCOL !== "2" ||
+      !app.env.KL_PM2_DEPLOYMENT_ID ||
+      e.KL_PM2_DEPLOYMENT_ID !== app.env.KL_PM2_DEPLOYMENT_ID ||
+      path.resolve(e.pm_exec_path || "") !==
+        path.resolve(app.cwd, app.script) ||
+      path.resolve(e.exec_interpreter || "") !==
+        path.resolve(app.interpreter) ||
+      args(e.node_args) !== args(app.node_args)
+    )
+      throw failure("DEPLOYMENT_CHANGED_RESTART_REQUIRED");
+  }
+  return "reuse";
 }
 function requireBuild() {
   if (!fs.existsSync(nodeBin)) throw failure("NODE_BIN_NOT_FOUND");
@@ -162,47 +211,83 @@ function parsePreflightResult(result) {
     throw failure("PREFLIGHT_FAILED");
   }
 }
-function preflight(verify, mode = "verify", budgetMs) {
-  const r = spawnSync(
-    nodeBin,
-    [
-      "--env-file-if-exists=.env",
-      path.join(__dirname, "backend-preflight.cjs"),
-      ...(verify ? [mode] : []),
-    ],
-    {
-      cwd: serverRoot,
-      env: process.env,
-      encoding: "utf8",
-      windowsHide: true,
-      input: verify ? JSON.stringify(verify) : undefined,
-      timeout: budgetMs ?? (verify ? 90000 : 120000),
-      maxBuffer: 32768,
-    },
+async function preflight(verify, mode = "verify", budgetMs) {
+  const configuredBudget = effectiveBudget(
+    Boolean(verify),
+    path.join(serverRoot, ".env"),
   );
+  const childBudget = Math.min(configuredBudget, budgetMs ?? configuredBudget);
+  const r = await new Promise((resolve) => {
+    const child = spawn(
+      nodeBin,
+      [
+        "--env-file-if-exists=.env",
+        path.join(__dirname, "backend-preflight.cjs"),
+        ...(verify ? [mode] : []),
+        "--budget-ms=" + childBudget,
+      ],
+      {
+        cwd: serverRoot,
+        env: process.env,
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "inherit"],
+      },
+    );
+    let stdout = "",
+      error;
+    const timer = setTimeout(() => {
+      error = { code: "ETIMEDOUT" };
+      child.kill("SIGKILL");
+    }, childBudget + 5000);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      if (Buffer.byteLength(stdout) > 32768) {
+        error = { code: "OUTPUT_LIMIT" };
+        child.kill();
+      }
+    });
+    child.stdin.on("error", () => {});
+    child.once("error", (e) => {
+      error = e;
+      clearTimeout(timer);
+      resolve({ error, stdout, status: null });
+    });
+    child.once("close", (status) => {
+      clearTimeout(timer);
+      resolve({ error, stdout, status });
+    });
+    child.stdin.end(verify ? JSON.stringify(verify) : undefined);
+  });
   const result = parsePreflightResult(r);
   if (r.error || r.status !== 0 || !result.ok) {
-    const stage = [
-      "node",
-      "configuration",
-      "database-connect",
-      "topology",
-      "schema",
-      "operations",
-      "managed-admission",
-      "storage",
-      "scanner",
-      "worker-ready",
-      "writer-stop",
-    ].includes(result.stage)
-      ? result.stage
-      : "preflight";
+    const stage =
+      [
+        "node",
+        "configuration",
+        "database-connect",
+        "topology",
+        "schema",
+        "operations",
+        "managed-admission",
+        "storage",
+        "scanner",
+        "worker-ready",
+        "writer-stop",
+        "migration-proof",
+        "database-close",
+      ].includes(String(result.stage).split(".")[0]) &&
+      /^[a-z][a-z.-]*$/.test(result.stage)
+        ? result.stage
+        : "preflight";
     const code =
       require("../server/dist/runtime/process-lifecycle").safeErrorCode(
         Error(result.code),
       );
     throw failure(
-      "PREFLIGHT_" + stage.toUpperCase().replaceAll("-", "_") + "_" + code,
+      "PREFLIGHT_" +
+        stage.toUpperCase().replaceAll("-", "_").replaceAll(".", "_") +
+        "_" +
+        code,
     );
   }
   return result;
@@ -220,12 +305,25 @@ function assertStopSupported(rows) {
   )
     throw failure("WINDOWS_LEGACY_SHUTDOWN_UNSUPPORTED");
 }
-async function waitStopped(readProcesses, timeoutMs = 10000) {
+async function waitStopped(readProcesses, timeoutMs = 10000, normalize) {
   const until = Date.now() + timeoutMs;
   do {
-    const rows = readProcesses();
+    const rows = await readProcesses();
+    if (normalize) await normalize(rows);
     if (rows.every((p) => !p.pid && p.pm2_env.status === "stopped")) return;
-    if (Date.now() >= until) throw failure("PM2_STOP_NOT_CONFIRMED");
+    if (Date.now() >= until) {
+      console.error(
+        JSON.stringify({
+          event: "startup.stop-timeout",
+          processes: rows.map((p) => ({
+            name: p.name,
+            pid: p.pid,
+            status: p.pm2_env.status,
+          })),
+        }),
+      );
+      throw failure("PM2_STOP_NOT_CONFIRMED");
+    }
     await pause(Math.min(250, Math.max(1, until - Date.now())));
   } while (true);
 }
@@ -242,7 +340,7 @@ async function stopProject(entry, rows) {
     databaseId: p.pm2_env.KL_PM2_DATABASE_ID,
   }));
   const stopProof = launched.length
-    ? preflight(identities, "identity").registrations
+    ? (await preflight(identities, "identity")).registrations
     : [];
   for (const app of rows)
     if (app.pm2_env.status !== "stopped")
@@ -252,8 +350,25 @@ async function stopProject(entry, rows) {
           Number(app.pm2_env.kill_timeout || 10000) + 15000,
         ),
       });
-  await waitStopped(() => projectProcesses(entry));
-  if (launched.length) preflight(stopProof, "stopped");
+  const normalized = new Set();
+  await waitStopped(
+    () => projectProcesses(entry),
+    10000,
+    async (current) => {
+      // PM2's exit handler applies the backoff status even for a deliberate stop.
+      // Reissue stop only after PID=0; still require STOPPED plus DB release below.
+      for (const app of current)
+        if (
+          !app.pid &&
+          app.pm2_env.status === "waiting restart" &&
+          !normalized.has(app.pm_id)
+        ) {
+          normalized.add(app.pm_id);
+          runPm2(entry, ["stop", String(app.pm_id)], { timeout: 10000 });
+        }
+    },
+  );
+  if (launched.length) await preflight(stopProof, "stopped");
 }
 function deleteProject(entry, rows) {
   for (const p of rows) runPm2(entry, ["delete", String(p.pm_id)]);
@@ -269,17 +384,28 @@ async function waitReady(
   entry,
   names,
   port,
-  { timeoutMs = 240000, readyProofs } = {},
+  {
+    timeoutMs = 240000,
+    readyProofs,
+    proof,
+    reuse = false,
+    readProcesses = () => projectProcesses(entry),
+    verify = preflight,
+    fetchReady = fetch,
+    emit,
+  } = {},
 ) {
   const until = Date.now() + timeoutMs;
-  let confirmed = false;
+  let confirmed = false,
+    confirmedIdentity;
+  const clock = timing("ready", emit);
   while (Date.now() < until) {
-    const rows = projectProcesses(entry);
+    const rows = await readProcesses();
     if (
       rows.some(
         (p) =>
           ["errored", "stopped"].includes(p.pm2_env.status) ||
-          p.pm2_env.restart_time > 0,
+          (!reuse && p.pm2_env.restart_time > 0),
       )
     )
       throw failure("PROCESS_STARTUP_FAILED");
@@ -298,31 +424,39 @@ async function waitReady(
       )
     ) {
       try {
-        const response = await fetch(
-          "http://127.0.0.1:" + port + "/api/v1/health/ready",
-          {
+        const response = await clock.run("http-ready", () =>
+          fetchReady("http://127.0.0.1:" + port + "/api/v1/health/ready", {
             signal: AbortSignal.timeout(
               Math.max(1, Math.min(10000, until - Date.now())),
             ),
             redirect: "error",
-          },
+          }),
         );
         await response.body?.cancel();
         if (response.status === 200) {
-          preflight(
-            rows.map((p) => ({
-              name: p.name,
-              pid: p.pid,
-              token: p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
-              protocol: p.pm2_env.KL_PM2_PROTOCOL,
-              writerTokens: readyProofs?.get(
-                p.name + ":" + p.pid + ":" + p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
-              ),
-            })),
-            "verify",
-            Math.max(1, Math.min(90000, until - Date.now())),
+          const currentIdentity = processIdentity(rows);
+          if (confirmed && currentIdentity !== confirmedIdentity)
+            throw failure("PROCESS_CHANGED_DURING_VERIFICATION");
+          const apps = rows.map((p) => ({
+            name: p.name,
+            pid: p.pid,
+            token: p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+            protocol: p.pm2_env.KL_PM2_PROTOCOL,
+            writerTokens: readyProofs?.get(
+              p.name + ":" + p.pid + ":" + p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+            ),
+          }));
+          await clock.run("writer-verify", () =>
+            verify(
+              proof ? { verify: apps, proof, reuse } : apps,
+              proof ? "verify-fast" : "verify",
+              Math.max(1, until - Date.now()),
+            ),
           );
+          if (processIdentity(await readProcesses()) !== currentIdentity)
+            throw failure("PROCESS_CHANGED_DURING_VERIFICATION");
           if (confirmed) return;
+          confirmedIdentity = currentIdentity;
           confirmed = true;
         } else confirmed = false;
       } catch (error) {
@@ -336,7 +470,7 @@ async function waitReady(
   console.error(
     JSON.stringify({
       event: "startup.ready-timeout",
-      processes: projectProcesses(entry).map((p) => ({
+      processes: (await readProcesses()).map((p) => ({
         name: p.name,
         pid: p.pid,
         status: p.pm2_env.status,
@@ -371,7 +505,8 @@ async function openReadyBus(entry) {
     pm2.disconnect();
     throw error;
   }
-  const readyProofs = new Map();
+  const readyProofs = new Map(),
+    busStartedAt = Date.now();
   bus.on("process:msg", (packet) => {
     const data = packet.data;
     if (
@@ -379,64 +514,147 @@ async function openReadyBus(entry) {
       projectNames.includes(packet.process?.name) &&
       Number.isInteger(data.pid) &&
       typeof data.token === "string"
-    )
-      readyProofs.set(
-        packet.process.name + ":" + data.pid + ":" + data.token,
-        data.writerTokens,
-      );
+    ) {
+      const key = packet.process.name + ":" + data.pid + ":" + data.token;
+      if (!readyProofs.has(key))
+        console.error(
+          JSON.stringify({
+            event: "startup.worker-ready",
+            name: packet.process.name,
+            pid: data.pid,
+            elapsed_since_bus_ms: Date.now() - busStartedAt,
+          }),
+        );
+      readyProofs.set(key, data.writerTokens);
+    }
   });
   return {
     readyProofs,
+    async list() {
+      const rows = await new Promise((resolve, reject) => {
+        const timer = setTimeout(
+          () => reject(failure("PM2_LIST_FAILED")),
+          10000,
+        );
+        pm2.list((error, rows) => {
+          clearTimeout(timer);
+          error ? reject(failure("PM2_LIST_FAILED")) : resolve(rows);
+        });
+      });
+      return validateProjectRows(rows);
+    },
     close() {
       bus.close();
       pm2.disconnect();
     },
   };
 }
-async function start(entry) {
-  const apps = requireBuild();
-  const envHash = require("node:crypto")
-    .createHash("sha256")
-    .update(fs.readFileSync(path.join(serverRoot, ".env")))
-    .digest("hex");
-  const config = preflight(); // All read-only checks happen before touching existing services.
-  const rows = projectProcesses(entry);
+async function start(entry, { restart = false } = {}) {
+  const clock = timing("backend");
+  const apps = await clock.run("build-configuration", () => requireBuild());
+  const identity = apps[0]?.env.KL_PM2_DEPLOYMENT_ID;
+  const assertUnchanged = () => {
+    if (deploymentIdentity(root, process.env, nodeBin) !== identity)
+      throw failure("DEPLOYMENT_CHANGED_DURING_STARTUP");
+  };
+  const rows = await clock.run("process-list", () => projectProcesses(entry));
+  const action = chooseStartAction(apps, rows, restart);
+  const config = await clock.run("full-preflight", () => preflight());
+  assertUnchanged();
+  if (action === "reuse" && config.managed)
+    throw failure("MANAGED_DEPLOYMENT_RESTART_REQUIRED");
   assertStopSupported(rows);
   if (!rows.some((p) => p.name === "kl-api" && p.pid))
     await assertPortFree(config.port);
-  const currentHash = require("node:crypto")
-    .createHash("sha256")
-    .update(fs.readFileSync(path.join(serverRoot, ".env")))
-    .digest("hex");
-  if (envHash !== currentHash) throw failure("ENV_CHANGED_DURING_PREFLIGHT");
   const bus = await openReadyBus(entry);
   let switching = false;
   try {
-    switching = true;
-    await stopProject(entry, rows);
-    deleteProject(entry, projectProcesses(entry));
-    await assertPortFree(config.port);
-    preflight(); // Recheck gates after old writers have exited.
-    await runPm2Start(entry, ["start", ecosystem], apps.length * 65000 + 15000);
-    await waitReady(
-      entry,
-      apps.map((a) => a.name),
-      config.port,
-      { readyProofs: bus.readyProofs },
-    );
-  } catch (error) {
-    // Stop only this project's newly launched processes; never restart old writers automatically.
-    try {
-      if (switching) await stopProject(entry, projectProcesses(entry));
-    } catch {
-      console.error("PM2_FAILED_START_CLEANUP_UNCONFIRMED");
+    if (action === "reuse") {
+      const initialIdentity = processIdentity(rows);
+      const snapshot = await clock.run("existing-writer-identity", () =>
+        preflight(
+          rows.map((p) => ({
+            name: p.name,
+            pid: p.pid,
+            protocol: p.pm2_env.KL_PM2_PROTOCOL,
+            token: p.pm2_env.KL_WRITER_LAUNCH_TOKEN,
+            databaseId: p.pm2_env.KL_PM2_DATABASE_ID,
+          })),
+          "identity",
+        ),
+      );
+      const readyProofs = new Map(
+        snapshot.registrations.map((p) => [
+          p.name + ":" + p.pid + ":" + p.token,
+          p.tokens,
+        ]),
+      );
+      const read = async () => {
+        const current = await bus.list();
+        if (processIdentity(current) !== initialIdentity)
+          throw failure("PROCESS_CHANGED_DURING_VERIFICATION");
+        return current;
+      };
+      await clock.run("reuse-ready", () =>
+        waitReady(
+          entry,
+          apps.map((a) => a.name),
+          config.port,
+          {
+            readyProofs,
+            proof: config.proof,
+            reuse: true,
+            readProcesses: read,
+          },
+        ),
+      );
+    } else {
+      switching = true;
+      await clock.run("stop", () => stopProject(entry, rows));
+      await clock.run("delete", () =>
+        deleteProject(entry, projectProcesses(entry)),
+      );
+      await assertPortFree(config.port);
+      assertUnchanged();
+      // Cold launch with no old definitions already passed the complete check.
+      const finalConfig = rows.length
+        ? await clock.run("post-stop-preflight", () => preflight())
+        : config;
+      assertUnchanged();
+      await clock.run("process-start", () =>
+        runPm2Start(entry, ["start", ecosystem], apps.length * 65000 + 15000),
+      );
+      await clock.run("launch-ready", () =>
+        waitReady(
+          entry,
+          apps.map((a) => a.name),
+          config.port,
+          {
+            readyProofs: bus.readyProofs,
+            proof: finalConfig.proof,
+            readProcesses: () => bus.list(),
+          },
+        ),
+      );
     }
+    assertUnchanged();
+  } catch (error) {
+    if (switching)
+      try {
+        await clock.run("failed-start-cleanup", () =>
+          stopProject(entry, projectProcesses(entry)),
+        );
+      } catch {
+        console.error("PM2_FAILED_START_CLEANUP_UNCONFIRMED");
+      }
     throw error;
   } finally {
     bus.close();
   }
   console.log(
-    "已就绪 " + apps.map((a) => a.name).join("、") + "（本地，非生产）",
+    (action === "reuse" ? "已验证并复用 " : "已就绪 ") +
+      apps.map((a) => a.name).join("、") +
+      "（本地，非生产）",
   );
 }
 async function main(command = process.argv[2] || "start") {
@@ -458,10 +676,11 @@ async function main(command = process.argv[2] || "start") {
     )
       throw failure("WINDOWS_PM2_HOME_NOT_ISOLATED");
   }
-  if (command === "start" || command === "restart") return start(entry);
+  if (command === "start" || command === "restart")
+    return start(entry, { restart: command === "restart" });
   if (command === "preflight") {
     requireBuild();
-    const result = preflight();
+    const result = await preflight();
     console.log(JSON.stringify(result));
     return;
   }
@@ -495,6 +714,10 @@ async function main(command = process.argv[2] || "start") {
 }
 module.exports = {
   main,
+  start,
+  chooseStartAction,
+  processIdentity,
+  validateProjectRows,
   waitReady,
   assertStopSupported,
   waitStopped,
