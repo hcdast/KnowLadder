@@ -1,4 +1,5 @@
 /// <reference lib="es2024.promise" />
+import { checkStep, type CheckContext } from "../runtime/check-context";
 import { spawn } from 'node:child_process';
 import { lstat } from 'node:fs/promises';
 import path from 'node:path';
@@ -11,10 +12,14 @@ export interface ScannerHealth {
   database_version: string;
   database_updated_at: Date;
 }
-function execute(config: FileConfig, args: string[], input?: string): Promise<{code: number | null; output: string; failed: boolean}> {
+function execute(config: FileConfig, args: string[], input?: string, signal?: AbortSignal): Promise<{code: number | null; output: string; failed: boolean}> {
+  signal?.throwIfAborted();
   const { promise, resolve } = Promise.withResolvers<{code: number | null; output: string; failed: boolean}>();
   const child = spawn(config.scanner, args, { shell: false, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
   let output = ''; let bytes = 0; let failed = false;
+  const cancel = () => { failed = true; child.kill('SIGKILL'); };
+  signal?.addEventListener('abort',cancel,{once:true});
+  if(signal?.aborted)cancel();
   const timer = setTimeout(() => { failed = true; child.kill('SIGKILL'); }, config.timeout);
   const collect = (chunk: Buffer) => {
     bytes += chunk.length;
@@ -24,9 +29,9 @@ function execute(config: FileConfig, args: string[], input?: string): Promise<{c
   child.stdout.on('data', collect); child.stderr.on('data', collect);
   child.stdin.on('error', () => { failed = true; });
   child.on('error', () => { failed = true; });
-  child.on('close', code => { clearTimeout(timer); resolve({ code, output, failed }); });
+  child.on('close', code => { clearTimeout(timer); signal?.removeEventListener('abort',cancel); resolve({ code, output, failed }); });
   child.stdin.end(input);
-  return promise;
+  return promise.then(result=>{signal?.throwIfAborted();return result;});
 }
 const limits = ['--stdout', '--no-summary', '--infected', '--alert-exceeds-max=yes',
   '--max-filesize=10M', '--max-scansize=50M', '--max-recursion=16', '--max-files=1000'];
@@ -38,7 +43,8 @@ function metadata(output: string, maxAgeHours: number): ScannerHealth {
   if (!Number.isFinite(age) || age < -300000 || age > maxAgeHours * 3600000) throw new Error('ClamAV签名库更新时间无效或已过期');
   return { engine_version: match[1], database_version: match[2], database_updated_at: updated };
 }
-async function verifyScanner(config: FileConfig): Promise<ScannerHealth> {
+async function verifyScanner(config: FileConfig, context: CheckContext = {}): Promise<ScannerHealth> {
+  context.signal?.throwIfAborted();
   // Only official containers are accepted. Their existence is not proof of validity:
   // clamscan must actually load and verify them below, not merely print a header.
   for (const name of ['main', 'daily']) {
@@ -55,19 +61,19 @@ async function verifyScanner(config: FileConfig): Promise<ScannerHealth> {
     if (count !== 1) throw new Error('必须安装唯一的官方main和daily病毒库容器');
   }
   const db = [`--database=${config.database}`, '--official-db-only=yes'];
-  const version = await execute(config, ['--version', ...db]);
+  const version = await checkStep(context,'scanner.version',()=>execute(config,['--version',...db],undefined,context.signal));
   if (version.failed || version.code !== 0) throw new Error('ClamAV引擎或病毒库未就绪');
   const health = metadata(version.output, config.databaseMaxAgeHours);
-  const clean = await execute(config, [...limits, ...db, '-'], 'KnowLadder scanner readiness probe\n');
+  const clean = await checkStep(context,'scanner.load',()=>execute(config,[...limits,...db,'-'],'KnowLadder scanner readiness probe\n',context.signal));
   if (clean.failed || clean.code !== 0) throw new Error('ClamAV无法真实加载签名库');
-  const after = await execute(config, ['--version', ...db]);
+  const after = await checkStep(context,'scanner.recheck',()=>execute(config,['--version',...db],undefined,context.signal));
   if (after.failed || after.code !== 0 || after.output !== version.output) throw new Error('验证期间签名库发生变化，请重试');
   metadata(after.output, config.databaseMaxAgeHours);
   return health;
 }
-export async function assertScanner(): Promise<ScannerHealth> {
+export async function assertScanner(context: CheckContext = {}): Promise<ScannerHealth> {
   assertFileScanEnabled();
-  return verifyScanner(fileConfig());
+  return verifyScanner(fileConfig(),context);
 }
 export async function scanWithHealth(filename: string): Promise<{ result: ScanResult; health?: ScannerHealth }> {
   assertFileScanEnabled();

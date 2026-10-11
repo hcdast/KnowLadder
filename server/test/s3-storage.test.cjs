@@ -80,6 +80,19 @@ test("S3 HTTPS/v4 protocol and storage lifecycle", async (t) => {
       );
     },
   );
+  await t.test('complete preflight reuses one TLS connection and cancels pending request',async()=>{
+    const start=f.requests.length,events=[],sdk=require('@aws-sdk/client-s3'),original=sdk.S3Client.prototype.destroy;let destroyed=0;
+    sdk.S3Client.prototype.destroy=function(){destroyed++;return original.call(this);};
+    try{await storage.assertStorageBackendReady({run:async(stage,work)=>{events.push(stage);return work();}});}finally{sdk.S3Client.prototype.destroy=original;}
+    assert.equal(destroyed,1);
+    const requests=f.requests.slice(start);
+    assert.equal(requests.length,6);assert.ok(new Set(requests.map(r=>r.remotePort)).size<=2,'six commands share at most two TLS connections');
+    assert.deepEqual(events,['storage.local','storage.bucket','storage.versioning','storage.lock','storage.list-tmp','storage.list-quarantine','storage.list-ready']);
+    const controller=new AbortController();let timer;
+    f.modes.stallHead=true;
+    try{await assert.rejects(storage.assertStorageBackendReady({signal:controller.signal,run:async(stage,work)=>{if(stage==='storage.bucket')timer=setTimeout(()=>controller.abort(),100);return work();}}),/S3_TIMEOUT/);}finally{clearTimeout(timer);f.modes.stallHead=false;}
+    await storage.assertStorageBackendReady();
+  });
   await t.test("immutable writes, integrity read and Path-Style", async () => {
     await storage.putStorageBytes("quarantine", key, bytes);
     await storage.putStorageBytes("quarantine", key, bytes);

@@ -131,4 +131,4 @@ export async function openPrivate(area: "quarantine"|"ready", key: string, root?
  if ((process.env.FILE_STORAGE_DRIVER ?? "local") === "s3") { if(root!==undefined) throw Error("STORAGE_LOCAL_ROOT_UNSUPPORTED"); return (await import("./storage")).openStoredPrivate(area,key,signal); }
  return openLocalPrivate(area,key,root);
 }
-export async function assertStorageReady() { await (await import("./storage")).assertStorageBackendReady(); }
+export async function assertStorageReady(context: import("../runtime/check-context").CheckContext = {}) { await (await import("./storage")).assertStorageBackendReady(context); }

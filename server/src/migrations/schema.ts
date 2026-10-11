@@ -10,6 +10,7 @@ import {aiPolicySchemas,migrateAiPolicy,AI_POLICY_CHECKSUM} from '../training/ai
 import {courseworkFilesSchemas,migrateCourseworkFiles,COURSEWORK_FILES_CHECKSUM} from '../training/coursework-files-schema';
 import { trainingSchemas, migrateTraining, TRAINING_CHECKSUM } from "../training/schema";
 import { objectIdSchemas, objectIdChecksum, assertObjectIdSchema, initializeObjectId } from "./object-id-v10";
+import { checkStep, type CheckContext } from "../runtime/check-context";
 import { rawDatabase } from "../database/object-id";
 import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -1138,22 +1139,126 @@ async function migrateThrough(uri: string, targetVersion: 8 | 9): Promise<void> 
   } finally { try { await writer?.release(); } finally { await client.close(); } }
 }
 
-export async function assertSchema(db: Db): Promise<void> {
- assertRecoveryConfiguration();
- if(recoveryEnabled()&&!await rawDatabase(db).collection('schema_migrations').findOne({version:21,status:'completed',checksum:RECOVERY_CHECKSUM}))throw Error('Recovery v21 migration incomplete');
- if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:18,status:"completed",checksum:IMPORT_CHECKSUM}))throw Error("Knowledge import v18 migration incomplete");
- requireLearningAiDependencies();
- if(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:20,status:"completed",checksum:SURVEY_CHECKSUM}))throw Error("Survey v20 migration required");
- if(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:19,status:"completed",checksum:PROVENANCE_CHECKSUM}))throw Error("Knowledge provenance v19 migration incomplete");
- if(process.env.KL_KNOWLEDGE_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:17,status:"completed",checksum:KNOWLEDGE_CHECKSUM}))throw Error("Knowledge v17 migration incomplete");
- if(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:16,status:"completed",checksum:AI_LEARNING_CHECKSUM}))throw Error("AI learning v16 migration incomplete");
- if(process.env.KL_TRAINING_PHASE2_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:15,status:"completed",checksum:TRAINING_PHASE2_CHECKSUM}))throw Error("Training phase2 v15 migration incomplete");
- if(process.env.KL_TRAINING_REPORTS_ENABLED === "true" && !await rawDatabase(db).collection("schema_migrations").findOne({version:14,status:"completed",checksum:TRAINING_REPORT_CHECKSUM}))throw Error("Training reports v14 migration incomplete"); const enabled = process.env.KL_TRAINING_ENABLED === 'true';
- await assertObjectIdSchema(db, effectiveRuntimeSchemas(), OBJECT_ID_CHECKSUM);
- if (enabled && !await rawDatabase(db).collection('schema_migrations').findOne({version:11,status:'completed',checksum:TRAINING_CHECKSUM})) throw new Error('Training v11 migration incomplete');
- if(process.env.KL_COURSEWORK_FILES_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:12,status:'completed',checksum:COURSEWORK_FILES_CHECKSUM})) throw new Error('Coursework files v12 migration incomplete');
- if(process.env.KL_AI_POLICY_ENABLED === 'true' && !await rawDatabase(db).collection('schema_migrations').findOne({version:13,status:'completed',checksum:AI_POLICY_CHECKSUM})) throw new Error('AI policy v13 migration incomplete');
- }
+export async function assertSchema(
+  db: Db,
+  context: CheckContext = {},
+): Promise<void> {
+  assertRecoveryConfiguration();
+  requireLearningAiDependencies();
+  const requirements: Array<[number, string, string]> = [];
+  const add = (
+    enabled: boolean,
+    version: number,
+    checksum: string,
+    message: string,
+  ) => {
+    if (enabled) requirements.push([version, checksum, message]);
+  };
+  add(
+    recoveryEnabled(),
+    21,
+    RECOVERY_CHECKSUM,
+    "Recovery v21 migration incomplete",
+  );
+  add(
+    process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true",
+    18,
+    IMPORT_CHECKSUM,
+    "Knowledge import v18 migration incomplete",
+  );
+  add(
+    process.env.KL_TRAINING_SURVEYS_ENABLED === "true",
+    20,
+    SURVEY_CHECKSUM,
+    "Survey v20 migration required",
+  );
+  add(
+    process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true",
+    19,
+    PROVENANCE_CHECKSUM,
+    "Knowledge provenance v19 migration incomplete",
+  );
+  add(
+    process.env.KL_KNOWLEDGE_ENABLED === "true",
+    17,
+    KNOWLEDGE_CHECKSUM,
+    "Knowledge v17 migration incomplete",
+  );
+  add(
+    process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true",
+    16,
+    AI_LEARNING_CHECKSUM,
+    "AI learning v16 migration incomplete",
+  );
+  add(
+    process.env.KL_TRAINING_PHASE2_ENABLED === "true",
+    15,
+    TRAINING_PHASE2_CHECKSUM,
+    "Training phase2 v15 migration incomplete",
+  );
+  add(
+    process.env.KL_TRAINING_REPORTS_ENABLED === "true",
+    14,
+    TRAINING_REPORT_CHECKSUM,
+    "Training reports v14 migration incomplete",
+  );
+  add(
+    process.env.KL_TRAINING_ENABLED === "true",
+    11,
+    TRAINING_CHECKSUM,
+    "Training v11 migration incomplete",
+  );
+  add(
+    process.env.KL_COURSEWORK_FILES_ENABLED === "true",
+    12,
+    COURSEWORK_FILES_CHECKSUM,
+    "Coursework files v12 migration incomplete",
+  );
+  add(
+    process.env.KL_AI_POLICY_ENABLED === "true",
+    13,
+    AI_POLICY_CHECKSUM,
+    "AI policy v13 migration incomplete",
+  );
+  const rows = await checkStep(context, "schema.migrations", () =>
+    rawDatabase(db)
+      .collection("schema_migrations")
+      .find(
+        { version: { $in: [10, ...requirements.map((r) => r[0])] } },
+        {
+          projection: {
+            _id: 0,
+            version: 1,
+            status: 1,
+            checksum: 1,
+            completed_at: 1,
+          },
+          maxTimeMS: 10000,
+          signal: context.signal,
+        },
+      )
+      .limit(101)
+      .toArray(),
+  );
+  if (
+    rows.length > 100 ||
+    new Set(rows.map((r) => r.version)).size !== rows.length
+  )
+    throw Error("SCHEMA_MIGRATION_RECORDS_INVALID");
+  const records = new Map(rows.map((r) => [r.version, r]));
+  for (const [version, checksum, message] of requirements) {
+    const row = records.get(version);
+    if (!row || row.status !== "completed" || row.checksum !== checksum)
+      throw Error(message);
+  }
+  await assertObjectIdSchema(
+    db,
+    effectiveRuntimeSchemas(),
+    OBJECT_ID_CHECKSUM,
+    context,
+    records.get(10) ?? null,
+  );
+}
 export async function inspectMigration(uri: string) {
  const client = new MongoClient(uri, { serverSelectionTimeoutMS: 15000 });
  try { await client.connect(); const db = client.db(); await assertTopology(db, loadConfig());

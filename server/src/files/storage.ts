@@ -1,3 +1,4 @@
+import { checkStep, type CheckContext } from "../runtime/check-context";
 import { Agent } from "node:https";
 import { readFileSync, lstatSync } from "node:fs";
 import type { S3Client } from "@aws-sdk/client-s3";
@@ -145,7 +146,9 @@ export function applyS3ClientCompatibility(client: S3Client, endpoint: string) {
 async function withS3<T>(
   work: (client: S3Client, signal: AbortSignal) => Promise<T>,
   signal?: AbortSignal,
+  boundWholeCall = true,
 ): Promise<T> {
+  signal?.throwIfAborted();
   const config = s3Configuration();
   let agent: Agent | undefined;
   if (process.env.S3_CA_BUNDLE) {
@@ -157,7 +160,7 @@ async function withS3<T>(
       lstatSync(ca).size > 262144
     )
       throw Error("INVALID_CONFIG_S3_CA_BUNDLE");
-    agent = new Agent({ ca: readFileSync(ca) });
+    agent = new Agent({ ca: readFileSync(ca), keepAlive: true, maxSockets: 4 });
   }
   const client = new (sdk().S3Client)({
     endpoint: config.endpoint,
@@ -174,9 +177,9 @@ async function withS3<T>(
     responseChecksumValidation: "WHEN_REQUIRED",
   });
   applyS3ClientCompatibility(client, config.endpoint);
-  const bounded = signal
-    ? AbortSignal.any([signal, AbortSignal.timeout(30000)])
-    : AbortSignal.timeout(30000);
+  const bounded = boundWholeCall
+    ? signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000)
+    : signal ?? new AbortController().signal;
   try {
     return await work(client, bounded);
   } catch (error) {
@@ -376,30 +379,25 @@ export async function publishStorageFile(
     throw Error("STORAGE_INTEGRITY_MISMATCH");
   await putStorageBytes(to, key, bytes);
 }
-export async function assertUnversionedStorage() {
-  if (storageDriver() === "local") return;
-  await withS3(async (c, signal) => {
-    const bucket = s3Configuration().bucket;
-    const v = await c.send(
-      new (sdk().GetBucketVersioningCommand)({ Bucket: bucket }),
-      { abortSignal: signal },
-    );
-    if (v.Status) throw Error("S3_VERSIONED_BUCKET_UNSUPPORTED");
+async function s3Send<T>(signal: AbortSignal, work: (bounded: AbortSignal) => Promise<T>): Promise<T> {
+  signal.throwIfAborted();
+  return work(AbortSignal.any([signal,AbortSignal.timeout(30000)]));
+}
+async function checkUnversioned(c: S3Client, bucket: string, signal: AbortSignal, context: CheckContext = {}) {
+  const v=await checkStep(context,'storage.versioning',()=>s3Send(signal,s=>c.send(new (sdk().GetBucketVersioningCommand)({Bucket:bucket}),{abortSignal:s})));
+  if(v.Status)throw Error('S3_VERSIONED_BUCKET_UNSUPPORTED');
+  await checkStep(context,'storage.lock',async()=>{
     try {
-      const lock = await c.send(
-        new (sdk().GetObjectLockConfigurationCommand)({ Bucket: bucket }),
-        { abortSignal: signal },
-      );
-      if (lock.ObjectLockConfiguration?.ObjectLockEnabled === "Enabled")
-        throw Error("S3_OBJECT_LOCK_UNSUPPORTED");
-    } catch (e) {
-      if (
-        (e as any).name !== "ObjectLockConfigurationNotFoundError" &&
-        (e as any).name !== "NoSuchObjectLockConfiguration"
-      )
-        throw e;
+      const lock=await s3Send(signal,s=>c.send(new (sdk().GetObjectLockConfigurationCommand)({Bucket:bucket}),{abortSignal:s}));
+      if(lock.ObjectLockConfiguration?.ObjectLockEnabled==='Enabled')throw Error('S3_OBJECT_LOCK_UNSUPPORTED');
+    } catch(e) {
+      if((e as {name?:string}).name!=='ObjectLockConfigurationNotFoundError' && (e as {name?:string}).name!=='NoSuchObjectLockConfiguration')throw e;
     }
   });
+}
+export async function assertUnversionedStorage() {
+  if(storageDriver()==='local')return;
+  await withS3((c,signal)=>checkUnversioned(c,s3Configuration().bucket,signal));
 }
 export async function deleteStorageObject(area: StorageArea, key: string) {
   validate(area, key);
@@ -442,22 +440,23 @@ export async function listStorage(area: StorageArea): Promise<StorageEntry[]> {
     }
     return rows.sort((a, b) => a.key.localeCompare(b.key));
   }
-  return withS3(async (c, signal) => {
-    const conf = s3Configuration(),
-      prefix = `${conf.prefix}/${area}/`,
+  return withS3((c,signal)=>listS3Storage(c,s3Configuration(),area,signal));
+}
+async function listS3Storage(c: S3Client, conf: ReturnType<typeof s3Configuration>, area: StorageArea, signal: AbortSignal, context: CheckContext = {}): Promise<StorageEntry[]> {
+    const prefix = `${conf.prefix}/${area}/`,
       rows: StorageEntry[] = [];
     let token: string | undefined;
     const seen = new Set<string>();
     do {
-      const r = await c.send(
+      const r = await checkStep(context,'storage.list-'+area,()=>s3Send(signal,s=>c.send(
         new (sdk().ListObjectsV2Command)({
           Bucket: conf.bucket,
           Prefix: prefix,
           ContinuationToken: token,
           MaxKeys: 1000,
         }),
-        { abortSignal: signal },
-      );
+        {abortSignal:s},
+      )));
       for (const o of r.Contents ?? []) {
         // Some S3-compatible providers materialize the area directory itself.
         if (o.Key === prefix && o.Size === 0) continue;
@@ -484,7 +483,6 @@ export async function listStorage(area: StorageArea): Promise<StorageEntry[]> {
       } else token = undefined;
     } while (token);
     return rows.sort((a, b) => a.key.localeCompare(b.key));
-  });
 }
 let activeMaterializations = 0;
 export function reserveSpool() {
@@ -588,17 +586,15 @@ export async function openStoredPrivate(
   };
   return file.handle;
 }
-export async function assertStorageBackendReady() {
-  await assertLocalStorageReady();
-  if (storageDriver() === "local") return;
-  await withS3(async (c, signal) => {
-    await c.send(
-      new (sdk().HeadBucketCommand)({ Bucket: s3Configuration().bucket }),
-      { abortSignal: signal },
-    );
-  });
-  await assertUnversionedStorage();
-  for (const area of STORAGE_AREAS) await listStorage(area);
+export async function assertStorageBackendReady(context: CheckContext = {}) {
+  await checkStep(context,'storage.local',()=>assertLocalStorageReady());
+  if(storageDriver()==='local')return;
+  const config=s3Configuration();
+  await withS3(async(c,signal)=>{
+    await checkStep(context,'storage.bucket',()=>s3Send(signal,s=>c.send(new (sdk().HeadBucketCommand)({Bucket:config.bucket}),{abortSignal:s})));
+    await checkUnversioned(c,config.bucket,signal,context);
+    for(const area of STORAGE_AREAS)await listS3Storage(c,config,area,signal,context);
+  },context.signal,false);
 }
 export async function storageHealthDetails() {
   const root = await assertLocalStorageReady(),

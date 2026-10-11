@@ -1,3 +1,4 @@
+import { checkStep, type CheckContext } from "../runtime/check-context";
 import { createHash, randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 import { MongoClient, ObjectId, type Db, type Document, type IndexDescription } from "mongodb";
@@ -74,34 +75,112 @@ export function objectIdSchemas(legacy: Record<string, Schema>): Record<string, 
 export function objectIdChecksum(schemas: Record<string, Schema>): string {
   return createHash("sha256").update(JSON.stringify({version:10,schemas,roles:ROLE_IDS})).digest("hex");
 }
-export async function assertObjectIdSchema(db: Db, schemas: Record<string, Schema>, checksum: string): Promise<void> {
+export async function assertObjectIdSchema(
+  db: Db,
+  schemas: Record<string, Schema>,
+  checksum: string,
+  context: CheckContext = {},
+  suppliedMarker?: Document | null,
+): Promise<void> {
   db = rawDatabase(db);
-  const marker = await db.collection("schema_migrations").findOne({version:10,status:"completed",checksum,completed_at:{$type:"date"}});
-  if (!marker) throw new Error("Required ObjectId v10 initialization incomplete");
+  const marker =
+    suppliedMarker !== undefined
+      ? suppliedMarker
+      : await checkStep(context, "schema.migrations", () =>
+          db
+            .collection("schema_migrations")
+            .findOne(
+              {
+                version: 10,
+                status: "completed",
+                checksum,
+                completed_at: { $type: "date" },
+              },
+              { signal: context.signal },
+            ),
+        );
+  if (
+    !marker ||
+    marker.version !== 10 ||
+    marker.status !== "completed" ||
+    marker.checksum !== checksum ||
+    !(marker.completed_at instanceof Date) ||
+    !Number.isFinite(marker.completed_at.getTime())
+  )
+    throw new Error("Required ObjectId v10 initialization incomplete");
   // One metadata inventory and bounded index reads keep remote startup checks
   // within readiness budgets without relaxing any schema or registry checks.
-  const collections = await db.listCollections({}, {nameOnly:false}).toArray();
-  if (collections.some(info=>!schemas[info.name])) throw new Error("UNKNOWN_COLLECTION");
-  if (collections.length !== Object.keys(schemas).length) throw new Error("ObjectId collection registry mismatch");
-  const metadata = new Map(collections.map(info=>[info.name,info]));
-  const entries = Object.entries(schemas); let next = 0;
-  await Promise.all(Array.from({length:Math.min(8,entries.length)},async()=>{
-    while(next<entries.length) {
-      const [name,schema] = entries[next++]!;
-      const info = metadata.get(name);
-      if (!info || !isDeepStrictEqual(info.options?.validator,schema.validator) || info.options?.validationAction!=="error" || info.options?.validationLevel!=="strict") throw new Error("ObjectId validator mismatch:"+name);
-      const indexes = await db.collection(name).listIndexes().toArray();
-      for (const expected of schema.indexes) {
-        const actual=indexes.find(i=>i.name===expected.name);
-        if (!actual || !isDeepStrictEqual(actual.key,expected.key) || !!actual.unique!==!!expected.unique ||
-            actual.expireAfterSeconds!==expected.expireAfterSeconds || !isDeepStrictEqual(actual.partialFilterExpression,expected.partialFilterExpression) ||
-            actual.sparse || actual.hidden || actual.collation) throw new Error("ObjectId index mismatch:"+name);
-      }
+  const collections = await checkStep(context, "schema.metadata", () =>
+    db
+      .listCollections({}, { nameOnly: false, signal: context.signal })
+      .toArray(),
+  );
+  if (collections.some((info) => !schemas[info.name]))
+    throw new Error("UNKNOWN_COLLECTION");
+  if (collections.length !== Object.keys(schemas).length)
+    throw new Error("ObjectId collection registry mismatch");
+  const metadata = new Map(collections.map((info) => [info.name, info]));
+  const entries = Object.entries(schemas);
+  let next = 0;
+  await checkStep(context, "schema.indexes", async () => {
+    const results = await Promise.allSettled(
+      Array.from({ length: Math.min(8, entries.length) }, async () => {
+        while (next < entries.length) {
+          context.signal?.throwIfAborted();
+          const [name, schema] = entries[next++]!;
+          const info = metadata.get(name);
+          if (
+            !info ||
+            !isDeepStrictEqual(info.options?.validator, schema.validator) ||
+            info.options?.validationAction !== "error" ||
+            info.options?.validationLevel !== "strict"
+          )
+            throw new Error("ObjectId validator mismatch:" + name);
+          const indexes = await db
+            .collection(name)
+            .listIndexes({
+              signal: context.signal,
+            } as import("mongodb").ListIndexesOptions & {
+              signal?: AbortSignal;
+            })
+            .toArray();
+          for (const expected of schema.indexes) {
+            const actual = indexes.find((i) => i.name === expected.name);
+            if (
+              !actual ||
+              !isDeepStrictEqual(actual.key, expected.key) ||
+              !!actual.unique !== !!expected.unique ||
+              actual.expireAfterSeconds !== expected.expireAfterSeconds ||
+              !isDeepStrictEqual(
+                actual.partialFilterExpression,
+                expected.partialFilterExpression,
+              ) ||
+              actual.sparse ||
+              actual.hidden ||
+              actual.collation
+            )
+              throw new Error("ObjectId index mismatch:" + name);
+          }
+        }
+      }),
+    );
+    for (const result of results)
+      if (result.status === "rejected") throw result.reason;
+  });
+  await checkStep(context, "schema.states", async () => {
+    for (const [name, key] of [
+      ["operational_state", "environment"],
+      ["administration_guard", "administration"],
+      ["learning_tracking_config", "tracking"],
+    ]) {
+      if (
+        !(await db
+          .collection(name!)
+          .findOne({ key }, { signal: context.signal }))
+      )
+        throw new Error("ObjectId state missing:" + name);
     }
-  }));
-  for (const [name,key] of [["operational_state","environment"],["administration_guard","administration"],["learning_tracking_config","tracking"]]) {
-    if (!await db.collection(name!).findOne({key})) throw new Error("ObjectId state missing:"+name);
-  }
+  });
 }
 export async function initializeObjectId(uri: string, schemas: Record<string, Schema>, checksum: string, roles: Record<string,string[]>): Promise<void> {
   const client=new MongoClient(uri,{serverSelectionTimeoutMS:15000});

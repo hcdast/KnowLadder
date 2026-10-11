@@ -106,6 +106,10 @@ export function safeErrorCode(error: unknown): string {
       "LOCAL_PM2_NONPRODUCTION_REQUIRED",
       "FEATURE_RESOLUTION_FAILED",
       "WORKER_REGISTRATION_REQUIRED",
+      "PREFLIGHT_TIMEOUT",
+      "PREFLIGHT_CANCELLED",
+      "PREFLIGHT_CLEANUP_TIMEOUT",
+      "SCHEMA_MIGRATION_RECORDS_INVALID",
     ].includes(String(e?.message))
   )
     return String(e.message);

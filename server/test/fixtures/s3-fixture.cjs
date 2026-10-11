@@ -100,6 +100,7 @@ async function createS3Fixture() {
     corrupt: false,
     versionOnDelete: false,
     stallGet: false,
+    stallHead: false,
   };
   const server = https.createServer(
     {
@@ -112,6 +113,7 @@ async function createS3Fixture() {
       const body = Buffer.concat(chunks),
         url = new URL(req.url, "https://localhost");
       requests.push({
+        remotePort: req.socket.remotePort,
         method: req.method,
         path: url.pathname,
         query: url.search,
@@ -145,7 +147,7 @@ async function createS3Fixture() {
             "<ObjectLockConfiguration><ObjectLockEnabled>Enabled</ObjectLockEnabled></ObjectLockConfiguration>",
           );
         }
-        if (req.method === "HEAD") return res.end();
+        if (req.method === "HEAD") { if(modes.stallHead)return; return res.end(); }
         if (url.searchParams.get("list-type") === "2") {
           const prefix = url.searchParams.get("prefix") ?? "",
             page = Number(url.searchParams.get("continuation-token") || 0);
