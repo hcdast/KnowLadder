@@ -85,6 +85,10 @@ test("deployment fingerprint changes with bytes or effective env, never reveals 
       "ops/deployment-identity.cjs",
       "ops/startup-timing.cjs",
       "ops/preflight-budget.cjs",
+      "ops/startup-options.cjs",
+      "ops/startup-supervisor.cjs",
+      "ops/process-tree.cjs",
+      "ops/startup-stop-proof.cjs",
     ])
       fs.writeFileSync(
         path.join(root, p),
@@ -102,6 +106,26 @@ test("deployment fingerprint changes with bytes or effective env, never reveals 
       }),
     );
     assert.notEqual(a, deploymentIdentity(root, { PORT: "3001" }));
+    assert.notEqual(
+      a,
+      deploymentIdentity(root, { KL_PM2_START_MODE: "parallel" }),
+    );
+    assert.equal(a, deploymentIdentity(root, { KL_PM2_START_MODE: "serial" }));
+    assert.notEqual(
+      a,
+      deploymentIdentity(root, { KL_PM2_STARTUP_TIMEOUT_MS: "90000" }),
+    );
+    assert.notEqual(
+      a,
+      deploymentIdentity(root, { KL_PM2_TIMEOUT_STOP_GRACE_MS: "10000" }),
+    );
+    assert.equal(
+      a,
+      deploymentIdentity(root, {
+        KL_PM2_STARTUP_TIMEOUT_MS: "180000",
+        KL_PM2_TIMEOUT_STOP_GRACE_MS: "30000",
+      }),
+    );
     fs.writeFileSync(path.join(root, "server/dist/main.js"), "new bytes");
     assert.notEqual(a, deploymentIdentity(root, {}));
   } finally {

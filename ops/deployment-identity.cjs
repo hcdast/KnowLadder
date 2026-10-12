@@ -3,6 +3,15 @@ const fs = require("node:fs"),
   path = require("node:path"),
   crypto = require("node:crypto");
 const { parseEnv } = require("node:util");
+function startupMode(root, env = process.env) {
+  const parsed = parseEnv(
+    fs.readFileSync(path.join(root, "server/.env"), "utf8"),
+  );
+  const mode = env.KL_PM2_START_MODE ?? parsed.KL_PM2_START_MODE ?? "serial";
+  if (!["serial", "parallel"].includes(mode))
+    throw Error("INVALID_CONFIG_KL_PM2_START_MODE");
+  return mode;
+}
 function deploymentIdentity(
   root,
   env = process.env,
@@ -17,6 +26,12 @@ function deploymentIdentity(
   };
   const envBytes = fs.readFileSync(path.join(root, "server/.env"));
   add("env-file", envBytes);
+  // Scheduling is effective configuration, unlike generated PM2 identities.
+  add("start-mode", startupMode(root, env));
+  add(
+    "startup-options",
+    JSON.stringify(require("./startup-options.cjs").startupOptions(root, env)),
+  );
   const parsed = parseEnv(envBytes.toString());
   const names = new Set(Object.keys(parsed));
   for (const key of Object.keys(env))
@@ -53,8 +68,12 @@ function deploymentIdentity(
     "ops/deployment-identity.cjs",
     "ops/startup-timing.cjs",
     "ops/preflight-budget.cjs",
+    "ops/startup-options.cjs",
+    "ops/startup-supervisor.cjs",
+    "ops/process-tree.cjs",
+    "ops/startup-stop-proof.cjs",
   ])
     add(file, fs.readFileSync(path.join(root, file)));
   return hash.digest("hex");
 }
-module.exports = { deploymentIdentity };
+module.exports = { deploymentIdentity, startupMode };

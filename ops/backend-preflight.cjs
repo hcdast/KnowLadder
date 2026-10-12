@@ -70,7 +70,7 @@ function validateProof(proof, identity, now = Date.now()) {
 async function verifyWriters(
   db,
   apps,
-  { managed = false, reuse = false, signal } = {},
+  { managed = false, reuse = false, serial = false, signal } = {},
 ) {
   if (
     !Array.isArray(apps) ||
@@ -99,7 +99,12 @@ async function verifyWriters(
   if (rows.length > 128) throw Error("WORKER_REGISTRATION_REQUIRED");
   for (const app of apps) {
     if (managed && app.name === "kl-api") {
+      // The supervisor PID owns no writer; its managed child keeps the API
+      // registration. Preserve its existing admission/exit-proof contract.
       if (reuse) throw Error("MANAGED_REUSE_UNSUPPORTED");
+      if (apps.length !== 1) throw Error("WORKER_REGISTRATION_REQUIRED");
+      if (serial && rows.some((r) => r.pid === app.pid))
+        throw Error("MANAGED_UNKNOWN_WRITER");
       continue;
     }
     const tokens = app.protocol === "2" ? app.writerTokens : [app.token];
@@ -117,7 +122,7 @@ async function verifyWriters(
     )
       throw Error("WORKER_REGISTRATION_REQUIRED");
     if (
-      reuse &&
+      (reuse || serial) &&
       (app.protocol !== "2" ||
         JSON.stringify(own.map((r) => r.kind).sort()) !==
           JSON.stringify([...kinds[app.name]].sort()))
@@ -125,7 +130,7 @@ async function verifyWriters(
       throw Error("WORKER_REGISTRATION_REQUIRED");
   }
   if (
-    reuse &&
+    (reuse || (serial && !managed)) &&
     (await db
       .collection("operational_writers")
       .findOne(
@@ -142,6 +147,7 @@ async function preflight({
   fast = false,
   proof,
   reuse = false,
+  serial = false,
   emit,
   signal: externalSignal,
   budgetMs,
@@ -262,6 +268,7 @@ async function preflight({
           verifyWriters(db, verify, {
             managed: managedApiEnabled(),
             reuse,
+            serial,
             signal: control.signal,
           }),
         );

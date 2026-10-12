@@ -91,6 +91,7 @@ test(
       PORT: String(port),
       MONGODB_URI: f.uri,
       FILE_STORAGE_DRIVER: "local",
+      KL_PM2_START_MODE: "serial",
     };
     const helper = path.join(root, "ops/pm2-backend.cjs");
     async function rows() {
@@ -151,6 +152,48 @@ test(
           (started.output.match(/[A-Z][A-Z0-9_]{3,}/g) || []).join(","),
       );
       assert.match(started.output, /已就绪/);
+      const launchStages = started.output
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('{"event":"startup.stage"'))
+        .map((line) => JSON.parse(line))
+        .filter(
+          (e) =>
+            e.scope === "launch" && ["started", "completed"].includes(e.state),
+        );
+      assert.deepEqual(
+        launchStages.map((e) => [e.stage, e.state]),
+        ["kl-api", "kl-assessment-worker", "kl-learning-worker"].flatMap(
+          (name) => [
+            ["process-start." + name, "started"],
+            ["process-start." + name, "completed"],
+          ],
+        ),
+        "each real entry is verified before the next starts",
+      );
+      for (const name of [
+        "kl-api",
+        "kl-assessment-worker",
+        "kl-learning-worker",
+      ]) {
+        const events = started.output
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('{"event":"startup.'))
+          .map((line) => JSON.parse(line));
+        const readyIndex = events.findIndex(
+          (e) => e.event === "startup.worker-ready" && e.name === name,
+        );
+        const completedIndex = events.findIndex(
+          (e) =>
+            e.scope === "launch" &&
+            e.stage === "process-start." + name &&
+            e.state === "completed",
+        );
+        assert.ok(
+          readyIndex >= 0 && completedIndex > readyIndex,
+          "real ready log must exist and precede entry completion",
+        );
+      }
+
       assert.ok(
         Date.now() - startupAt < 45000,
         "ready IPC must precede PM2 listen timeout",
@@ -334,12 +377,10 @@ test(
         "each restart gets fresh writer identities",
       );
       assert.equal(
-        await f.db
-          .collection("operational_writers")
-          .countDocuments({
-            _id: { $in: priorWriters.map((r) => r._id) },
-            state: "stopped",
-          }),
+        await f.db.collection("operational_writers").countDocuments({
+          _id: { $in: priorWriters.map((r) => r._id) },
+          state: "stopped",
+        }),
         3,
       );
 
@@ -377,13 +418,11 @@ test(
         crashed.pm2_env.KL_WRITER_LAUNCH_TOKEN,
       );
       assert.ok(
-        await f.db
-          .collection("operational_writers")
-          .findOne({
-            _id: oldOwner._id,
-            token: oldOwner.token,
-            state: "running",
-          }),
+        await f.db.collection("operational_writers").findOne({
+          _id: oldOwner._id,
+          token: oldOwner.token,
+          state: "running",
+        }),
         "crashed owner is preserved, never silently marked stopped",
       );
       historicalRunning = 1;
@@ -412,15 +451,166 @@ test(
         historicalRunning,
         "real API and both workers release registrations before exit",
       );
-      const restarted = await command(helper, ["start"], env);
-      assert.equal(restarted.code, 0, "fresh start after clean shutdown");
-      const finalStop = await command(helper, ["stop"], env);
-      assert.equal(finalStop.code, 0);
+      const unknownOwner = await command(helper, ["start"], env);
+      assert.notEqual(
+        unknownOwner.code,
+        0,
+        "serial rejects the preserved raw-crash owner",
+      );
+      assert.match(unknownOwner.output, /MANAGED_UNKNOWN_WRITER/);
+      assert.equal(
+        (await rows()).filter((p) => p.pid).length,
+        0,
+        "failed serial prefix is cleaned",
+      );
+      assert.ok(
+        !unknownOwner.output.includes(
+          '"scope":"launch","stage":"process-start.kl-assessment-worker","state":"started"',
+        ),
+        "unknown writer stops before next entry",
+      );
       assert.equal(
         await f.db
           .collection("operational_writers")
           .countDocuments({ state: "running" }),
         historicalRunning,
+        "old owner is neither deleted nor silently released",
+      );
+      // Keep the abandoned owner evidence in its original DB. Other scenarios use a new guarded fixture.
+      const clean = await fixture(t, {
+        app: false,
+        topology: "standalone",
+        env: {
+          ...flags,
+          ALLOW_INSECURE_HTTP: "true",
+          KL_MONGO_ALLOW_STANDALONE: "true",
+          KL_MONGO_TOPOLOGY: "standalone",
+        },
+      });
+      env.MONGODB_URI = clean.uri;
+      const restarted = await command(helper, ["start"], env);
+      assert.equal(restarted.code, 0, "fresh start after clean shutdown");
+      const finalStop = await command(helper, ["stop"], env);
+      assert.equal(finalStop.code, 0);
+      assert.equal(
+        await clean.db
+          .collection("operational_writers")
+          .countDocuments({ state: "running" }),
+        0,
+      );
+      assert.equal(
+        await f.db
+          .collection("operational_writers")
+          .countDocuments({ state: "running" }),
+        historicalRunning,
+      );
+      const parallelEnv = { ...env, KL_PM2_START_MODE: "parallel" };
+      const parallel = await command(helper, ["start"], parallelEnv);
+      assert.equal(
+        parallel.code,
+        0,
+        "explicit parallel retains all-entry path",
+      );
+      assert.ok(!parallel.output.includes('"scope":"launch"'));
+      assert.equal(
+        (await command(helper, ["start"], parallelEnv)).code,
+        0,
+        "parallel deployment can be reused",
+      );
+      const modeChanged = await command(helper, ["start"], env);
+      assert.notEqual(modeChanged.code, 0);
+      assert.match(modeChanged.output, /DEPLOYMENT_CHANGED_RESTART_REQUIRED/);
+      assert.equal((await command(helper, ["stop"], parallelEnv)).code, 0);
+      const invalidMode = await command(helper, ["start"], {
+        ...env,
+        KL_PM2_START_MODE: "invalid",
+      });
+      assert.notEqual(invalidMode.code, 0);
+      assert.match(invalidMode.output, /INVALID_CONFIG_KL_PM2_START_MODE/);
+      await t.test(
+        "serial managed standalone API: real supervisor ready, child writer and strict stop",
+        async (managedT) => {
+          const g = await fixture(managedT, {
+            app: false,
+            topology: "standalone",
+            env: {
+              ...flags,
+              ALLOW_INSECURE_HTTP: "true",
+              KL_MONGO_ALLOW_STANDALONE: "true",
+              KL_MONGO_TOPOLOGY: "standalone",
+              KL_TRAINING_ENABLED: "true",
+              KL_STANDALONE_RECOVERY_ENABLED: "true",
+              KL_STANDALONE_MANAGED_API_ENABLED: "true",
+              KL_MANAGED_WRITER_OWNER:
+                "managed-44444444-4444-4444-a444-444444444444",
+            },
+          });
+          const managedEnv = {
+            ...env,
+            ...flags,
+            MONGODB_URI: g.uri,
+            ALLOW_INSECURE_HTTP: "true",
+            KL_MONGO_ALLOW_STANDALONE: "true",
+            KL_TRAINING_ENABLED: "true",
+            KL_STANDALONE_RECOVERY_ENABLED: "true",
+            KL_STANDALONE_MANAGED_API_ENABLED: "true",
+            KL_MANAGED_WRITER_OWNER: process.env.KL_MANAGED_WRITER_OWNER,
+          };
+          try {
+            const managedStart = await command(helper, ["start"], managedEnv);
+            assert.equal(
+              managedStart.code,
+              0,
+              (managedStart.output.match(/[A-Z][A-Z0-9_]{3,}/g) || []).join(
+                ",",
+              ),
+            );
+            const managedRows = JSON.parse(
+              (await command(entry, ["jlist"], managedEnv)).output,
+            );
+            assert.deepEqual(
+              managedRows.map((p) => p.name),
+              ["kl-api"],
+            );
+            assert.match(
+              managedStart.output,
+              /"scope":"launch","stage":"process-start.kl-api","state":"completed"/,
+            );
+            assert.equal(
+              await g.db
+                .collection("operational_writers")
+                .countDocuments({ state: "running" }),
+              1,
+              "managed child retains its API registration; supervisor has no tokens",
+            );
+            assert.equal(
+              await g.db
+                .collection("operational_writers")
+                .countDocuments({ state: "running", pid: managedRows[0].pid }),
+              0,
+            );
+            const response = await fetch(
+              "http://127.0.0.1:" + port + "/api/v1/health/ready",
+            );
+            assert.equal(response.status, 200);
+            await response.body.cancel();
+            assert.equal((await command(helper, ["stop"], managedEnv)).code, 0);
+            assert.equal(
+              await g.db
+                .collection("operational_writers")
+                .countDocuments({ state: "running" }),
+              0,
+              "controlled exit releases the managed child writer",
+            );
+            assert.equal(
+              JSON.parse((await command(entry, ["jlist"], managedEnv)).output)
+                .length,
+              0,
+            );
+          } finally {
+            await command(helper, ["stop"], managedEnv);
+          }
+        },
       );
       const poison = path.join(home, "startup-failure.cjs");
       fs.writeFileSync(poison, "if(process.env.pm_exec_path)process.exit(1);");
@@ -444,6 +634,13 @@ test(
           .collection("operational_writers")
           .countDocuments({ state: "running" }),
         historicalRunning,
+      );
+      assert.equal(
+        await clean.db
+          .collection("operational_writers")
+          .countDocuments({ state: "running" }),
+        0,
+        "failed new launch releases the fresh fixture writers",
       );
       const occupied = createServer();
       await new Promise((resolve) =>

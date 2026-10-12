@@ -53,7 +53,7 @@ async function protect(dir) {
 }
 test(
   "隔离Windows六服务：真实扫描依赖、导入双writer、原定义重启及优雅退出",
-  { timeout: 240000 },
+  { timeout: 380000 },
   async (t) => {
     assert.equal(process.platform, "win32");
     assert.ok(
@@ -83,7 +83,9 @@ test(
         FILE_STORAGE_ROOT: storage,
         CLAMSCAN_PATH: process.env.TEST_CLAMSCAN_PATH,
         CLAMAV_DATABASE: process.env.TEST_CLAMAV_DATABASE,
-        SCAN_DATABASE_MAX_AGE_HOURS: "48",
+        // Test-only limit: installed official Oct9 signatures now exceed the old 48h fixture.
+        // Keep production config untouched and retain the expired-48h failure evidence.
+        SCAN_DATABASE_MAX_AGE_HOURS: "72",
         SCAN_TIMEOUT_MS: "60000",
       },
     });
@@ -116,6 +118,7 @@ test(
       KL_PM2_BIN: entry,
       PORT: String(port),
       MONGODB_URI: f.uri,
+      KL_PM2_START_MODE: "serial",
     };
     const helper = path.join(root, "ops/pm2-backend.cjs");
     const rows = async () =>
@@ -149,6 +152,56 @@ test(
         (start.output.match(/[A-Z][A-Z0-9_]{3,}/g) || []).join(","),
       );
       assert.match(start.output, /已就绪/);
+      const launchStages = start.output
+        .split(/\r?\n/)
+        .filter((line) => line.startsWith('{"event":"startup.stage"'))
+        .map((line) => JSON.parse(line))
+        .filter(
+          (e) =>
+            e.scope === "launch" && ["started", "completed"].includes(e.state),
+        );
+      assert.deepEqual(
+        launchStages.map((e) => [e.stage, e.state]),
+        [
+          "kl-api",
+          "kl-files-worker",
+          "kl-assessment-worker",
+          "kl-learning-worker",
+          "kl-knowledge-worker",
+          "kl-import-worker",
+        ].flatMap((name) => [
+          ["process-start." + name, "started"],
+          ["process-start." + name, "completed"],
+        ]),
+        "each real entry is verified before the next starts",
+      );
+      for (const name of [
+        "kl-api",
+        "kl-files-worker",
+        "kl-assessment-worker",
+        "kl-learning-worker",
+        "kl-knowledge-worker",
+        "kl-import-worker",
+      ]) {
+        const events = start.output
+          .split(/\r?\n/)
+          .filter((line) => line.startsWith('{"event":"startup.'))
+          .map((line) => JSON.parse(line));
+        const readyIndex = events.findIndex(
+          (e) => e.event === "startup.worker-ready" && e.name === name,
+        );
+        const completedIndex = events.findIndex(
+          (e) =>
+            e.scope === "launch" &&
+            e.stage === "process-start." + name &&
+            e.state === "completed",
+        );
+        assert.ok(
+          readyIndex >= 0 && completedIndex > readyIndex,
+          "real ready log must exist and precede entry completion",
+        );
+      }
+
       const initial = await rows();
       assert.equal(initial.length, 6);
       assert.ok(
@@ -251,6 +304,52 @@ test(
           .countDocuments({ state: "running" }),
         0,
       );
+      const hang = path.join(home, "deadline-hang.cjs"),
+        timingPath = path.join(root, "ops/startup-timing.cjs");
+      fs.writeFileSync(
+        hang,
+        "if(process.argv.includes('--startup-coordinator')){const p=" +
+          JSON.stringify(timingPath) +
+          ";const old=require(p);require.cache[require.resolve(p)].exports={...old,timing:(scope,emit)=>{const c=old.timing(scope,emit),run=c.run;c.run=(stage,task)=>run(stage,()=>{if(scope==='backend'&&stage==='launch-ready')Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0);return task();});return c;}};}",
+      );
+      const deadlineEnv = {
+        ...env,
+        NODE_OPTIONS: env.NODE_OPTIONS + " --require=" + hang,
+        KL_PM2_STARTUP_TIMEOUT_MS: "90000",
+        KL_PM2_TIMEOUT_STOP_GRACE_MS: "5000",
+      };
+      const timed = await command(helper, ["start"], deadlineEnv);
+      fs.writeFileSync(
+        path.join(root, "ops/artifacts/pm2-206-six-deadline-stages.log"),
+        timed.output,
+      );
+      assert.notEqual(timed.code, 0);
+      assert.match(timed.output, /STARTUP_TOTAL_TIMEOUT/);
+      assert.doesNotMatch(timed.output, /已就绪/);
+      const events = timed.output
+        .split(/\r?\n/)
+        .filter((l) => l.startsWith('{"event":'))
+        .map((l) => JSON.parse(l));
+      assert.equal(
+        events.filter(
+          (e) =>
+            e.event === "startup.stage" &&
+            e.scope === "launch" &&
+            e.state === "completed",
+        ).length,
+        6,
+        "all six must be really ready before the final-stage deadline",
+      );
+      const final = events.findLast((e) => e.event === "startup.deadline");
+      assert.equal(final.processes_stopped, true);
+      assert.equal(final.writers_released, true);
+      assert.equal(
+        await f.db
+          .collection("operational_writers")
+          .countDocuments({ state: "running" }),
+        0,
+      );
+      assert.equal((await rows()).length, 0);
     } finally {
       await command(helper, ["stop"], env);
       await command(entry, ["kill"], env);
