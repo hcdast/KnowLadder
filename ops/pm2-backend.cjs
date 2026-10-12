@@ -34,37 +34,83 @@ function remainingBudget(maximum) {
 function failure(code) {
   return Object.assign(Error(code), { safeCode: code });
 }
-function resolvePm2Entry() {
-  if (process.env.KL_PM2_BIN) {
-    const p = path.resolve(process.env.KL_PM2_BIN);
-    if (
-      !fs.existsSync(p) ||
-      !fs.statSync(p).isFile() ||
-      /\.(cmd|bat|exe)$/i.test(p)
-    )
-      throw failure("PM2_JAVASCRIPT_ENTRY_REQUIRED");
-    return p;
+function resolvePm2Entry({
+  env = process.env,
+  projectRoot = root,
+  execPath = process.execPath,
+  platform = process.platform,
+  locate = spawnSync,
+  resolve = require.resolve,
+} = {}) {
+  let configured = env.KL_PM2_BIN;
+  if (configured === undefined) {
+    const file = path.join(projectRoot, "server/.env");
+    try {
+      if (fs.existsSync(file))
+        configured = require("node:util").parseEnv(
+          fs.readFileSync(file, "utf8"),
+        ).KL_PM2_BIN;
+    } catch {
+      throw failure("INVALID_CONFIG_ENV_FILE");
+    }
   }
-  const which = spawnSync(
-    process.platform === "win32" ? "where.exe" : "which",
-    [process.platform === "win32" ? "pm2.cmd" : "pm2"],
-    { encoding: "utf8", windowsHide: true, timeout: 5000 },
+  function entry(file, automatic) {
+    try {
+      if (/\.(cmd|bat|exe)$/i.test(file)) return;
+      const real = fs.realpathSync(file);
+      if (!fs.statSync(real).isFile() || /\.(cmd|bat|exe)$/i.test(real)) return;
+      if (automatic) {
+        const base = path.dirname(path.dirname(real));
+        const pkg = JSON.parse(
+          fs.readFileSync(path.join(base, "package.json"), "utf8"),
+        );
+        if (pkg.name !== "pm2" || real !== path.join(base, "bin", "pm2"))
+          return;
+      }
+      return real;
+    } catch {
+      return;
+    }
+  }
+  if (configured) {
+    // Explicit bad configuration must not silently select another installation.
+    const real = entry(path.resolve(projectRoot, configured), false);
+    if (!real) throw failure("PM2_JAVASCRIPT_ENTRY_REQUIRED");
+    return real;
+  }
+  const which = locate(
+    platform === "win32" ? "where.exe" : "which",
+    [platform === "win32" ? "pm2.cmd" : "pm2"],
+    { encoding: "utf8", windowsHide: true, timeout: 5000, env },
   );
-  for (const p of (which.stdout || "").split(/\r?\n/).filter(Boolean)) {
-    const nearby = path.join(
-      path.dirname(p.trim()),
-      "node_modules",
-      "pm2",
-      "bin",
-      "pm2",
-    );
-    if (fs.existsSync(nearby)) return nearby;
+  for (const file of (which.stdout || "").split(/\r?\n/).filter(Boolean)) {
+    const command = file.trim();
+    const directory = path.dirname(command);
+    for (const candidate of [
+      command,
+      path.join(directory, "node_modules", "pm2", "bin", "pm2"),
+      path.join(directory, "..", "lib", "node_modules", "pm2", "bin", "pm2"),
+    ]) {
+      const real = entry(candidate, true);
+      if (real) return real;
+    }
   }
-  try {
-    return require.resolve("pm2/bin/pm2");
-  } catch {
-    throw failure("PM2_NOT_FOUND");
+  // Local installations and the active Node prefix also work without which/PATH.
+  for (const directory of [projectRoot, path.join(projectRoot, "server")]) {
+    try {
+      const real = entry(resolve("pm2/bin/pm2", { paths: [directory] }), true);
+      if (real) return real;
+    } catch {}
   }
+  const nodeDirectory = path.dirname(execPath);
+  for (const candidate of [
+    path.join(nodeDirectory, "node_modules", "pm2", "bin", "pm2"),
+    path.join(nodeDirectory, "..", "lib", "node_modules", "pm2", "bin", "pm2"),
+  ]) {
+    const real = entry(candidate, true);
+    if (real) return real;
+  }
+  throw failure("PM2_NOT_FOUND");
 }
 function execute(entry, args, { input, timeout = 75000 } = {}) {
   const result = spawnSync(nodeBin, [entry, ...args], {
