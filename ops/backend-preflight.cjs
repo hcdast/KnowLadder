@@ -285,7 +285,7 @@ async function preflight({
         );
       if (scanEnabled)
         await run("scanner", () =>
-          require("../server/dist/files/scanner").assertScanner(context),
+          require("../server/dist/files/scanner")[config.production ? "assertScanner" : "assertScannerMetadata"](context),
         );
       return {
         ok: true,

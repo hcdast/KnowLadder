@@ -22,7 +22,7 @@ test(
       FILE_SCAN_ENABLED: "true",
       CLAMSCAN_PATH: process.env.TEST_CLAMSCAN_PATH,
       CLAMAV_DATABASE: process.env.TEST_CLAMAV_DATABASE,
-      SCAN_DATABASE_MAX_AGE_HOURS: "48",
+      SCAN_DATABASE_MAX_AGE_HOURS: process.env.TEST_SCAN_DATABASE_MAX_AGE_HOURS || "48",
       SCAN_TIMEOUT_MS: "60000",
     });
     const original = cp.spawn,
@@ -36,11 +36,15 @@ test(
     };
     const file = require.resolve("../dist/files/scanner");
     delete require.cache[file];
-    const { assertScanner } = require(file);
+    const { assertScanner, assertScannerMetadata, scanWithHealth } = require(file);
     t.after(() => {
       cp.spawn = original;
       delete require.cache[file];
     });
+    const metadataStages = [];
+    await assertScannerMetadata({run:async(stage,work)=>{metadataStages.push(stage);return work();}});
+    assert.deepEqual(metadataStages,["scanner.version","scanner.recheck"]);
+    assert.equal(children.length,2);
     const stages = [];
     await assertScanner({
       run: async (stage, work) => {
@@ -54,6 +58,16 @@ test(
       "scanner.recheck",
     ]);
     assert.ok(children.every((r) => r.closed));
+    const files = require("node:fs/promises"), path=require("node:path");
+    const root=await files.mkdtemp(path.join(require("node:os").tmpdir(),"kl-scan-dev-"));
+    try {
+      const clean=path.join(root,"clean.txt");await files.writeFile(clean,"Original development scan probe");
+      for(const [mode,count] of [["development",4],["production",5]]){
+        process.env.NODE_ENV=mode;const previous=children.length;
+        assert.equal((await scanWithHealth(clean)).result,"clean");
+        assert.equal(children.length-previous,count);
+      }
+    } finally {await files.rm(root,{recursive:true,force:true});}
     const controller = new AbortController();
     let timer;
     await assert.rejects(

@@ -43,7 +43,7 @@ function metadata(output: string, maxAgeHours: number): ScannerHealth {
   if (!Number.isFinite(age) || age < -300000 || age > maxAgeHours * 3600000) throw new Error('ClamAV签名库更新时间无效或已过期');
   return { engine_version: match[1], database_version: match[2], database_updated_at: updated };
 }
-async function verifyScanner(config: FileConfig, context: CheckContext = {}): Promise<ScannerHealth> {
+async function verifyScanner(config: FileConfig, context: CheckContext = {}, load = true): Promise<ScannerHealth> {
   context.signal?.throwIfAborted();
   // Only official containers are accepted. Their existence is not proof of validity:
   // clamscan must actually load and verify them below, not merely print a header.
@@ -64,8 +64,10 @@ async function verifyScanner(config: FileConfig, context: CheckContext = {}): Pr
   const version = await checkStep(context,'scanner.version',()=>execute(config,['--version',...db],undefined,context.signal));
   if (version.failed || version.code !== 0) throw new Error('ClamAV引擎或病毒库未就绪');
   const health = metadata(version.output, config.databaseMaxAgeHours);
+  if (load) {
   const clean = await checkStep(context,'scanner.load',()=>execute(config,[...limits,...db,'-'],'KnowLadder scanner readiness probe\n',context.signal));
   if (clean.failed || clean.code !== 0) throw new Error('ClamAV无法真实加载签名库');
+  }
   const after = await checkStep(context,'scanner.recheck',()=>execute(config,['--version',...db],undefined,context.signal));
   if (after.failed || after.code !== 0 || after.output !== version.output) throw new Error('验证期间签名库发生变化，请重试');
   metadata(after.output, config.databaseMaxAgeHours);
@@ -74,6 +76,11 @@ async function verifyScanner(config: FileConfig, context: CheckContext = {}): Pr
 export async function assertScanner(context: CheckContext = {}): Promise<ScannerHealth> {
   assertFileScanEnabled();
   return verifyScanner(fileConfig(),context);
+}
+/** Development preflight only; actual worker readiness still loads the full official database. */
+export async function assertScannerMetadata(context: CheckContext = {}): Promise<ScannerHealth> {
+  assertFileScanEnabled();
+  return verifyScanner(fileConfig(), context, false);
 }
 export async function scanWithHealth(filename: string): Promise<{ result: ScanResult; health?: ScannerHealth }> {
   assertFileScanEnabled();
@@ -87,7 +94,7 @@ export async function scanWithHealth(filename: string): Promise<{ result: ScanRe
     const info = await lstat(filename);
     if (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1 || info.size > MAX_FILE_SIZE) return failed();
     stage = 'health';
-    const health = await verifyScanner(config);
+    const health = await verifyScanner(config, {}, process.env.NODE_ENV === "production");
     stage = 'scan';
     const result = await execute(config, [...limits, `--database=${config.database}`, '--official-db-only=yes', '--', filename]);
     if (result.failed || (result.code !== 0 && result.code !== 1)) return failed(result.code);
