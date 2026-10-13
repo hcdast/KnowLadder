@@ -1,14 +1,27 @@
 /* Shared brand presentation. Reading/assessment content keeps a plain surface. */
 :root {
-  --color-brand: #1e6fff;
-  --color-action: #245edb;
-  --color-action-hover: #1d4db8;
+  --color-brand: #1263b0;
+  --color-action: #1263b0;
+  --color-action-hover: #0e4e8b;
+  --color-canvas: #f3f8fa;
+  --color-selected: #e8f4f5;
   --color-surface: #fff;
   --color-growth: #145c43;
   --color-growth-bg: #e8f7ef;
   --layout-max: 76rem;
 }
 body { min-width: 0; }
+.brand-mark { display: inline-block; flex-shrink: 0; vertical-align: middle; margin-right: .65rem; }
+.brand, .public-brand { align-items: center; }
+.student-content .content-list > li { background: #fff; border: 1px solid #d8e5eb; border-radius: .85rem; padding: 1.25rem; gap: 1rem; }
+.student-content .content-list h3 { color: var(--color-brand); margin-block: 0 .5rem; }
+.student-content .content-list > li::before { content: ''; display: block; width: .35rem; align-self: stretch; background: #087f78; border-radius: .25rem; }
+.course-card { border-top: 3px solid #087f78; }
+@media (max-width: 36rem) {
+  .student-content .content-list > li { flex-wrap: wrap; padding: 1rem; }
+  .student-content .content-list > li::before { display: none; }
+  .brand-mark { width: 32px; height: 32px; margin-right: 0; }
+}
 .app-header { padding-block: 1.4rem; border-bottom: 0; }
 .brand-name { color: var(--color-brand); }
 .header-note { display: flex; align-items: center; gap: .4rem; }

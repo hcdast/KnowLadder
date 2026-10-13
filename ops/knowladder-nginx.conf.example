@@ -1,0 +1,89 @@
+# Source template only: NOT installed on the target host.
+# Publish ONLY web/dist contents into /var/www/knowladder, never the repository/.env/private files.
+# Retain previous content-hashed chunks during rollout, or use the Web chunk-reload UI.
+# Production MUST use HTTPS with the deployment's actual domain and trusted certificate;
+# configure listen 443 ssl, ssl_certificate and ssl_certificate_key before public use.
+# Port 80 below is a local/staging example; in production redirect HTTP to HTTPS.
+# The production APP_ORIGIN must match that HTTPS origin. No TLS keys/credentials are supplied.
+# Include this server block inside nginx's http context; validate with nginx -t before any reload.
+server {
+    listen 80;
+    server_name _;
+    root /var/www/knowladder;
+    index index.html;
+    include mime.types;
+    default_type application/octet-stream;
+    etag on;
+    if_modified_since exact;
+    disable_symlinks on from=$document_root;
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy no-referrer always;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 256;
+    gzip_types text/css application/javascript text/javascript image/svg+xml;
+    # HTML is gzip's built-in type. Do not gzip WebP/woff2 or assume Brotli/.gz files exist.
+
+    # Preserve the original /api URI (proxy_pass has NO URI suffix).
+    # APIs remain private/no-store even if a parent nginx config enables proxy caching.
+    # /api/v1/site/ also contains authenticated CMS/lead management routes.
+    # Preserve API credentials; the separate public SSR fetch does not forward them.
+    # Single trusted proxy: when TRUST_PROXY=1, the API must only be reachable from
+    # this proxy (loopback/bind/firewall/security-group boundary). Do not expose API directly.
+    # Replace untrusted client forwarding chains with the actual peer address.
+    location = /api {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_cache off;
+        proxy_no_cache 1;
+        proxy_cache_bypass 1;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control no-store always;
+        gzip off;
+    }
+    location ^~ /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_cache off;
+        proxy_no_cache 1;
+        proxy_cache_bypass 1;
+        proxy_hide_header Cache-Control;
+        add_header Cache-Control no-store always;
+        gzip off;
+    }
+
+    # Vite's default eight-character content hash; unversioned assets/visuals stay short-lived.
+    location ~ "^/assets/[A-Za-z0-9_-]+-[A-Za-z0-9_-]{8}\\.(?:js|css|svg|png|jpg|jpeg|webp|avif|ico|woff2)$" {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        add_header X-Content-Type-Options nosniff always;
+    }
+    location ~ ^/(?:assets|visuals)/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:js|css|svg|png|jpg|jpeg|webp|avif|ico|woff2)$ {
+        try_files $uri =404;
+        add_header Cache-Control "public, max-age=300";
+        add_header X-Content-Type-Options nosniff always;
+    }
+    location /assets/ { return 404; }
+    location /visuals/ { return 404; }
+    location ~ (^|/)\. { return 404; }
+    location = /index.html {
+        try_files $uri =404;
+        add_header Cache-Control no-cache;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+    }
+    # Missing dotted/static paths are not a successful SPA HTML response.
+    location ~ \.[^/]+$ { return 404; }
+    location / { try_files $uri /index.html; }
+
+    error_page 404 = @static_missing;
+    location @static_missing {
+        add_header Cache-Control no-store always;
+        return 404;
+    }
+}

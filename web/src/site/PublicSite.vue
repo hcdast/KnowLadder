@@ -224,7 +224,7 @@ async function query() {
   <div class="public-site">
     <header class="public-header">
       <RouterLink class="public-brand" to="/"
-        >知阶<span>KnowLadder</span></RouterLink
+        ><img class="brand-mark" src="/visuals/logo.svg" alt="" width="40" height="40" />知阶<span>KnowLadder</span></RouterLink
       >
       <nav aria-label="网站导航">
         <RouterLink to="/features">产品功能</RouterLink
@@ -254,6 +254,7 @@ async function query() {
             <p class="hero-note">当前开放本地验证版本 · AI 需配置后启用</p>
           </div>
           <div class="journey-visual" aria-label="课程、实践和反馈形成学习路径">
+            <img class="learning-path-art" src="/visuals/learning-path.svg" width="800" height="420" alt="从书页到练习再到完成确认的阶梯学习路径" decoding="async" />
             <div class="visual-top">
               <span>你的成长路径</span
               ><span class="visual-label">教学流程示意</span>
@@ -410,7 +411,7 @@ async function query() {
     <footer class="public-footer">
       <div>
         <RouterLink class="public-brand" to="/"
-          >知阶<span>KnowLadder</span></RouterLink
+          ><img class="brand-mark" src="/visuals/logo.svg" alt="" width="40" height="40" />知阶<span>KnowLadder</span></RouterLink
         >
         <p>每一步学习，都有方向。</p>
       </div>
@@ -426,14 +427,24 @@ async function query() {
 </template>
 <style scoped>
 .public-site {
-  background: #fbfaf7;
-  color: #1d342c;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  background: #f3f8fa;
+  color: #172a3a;
   font-family: Inter, "Microsoft YaHei", sans-serif;
 }
+.public-site > main {
+  flex: 1;
+}
+.learning-path-art { display: block; width: 100%; height: auto; border-radius: 1rem; margin-bottom: 1rem; }
 .public-header,
 .public-footer {
   max-width: 1280px;
-  margin: auto;
+  width: 100%;
+  margin: 0 auto;
+  flex-shrink: 0;
   padding: 28px 48px;
   display: flex;
   align-items: center;
@@ -446,7 +457,7 @@ async function query() {
   color: #193e31;
   text-decoration: none;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 12px;
 }
 .public-brand span {
@@ -459,7 +470,7 @@ async function query() {
   margin-left: auto;
 }
 .public-header nav a,
-.public-footer a {
+.public-footer nav a {
   color: #41584b;
   text-decoration: none;
   font-size: 14px;
@@ -669,9 +680,11 @@ async function query() {
 }
 .public-footer {
   border-top: 1px solid #e0e6dc;
-  flex-wrap: wrap;
-  padding-top: 40px;
-  padding-bottom: 35px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 40px;
+  padding-top: 32px;
+  padding-bottom: 24px;
 }
 .public-footer p {
   font-size: 12px;
@@ -679,13 +692,15 @@ async function query() {
 }
 .public-footer nav {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 24px;
   margin-left: auto;
 }
 .footer-note {
-  width: 100%;
+  grid-column: 1 / -1;
   text-align: center;
-  margin: 20px 0 0;
+  margin: 0;
 }
 .subpage-hero {
   max-width: 1280px;
@@ -795,11 +810,14 @@ async function query() {
   }
   .public-footer {
     padding: 28px 24px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
   .public-footer nav {
     margin-left: 0;
     flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 12px 20px;
   }
   .subpage-hero {
     padding: 48px 24px 10px;
@@ -809,6 +827,12 @@ async function query() {
   }
   .public-brand {
     font-size: 22px;
+  }
+}
+@media (max-width: 24rem) {
+  .public-hero h1 {
+    font-size: 32px;
+    letter-spacing: -1px;
   }
 }
 </style>

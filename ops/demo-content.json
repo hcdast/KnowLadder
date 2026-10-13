@@ -1,0 +1,247 @@
+{
+  "schema_version": 1,
+  "note": "仅草稿请求材料；确认目录、学科适配及版权授权后，经编辑、独立审核和发布，课程另需班级分配。不含凭据，不自动写入。",
+  "textbook": {
+    "title": "[示例] 基础数学：一元一次方程",
+    "edition_code": "demo-equations-v1",
+    "textbook": {
+      "title": "[示例] 基础数学",
+      "stage_id": "6bcb00000000000000000001",
+      "subject_id": "6bcb00000000000000000002",
+      "source": "KnowLadder 原创教学示例"
+    },
+    "license": {
+      "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+      "granted": false,
+      "expires_at": null
+    },
+    "resource_ids": []
+  },
+  "chapters": [
+    {
+      "client_key": "equality",
+      "parent_id": null,
+      "position": 0,
+      "title": "等式的性质",
+      "body": "等式表示两边的值相等。两边同时加上或减去同一个数，等式仍成立；同时乘或除以同一个非零数，等式仍成立。例：x−3=5，两边加3得x=8。注意：不能除以0。",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": []
+    },
+    {
+      "client_key": "solve",
+      "parent_id": null,
+      "position": 1,
+      "title": "解一元一次方程",
+      "body": "解方程是寻找使等式成立的未知数。例：2x+5=17，两边减5得2x=12，再除以2得x=6。检验：2×6+5=17。每一步都应同时对等式两边操作。",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": []
+    },
+    {
+      "client_key": "application",
+      "parent_id": null,
+      "position": 2,
+      "title": "用方程解决问题",
+      "body": "三本相同价格的练习本共15元。设每本x元，列出3x=15，解得x=5。检验总价3×5=15元。答题时说明未知数的含义并写单位。",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": []
+    }
+  ],
+  "questions": [
+    {
+      "title": "[示例] 等式两边同时加数",
+      "subject_id": "6bcb00000000000000000002",
+      "question_type": "numeric",
+      "prompt": "若 x − 3 = 5，则 x 等于多少？",
+      "answer": "8",
+      "explanation": "等式两边同时加3，得到x=8。",
+      "options": [],
+      "difficulty": "基础",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": [],
+      "license": {
+        "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+        "granted": false,
+        "expires_at": null
+      },
+      "scoring_rule": {
+        "version": 1,
+        "strategy": "numeric_exact_decimal",
+        "max_score": "10"
+      },
+      "knowledge_weights": [
+        {
+          "knowledge_point_id": "6bcb00000000000000000003",
+          "weight_bps": 10000
+        }
+      ],
+      "difficulty_basis": "示例基础题，单一知识点，题目难度未经实测标定"
+    },
+    {
+      "title": "[示例] 等式两边同时除数",
+      "subject_id": "6bcb00000000000000000002",
+      "question_type": "numeric",
+      "prompt": "若 3x = 12，则 x 等于多少？",
+      "answer": "4",
+      "explanation": "等式两边同时除以非零数3，得到x=4。",
+      "options": [],
+      "difficulty": "基础",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": [],
+      "license": {
+        "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+        "granted": false,
+        "expires_at": null
+      },
+      "scoring_rule": {
+        "version": 1,
+        "strategy": "numeric_exact_decimal",
+        "max_score": "10"
+      },
+      "knowledge_weights": [
+        {
+          "knowledge_point_id": "6bcb00000000000000000003",
+          "weight_bps": 10000
+        }
+      ],
+      "difficulty_basis": "示例基础题，单一知识点，题目难度未经实测标定"
+    },
+    {
+      "title": "[示例] 两步解方程",
+      "subject_id": "6bcb00000000000000000002",
+      "question_type": "numeric",
+      "prompt": "解方程 2x + 5 = 17，x 等于多少？",
+      "answer": "6",
+      "explanation": "先两边减5得2x=12，再两边除以2得x=6。",
+      "options": [],
+      "difficulty": "基础",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": [],
+      "license": {
+        "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+        "granted": false,
+        "expires_at": null
+      },
+      "scoring_rule": {
+        "version": 1,
+        "strategy": "numeric_exact_decimal",
+        "max_score": "10"
+      },
+      "knowledge_weights": [
+        {
+          "knowledge_point_id": "6bcb00000000000000000003",
+          "weight_bps": 10000
+        }
+      ],
+      "difficulty_basis": "示例基础题，单一知识点，题目难度未经实测标定"
+    },
+    {
+      "title": "[示例] 含负数的方程",
+      "subject_id": "6bcb00000000000000000002",
+      "question_type": "numeric",
+      "prompt": "解方程 x + 7 = 2，x 等于多少？",
+      "answer": "-5",
+      "explanation": "两边同时减7，x=2−7=−5。",
+      "options": [],
+      "difficulty": "基础",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": [],
+      "license": {
+        "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+        "granted": false,
+        "expires_at": null
+      },
+      "scoring_rule": {
+        "version": 1,
+        "strategy": "numeric_exact_decimal",
+        "max_score": "10"
+      },
+      "knowledge_weights": [
+        {
+          "knowledge_point_id": "6bcb00000000000000000003",
+          "weight_bps": 10000
+        }
+      ],
+      "difficulty_basis": "示例基础题，单一知识点，题目难度未经实测标定"
+    },
+    {
+      "title": "[示例] 实际应用",
+      "subject_id": "6bcb00000000000000000002",
+      "question_type": "numeric",
+      "prompt": "三本相同价格的练习本共15元，每本多少元？",
+      "answer": "5",
+      "explanation": "设每本x元，3x=15，因此x=5。",
+      "options": [],
+      "difficulty": "基础",
+      "knowledge_point_ids": [
+        "6bcb00000000000000000003"
+      ],
+      "resource_ids": [],
+      "license": {
+        "source": "KnowLadder 原创示例内容，待组织内容负责人审核授权",
+        "granted": false,
+        "expires_at": null
+      },
+      "scoring_rule": {
+        "version": 1,
+        "strategy": "numeric_exact_decimal",
+        "max_score": "10"
+      },
+      "knowledge_weights": [
+        {
+          "knowledge_point_id": "6bcb00000000000000000003",
+          "weight_bps": 10000
+        }
+      ],
+      "difficulty_basis": "示例基础题，单一知识点，题目难度未经实测标定"
+    }
+  ],
+  "course": {
+    "code": "demo-equations-v1",
+    "title": "[示例] 一元一次方程入门",
+    "subject_id": "6bcb00000000000000000002",
+    "version_no": 1,
+    "lessons": [
+      {
+        "key": "understand",
+        "title": "理解等式",
+        "body": "学习目标：说明等式两边同时进行相同运算的理由。阅读等式性质后，用x−3=5举例说明。",
+        "kind": "text",
+        "required": true,
+        "file_id": null,
+        "owner_version_id": null
+      },
+      {
+        "key": "practice",
+        "title": "独立解方程",
+        "body": "练习：2x+5=17。先独立写出步骤，再检验所得的x值。文本课节完成仅表示学过，不代表掌握。",
+        "kind": "text",
+        "required": true,
+        "file_id": null,
+        "owner_version_id": null
+      },
+      {
+        "key": "apply",
+        "title": "应用与复盘",
+        "body": "三本同价练习本共15元。列出方程并求单价；回顾未知数含义、运算步骤和单位。",
+        "kind": "text",
+        "required": true,
+        "file_id": null,
+        "owner_version_id": null
+      }
+    ]
+  }
+}

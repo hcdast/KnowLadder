@@ -1,0 +1,5 @@
+{
+  "education_stages": [{ "id": "6bcb00000000000000000001", "code": "demo-foundation", "name": "示例基础学习" }],
+  "subjects": [{ "id": "6bcb00000000000000000002", "code": "demo-mathematics", "name": "示例数学" }],
+  "knowledge_points": [{ "id": "6bcb00000000000000000003", "code": "demo-linear-equation", "name": "一元一次方程（示例）", "subject_id": "6bcb00000000000000000002" }]
+}
