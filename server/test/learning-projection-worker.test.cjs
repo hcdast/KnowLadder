@@ -16,7 +16,7 @@ const member = f => ({ org_id: f.org, member_id: f.student.memberId });
 
 async function setup(t) {
   const f = await assessmentFixture(t);
-  assert.equal((await f.db.collection("schema_migrations").findOne({ version: 5 })).status, "completed");
+  assert.equal((await f.db.collection("schema_migrations").findOne({ version: 10 })).status, "completed");
   return f;
 }
 async function submit(f, answerFor = () => null) {
@@ -106,6 +106,38 @@ function intercept(db, hook) {
 
 test("S4-02 学情worker真实Mongo流水线与发布安全", { concurrency: false, timeout: 600000 }, async parent => {
   guardedUri(process.env.TEST_MONGODB_URI);
+
+  for (const scenario of ["slow-refresh", "expired-license"]) await parent.test(`发布区分定期检查与真实到期：${scenario}`, { timeout: 100000 }, async t => {
+    const f = await setup(t);
+    const submitted = await submit(f);
+    await grade(f, submitted.id);
+    const event = await learningEvent(f, submitted.id);
+    let paused = false;
+    const db = intercept(f.db, async (phase, name, method, args) => {
+      // This read occurs between transactions, so lease renewals keep running.
+      if (paused || phase !== "after" || name !== "learning_projection_heads" || method !== "findOne" || args[1]?.session) return;
+      paused = true;
+      if (scenario === "slow-refresh") await new Promise(resolve => setTimeout(resolve, 61000));
+      else await f.db.collection("question_versions").updateOne({ _id: f.questions[0].id }, {
+        $set: { "license.expires_at": new Date(Date.now() - 1000).toISOString() },
+      });
+    });
+    assert.equal(await processOne(db), true);
+    assert.equal(paused, true);
+    const current = await head(f);
+    const consumed = await f.db.collection("outbox_events").findOne({ _id: event._id });
+    if (scenario === "slow-refresh") {
+      assert.ok(current.active_generation);
+      assert.equal(current.error_code, null);
+      assert.equal(consumed.status, "processed");
+      assert.equal((await activeRows(f, "mastery_evidence", current)).length, 3);
+    } else {
+      assert.equal(current.active_generation, null);
+      assert.equal(current.error_code, "INPUT_CHANGED");
+      assert.equal(consumed.status, "pending");
+      assert.equal(await f.db.collection("consumer_receipts").countDocuments({ event_id: event._id }), 0);
+    }
+  });
 
   for (const privacy_state of ["erasing", "erased"]) await parent.test(`S5 ${privacy_state}旧评分事件和reconcile不得重建`, async t => {
     const f = await setup(t);

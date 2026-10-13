@@ -174,7 +174,7 @@ async function rebuild(db:Db,lease:Lease) {
     check();
     await transaction(db,async session=>{
       const current = await manifest(db,lease,generation,session);
-      if (current.digest!==fixed.digest || current.now>=fixed.next) throw new Error('INPUT_CHANGED');
+      if (current.digest!==fixed.digest || fixed.publicationValidUntil && current.now>=fixed.publicationValidUntil) throw new Error('INPUT_CHANGED');
       const head = await db.collection<ProjectionHead>('learning_projection_heads').findOne(partition(lease),{session});
       if (reuse && (!head || head.active_generation!==existing!.active_generation || head.manifest_digest!==fixed.digest)) throw new Error('INPUT_CHANGED');
       if (reuse) {
@@ -187,9 +187,10 @@ async function rebuild(db:Db,lease:Lease) {
         if (!(await db.collection<ProjectionBuild>('learning_projection_builds').updateOne({org_id:lease.org_id,generation,status:'building',lease_token:lease.token},{$set:{status:'complete',actual_counts:counts,updated_at:current.now}},{session})).matchedCount) throw new Error('INCOMPLETE_GENERATION');
       }
       const publicationNow = await databaseNow(db,{session});
-      if (publicationNow >= current.next || publicationNow >= fixed.next) throw new Error('INPUT_CHANGED');
+      if (current.publicationValidUntil && publicationNow >= current.publicationValidUntil || fixed.publicationValidUntil && publicationNow >= fixed.publicationValidUntil) throw new Error('INPUT_CHANGED');
+      const nextCheck = new Date(Math.min(publicationNow.getTime()+60000, current.publicationValidUntil?.getTime() ?? Infinity));
       if (!reuse && head?.active_generation) await db.collection<Row>('learning_projection_retirements').insertOne({_id:newId(),org_id:lease.org_id,member_id:lease.member_id,subject_id:lease.subject_id,generation:head.active_generation,retired_at:publicationNow,created_at:publicationNow,updated_at:publicationNow},{session});
-      await db.collection<ProjectionHead>('learning_projection_heads').updateOne(partition(lease),{$set:{...clearedFailure,active_generation:reuse?existing!.active_generation:generation,manifest_digest:fixed.digest,applied_revision:current.revision,eligibility_revision:current.eligibility,catalog_revision:current.catalog,next_check_at:current.next,rebuild_requested:false,error_code:null,updated_at:current.now},$setOnInsert:{_id:newId(),...partition(lease),created_at:current.now}},{upsert:true,session});
+      await db.collection<ProjectionHead>('learning_projection_heads').updateOne(partition(lease),{$set:{...clearedFailure,active_generation:reuse?existing!.active_generation:generation,manifest_digest:fixed.digest,applied_revision:current.revision,eligibility_revision:current.eligibility,catalog_revision:current.catalog,next_check_at:nextCheck,rebuild_requested:false,error_code:null,updated_at:current.now},$setOnInsert:{_id:newId(),...partition(lease),created_at:current.now}},{upsert:true,session});
       await acknowledge(db,lease,session,current.now);
     });
   } catch (error) {

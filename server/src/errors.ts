@@ -5,6 +5,20 @@ import {
   ArgumentsHost,
 } from "@nestjs/common";
 import type { Request, Response } from "express";
+import { MongoError, MongoNetworkError, MongoServerSelectionError } from "mongodb";
+const DIAGNOSTIC_ROUTES: Record<string, true> = {
+  "/api/v1/me": true,
+  "/api/v1/auth/login": true,
+  "/api/v1/site/pages/:key": true,
+  "/api/v1/site/consultations": true,
+  "/api/v1/site/consultations/:receipt": true,
+  "/api/v1/submissions/:id": true,
+  "/api/v1/submissions/:id/items": true,
+  "/api/v1/me/mastery": true,
+  "/api/v1/me/reports": true,
+  "/api/v1/me/mistakes": true,
+};
+const DATABASE_DIAGNOSTIC_CODES = new Set([6, 7, 13, 18, 50, 89, 91, 112, 189, 251, 262, 11000, 11600, 11602, 13435]);
 export type ApiRequest = Request & { requestId: string };
 export function fail(status: number, code: string, message: string): never {
   throw new HttpException({ code, message }, status);
@@ -14,6 +28,7 @@ export class SafeErrors implements ExceptionFilter {
   catch(error: unknown, host: ArgumentsHost) {
     const response = host.switchToHttp().getResponse<Response>();
     const request = host.switchToHttp().getRequest<ApiRequest>();
+    let unexpected = false;
     let status = 503;
     let body: Record<string, unknown> = {
       code: "DEPENDENCY_UNAVAILABLE",
@@ -47,6 +62,27 @@ export class SafeErrors implements ExceptionFilter {
     } else if (error instanceof SyntaxError) {
       status = 422;
       body = { code: "VALIDATION_ERROR", message: "请求正文格式错误" };
+    } else unexpected = true;
+    if (unexpected) {
+      const route = request.route?.path;
+      const requestId = request.requestId;
+      const databaseCode = error instanceof MongoError ? error.code : undefined;
+      console.error(JSON.stringify({
+        event: "api_unexpected_error",
+        request_id: typeof requestId === "string" && /^[0-9a-f-]{36}$/.test(requestId) ? requestId : "unavailable",
+        route: typeof route === "string" && DIAGNOSTIC_ROUTES[route] === true ? route : "other",
+        phase: "exception_filter",
+        error_category: error instanceof MongoServerSelectionError ? "database_selection"
+          : error instanceof MongoNetworkError ? "database_network"
+          : error instanceof MongoError ? "database"
+          : error instanceof TypeError ? "type_error"
+          : error instanceof RangeError ? "range_error"
+          : error instanceof Error ? "unexpected_error" : "unknown",
+        code: typeof databaseCode === "number" && DATABASE_DIAGNOSTIC_CODES.has(databaseCode)
+          ? databaseCode : "UNCLASSIFIED",
+        transient_transaction: error instanceof MongoError && error.hasErrorLabel("TransientTransactionError"),
+        commit_outcome_unknown: error instanceof MongoError && error.hasErrorLabel("UnknownTransactionCommitResult"),
+      }));
     }
     if (status === 429 && !response.hasHeader("Retry-After")) response.setHeader("Retry-After", "300");
     response

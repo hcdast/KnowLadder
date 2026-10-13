@@ -20,8 +20,15 @@ export async function currentLearningManifest(db: Db, ctx: AssessmentContext, su
   } else if (!await fenceEvidenceMember(db, ctx.session, ctx.orgId, ctx.memberId)) throw new Error('SUBJECT_ERASED');
   const session = ctx.session, now = await databaseNow(db, ctx);
   let next = new Date(now.getTime()+60000);
+  // The periodic refresh is not an evidence expiration. A slow build may cross
+  // it while remaining semantically valid; real boundaries still gate publication.
+  const validity: { until: Date | null } = { until: null };
   let visibleValidUntil: Date | null = null;
-  const boundary = (date:Date|null) => { if (date && date > now && date < next) next = date; };
+  const boundary = (date:Date|null) => {
+    if (!date || date <= now) return;
+    if (date < next) next = date;
+    if (!validity.until || date < validity.until) validity.until = date;
+  };
   const candidates = await db.collection<Submission>('submissions').aggregate<Submission>([
     {$match:{org_id:ctx.orgId,member_id:reportTarget?.memberId??ctx.memberId,submitted_at:{$gt:new Date(now.getTime()-90*DAY_MS),$lte:now}}},
     {$lookup:{from:'session_items',let:{sid:'$session_id',org:'$org_id'},pipeline:[{$match:{$expr:{$and:[{$eq:['$session_id','$$sid']},{$eq:['$org_id','$$org']},{$eq:['$snapshot.subject_id',subjectId]}]}}},{$limit:1},{$project:{_id:1}}],as:'subject_items'}},
@@ -70,5 +77,5 @@ export async function currentLearningManifest(db: Db, ctx: AssessmentContext, su
   const digest = hash([RULE_VERSION,reportTarget?semanticInputs!:inputs.map(row=>[row.submission_id,row.effective_revision,row.requested_revision,row.grading_run_id,row.submitted_at,row.semantic_digest,row.in_7d,row.in_30d])]);
   const scope = await db.collection<Row>('learning_scope_states').findOne({org_id:ctx.orgId,subject_id:subjectId},{session});
   if (!scope && !(reportTarget && !inputCount)) throw new Error('MISSING_SCOPE');
-  return {inputs,rows,inputCount,rowCount,digest,now,next,visibleValidUntil,revision,eligibility:(scope?.eligibility_revision as number|undefined)??0,catalog:(scope?.catalog_revision as number|undefined)??0};
+  return {inputs,rows,inputCount,rowCount,digest,now,next,publicationValidUntil:validity.until,visibleValidUntil,revision,eligibility:(scope?.eligibility_revision as number|undefined)??0,catalog:(scope?.catalog_revision as number|undefined)??0};
 }
