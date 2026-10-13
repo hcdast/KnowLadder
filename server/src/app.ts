@@ -72,6 +72,13 @@ import { PlatformBusinessAccess } from "./administration/platform-access";
 import { PlatformReportService } from "./administration/report.service";
 import { PlatformBusinessController } from "./administration/business.controller";
 import { extendPlatformBusinessOpenApi } from "./administration/business-openapi";
+import { AuthEmailController } from "./auth-email/controller";
+import { AuthEmailService } from "./auth-email/service";
+import { MailDeliveryService } from "./auth-email/mail";
+import { extendAuthEmailOpenApi } from "./auth-email/openapi";
+import { AuthInvitationsService } from "./auth-email/invitations";
+import { AuthInvitationsController } from "./auth-email/invitations.controller";
+import { extendInvitationsOpenApi } from "./auth-email/invitations.openapi";
 
 export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(req:ApiRequest,res:Response,next:NextFunction)=>void}={}) {
   fileScanEnabled();
@@ -89,8 +96,8 @@ export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(r
         retryAttempts: 0,
       }),
     ],
-    controllers: [WorkbenchController, SurveyController, ImportController, KnowledgeController, TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
-    providers: [WorkbenchService, SurveyService, ImportService, KnowledgeService, KnowledgeSourceService, TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
+    controllers: [AuthEmailController, AuthInvitationsController, WorkbenchController, SurveyController, ImportController, KnowledgeController, TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
+    providers: [AuthEmailService, AuthInvitationsService, MailDeliveryService, WorkbenchService, SurveyService, ImportService, KnowledgeService, KnowledgeSourceService, TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
   })
   class AppModule {}
   const app = await NestFactory.create(AppModule, {
@@ -158,6 +165,8 @@ export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(r
           .build(),
       );
       completeOpenApi(document);
+      extendAuthEmailOpenApi(document);
+      extendInvitationsOpenApi(document);
       contentOpenApi(document);
       importOpenApi(document);
       surveyOpenApi(document);

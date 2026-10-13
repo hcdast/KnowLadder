@@ -45,8 +45,12 @@ test('全业务加密备份：真实DB与文件、双遍认证、隔离恢复及
   process.env.KL_SAFETY_LEDGER_MIRROR_ROOT = await child(root, 'mirror');
   process.env.KL_SAFETY_LEDGER_KEY = randomBytes(32).toString('hex');
   t.after(() => dropTestDatabase(f.uri, controlName));
+  const beforeRegistration = await control.getOperationalState(f.db);
+  assert.equal((await f.db.collection('schema_migrations').findOne({ version: 22 })).status, 'completed');
+  assert.equal(beforeRegistration.mode, 'unregistered'); assert.ok(beforeRegistration.revision > 0);
   await control.registerEnvironment(f.client, f.db, { environmentId, actor: 'system-backup-test', reason: 'synthetic backup test', fileRoot: source });
   const state = await f.db.collection('operational_state').findOne({ _id: 'environment' });
+  assert.equal(state.mode, 'active'); assert.ok(state.revision > beforeRegistration.revision);
   let gate = await control.enterMaintenance(f.client, f.db, { actor: 'system-backup-test', reason: 'synthetic backup test', expectedRevision: state.revision });
   const expireWindow = () => f.db.collection('operational_state').updateOne({ _id: 'environment', mode: 'maintenance', maintenance_token: gate.token }, [{ $set: { updated_at: { $dateSubtract: { startDate: '$$NOW', unit: 'minute', amount: 31 } } } }]);
   const newWindow = async () => {
@@ -197,6 +201,33 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   await f.db.collection('file_resources').insertOne({ ...originalFile, _id: laterDeletedResource, storage_key: laterDeletedKey });
   await f.db.collection('textbook_editions').updateOne({ _id: edition }, { $set: { resource_ids: [resource, laterDeletedResource] } });
   await fs.writeFile(path.join(source, 'ready', laterDeletedKey), bytes, { flag: 'wx', mode: 0o600 });
+  const emailKey = `restore-${randomUUID()}@example.test`, emailIdentityId = newId();
+  await f.db.collection('auth_email_identities').insertOne({ _id: emailIdentityId, user_id: user.user_id, email_key: emailKey, email_display: emailKey,
+    state: 'verified', verified_at: now, revision: 4, created_at: now, updated_at: now });
+  await f.db.collection('auth_admissions').insertOne({ _id: newId(), user_id: user.user_id, age_band: 'adult', source: 'invite_activate',
+    terms_version: 'backup-test-terms', privacy_notice_version: 'backup-test-privacy', accepted_at: now, policy_basis: 'adult_self_declaration' });
+  const invitationId = newId(), inviteExpiry = new Date(Date.now() + 7 * 86400000);
+  const invitePayload = { invitation_id: invitationId, org_id: org, actor_org_id: org, actor_member_id: adminMember._id,
+    actor_credential_version: (await f.db.collection('users').findOne({ _id: administrator.user_id })).credential_version,
+    actor_authorization_revision: (await f.db.collection('organization_members').findOne({ _id: adminMember._id })).authorization_revision,
+    target_user_id: user.user_id, email_key: emailKey, roles: ['student'], valid_to: null, expires_at: inviteExpiry.toISOString(),
+    member_id: editorMember._id, target_member_revision: editorMember.authorization_revision, target_credential_version: 1 };
+  await f.db.collection('auth_invitations').insertOne({ _id: invitationId, org_id: org, actor_user_id: administrator.user_id, target_user_id: user.user_id,
+    email_key: emailKey, roles: ['student'], valid_to: null, payload: invitePayload, payload_hash: createHash('sha256').update(require('../dist/administration/dto.js').canonical(invitePayload)).digest('hex'),
+    revision: 1, state: 'pending', expires_at: inviteExpiry, accepted_user_id: null, accepted_at: null, approval_id: null, operation_id: null, created_at: now, updated_at: now });
+  const challengeSession = f.client.startSession();
+  try {
+    await challengeSession.withTransaction(async () => {
+      const challenge = await require('../dist/auth-email/tokens.js').issueEmailChallenge(f.db, challengeSession, {
+        purpose: 'invite', userId: user.user_id, email: { key: emailKey, display: emailKey }, invitationId, invitationRevision: 1,
+        credentialVersion: 1, emailRevision: 4, durationMs: 7 * 86400000 });
+      await f.db.collection('auth_mail_outbox').insertOne({ _id: newId(), challenge_id: challenge.id, user_id: user.user_id, invitation_id: invitationId, purpose: 'invite',
+        recipient_key_hash: createHash('sha256').update(emailKey).digest('hex'), actor_user_id: administrator.user_id,
+        transport_token: null, transport_writer_id: null, transport_closed_at: now,
+        status: 'sent', encrypted_payload: null, key_id: 'backup-test', expires_at: challenge.expiresAt, lease_token: null, lease_until: null,
+        safe_error_code: '', created_at: now, updated_at: now }, { session: challengeSession });
+    });
+  } finally { await challengeSession.endSession(); }
   await control.registerEnvironment(f.client, f.db, { environmentId, actor: 'restore-test', reason: 'original synthetic fixture', fileRoot: source });
   const started = await f.start(); const browser = started.browser;
   await browser.prepare(); status(await browser.login(user.login_name, user.secret), 200); await browser.prepare();
@@ -214,6 +245,11 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   assert.equal(archivedAuthorization.manifest.counts.administrative_grants, 1);
   assert.equal(archivedAuthorization.manifest.counts.authorization_requests, 1);
   assert.equal(archivedAuthorization.manifest.counts.member_capability_grants, 1);
+  assert.equal(archivedAuthorization.manifest.counts.auth_email_identities, 1); assert.equal(archivedAuthorization.manifest.counts.auth_admissions, 1);
+  for (const name of ['auth_email_challenges', 'auth_invitations', 'auth_mail_outbox']) {
+    assert.equal(Object.hasOwn(archivedAuthorization.manifest.counts, name), false);
+    assert.ok(await f.db.collection(name).countDocuments({}) > 0);
+  }
   await f.db.collection('member_capability_grants').updateOne({ _id: memberGrant._id }, { $set: { status: 'revoked', updated_at: new Date() }, $inc: { revision: 1 } });
   await f.db.collection('administrative_grants').updateOne({ _id: administrativeGrantId }, { $set: { status: 'revoked', updated_at: new Date() }, $inc: { revision: 1 } });
   const retainUntil = new Date(Date.now() + 86400000);
@@ -224,8 +260,11 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   const restoredName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = objectIdDatabase(f.client.db(restoredName)), target = await child(root, 'clean-target');
   t.after(() => dropTestDatabase(sourceUri, restoredName));
   const restore = await backupApi.restore({ client: f.client, db, file: archive, key, root: target });
-  for (const name of ['member_capability_grants', 'administrative_grants', 'authorization_requests', 'administration_operations'])
+  for (const name of ['member_capability_grants', 'administrative_grants', 'authorization_requests', 'administration_operations', 'auth_email_challenges', 'auth_invitations', 'auth_mail_outbox'])
     assert.equal(await db.collection(name).countDocuments({}), 0, `${name} from archive must not regain effect`);
+  const restoredEmail = await db.collection('auth_email_identities').findOne({ _id: emailIdentityId });
+  assert.equal(restoredEmail.state, 'needs_reverify'); assert.equal(restoredEmail.verified_at, null); assert.equal(restoredEmail.revision, 5);
+  assert.equal((await db.collection('auth_admissions').findOne({ user_id: user.user_id })).terms_version, 'backup-test-terms');
   const restoreGuard = await db.collection('administration_guard').findOne({ _id: 'administration' });
   assert.equal(restoreGuard.state, 'idle'); assert.equal(restoreGuard.recovery_token, null);
   assert.deepEqual(restoreGuard.blocked_targets, { user_ids: [], member_ids: [], org_ids: [], global: false });
@@ -252,6 +291,7 @@ test('完整ready附件恢复后显式release，旧会话失效且重新授权�
   const fresh = restoredApp.browser; await fresh.prepare(); status(await fresh.login(user.login_name, reset.secret), 200); await fresh.prepare();
   status(await fresh.request('/auth/change-password', { method: 'POST', body: { current_password: reset.secret, new_password: PASSWORD } }), 204);
   await fresh.prepare(); status(await fresh.login(user.login_name, PASSWORD), 200);
+  const emailBrowser = new Browser(fresh.base); await emailBrowser.prepare(); status(await emailBrowser.login(emailKey, PASSWORD), 401);
   const response = await fetch(fresh.base + '/api/v1/admin/files/' + resource + '/content', { headers: { 'X-Org-Id': org, Cookie: [...fresh.cookies].map(([k,v]) => k + '=' + v).join('; ') } });
   assert.equal(response.status, 200); assert.deepEqual(Buffer.from(await response.arrayBuffer()), bytes);
   await restoredApp.app.close();
@@ -290,6 +330,11 @@ test('旧包无隐私申请：源真实审批执行后亡源，仅独立最新�
   await f.ops.setMembership(f.context, { user_id: user.user_id, org_id: org, roles: ['student'] });
   const member = await f.db.collection('organization_members').findOne({ user_id: user.user_id, org_id: org });
   await f.db.collection('reading_progress').insertOne({ _id: newId(), org_id: org, member_id: member._id, chapter_id: newId(), edition_id: newId(), edition_revision: 1, position: { kind: 'text_offset', offset_utf16: 0 }, completed: false, revision: 1, updated_at: new Date(), cleared_at: null });
+  const emailAt = new Date(), emailKey = `erased-${randomUUID()}@example.test`;
+  await f.db.collection('auth_email_identities').insertOne({ _id: newId(), user_id: user.user_id, email_key: emailKey, email_display: emailKey,
+    state: 'verified', verified_at: emailAt, revision: 1, created_at: emailAt, updated_at: emailAt });
+  await f.db.collection('auth_admissions').insertOne({ _id: newId(), user_id: user.user_id, age_band: 'adult', source: 'public_register',
+    terms_version: 'backup-erasure-terms', privacy_notice_version: 'backup-erasure-privacy', accepted_at: emailAt, policy_basis: 'adult_self_declaration' });
   const root = await privateRoot(t), source = await child(root, 'erasure-source');
   for (const area of ['tmp','quarantine','ready']) await child(source, area);
   const controlName = 'kl_control_' + randomUUID().replaceAll('-', ''), environmentId = randomUUID();
@@ -321,6 +366,8 @@ test('旧包无隐私申请：源真实审批执行后亡源，仅独立最新�
   const restoredUser = await db.collection('users').findOne({ _id: user.user_id });
   assert.equal(restoredUser.privacy_state, 'erased'); assert.equal(restoredUser.status, 'disabled');
   assert.equal(await db.collection('reading_progress').countDocuments({ member_id: member._id }), 0);
+  assert.equal(await db.collection('auth_email_identities').countDocuments({ user_id: user.user_id }), 0);
+  assert.equal(await db.collection('auth_admissions').countDocuments({ user_id: user.user_id }), 0);
   assert.equal((await db.collection('privacy_tombstones').findOne({ user_id: user.user_id })).state, 'erased');
   const restoredRequest = await db.collection('privacy_deletion_requests').findOne({ _id: requestId });
   assert.ok(['completed','completed_with_retention'].includes(restoredRequest.status));
@@ -345,4 +392,72 @@ test('legacy真实v1备份可verify，v3扩展审计不产出自我不可读包'
   const unsupported = path.join(root, 'legacy-incompatible.klb');
   await assert.rejects(run('backup', unsupported), error => /LEGACY_BACKUP_UNSUPPORTED_DATA/.test(error.stderr));
   await assert.rejects(fs.stat(unsupported), { code: 'ENOENT' });
+});
+
+test('精确pre-v22全业务包白名单保留双遍验证并补当前邮箱空schema，不接受改checksum的近似registry', async t => {
+  const { BSON } = require('mongodb'), schema = require('../dist/migrations/schema.js');
+  const previous = { ...process.env };
+  t.after(() => { for (const name of Object.keys(process.env)) if (!(name in previous)) delete process.env[name]; Object.assign(process.env, previous); });
+  const f = await fixture(t, { app: false, env: { KL_TRAINING_ENABLED: 'false', KL_COURSEWORK_FILES_ENABLED: 'false', KL_AI_POLICY_ENABLED: 'false',
+    KL_TRAINING_REPORTS_ENABLED: 'false', KL_TRAINING_PHASE2_ENABLED: 'false', KL_AI_LEARNING_REPORTS_ENABLED: 'false', KL_KNOWLEDGE_ENABLED: 'false',
+    KL_KNOWLEDGE_IMPORT_ENABLED: 'false', KL_TRAINING_SURVEYS_ENABLED: 'false', KL_STANDALONE_RECOVERY_ENABLED: 'false', KL_STANDALONE_MANAGED_API_ENABLED: 'false',
+    KL_AUTH_EMAIL_ENABLED: 'false', KL_PUBLIC_REGISTRATION_ENABLED: 'false' } }), user = await f.user();
+  const root = await privateRoot(t), source = await child(root, 'legacy-registry-source');
+  for (const area of ['tmp', 'quarantine', 'ready']) await child(source, area);
+  const environmentId = randomUUID(), controlName = 'kl_control_' + randomUUID().replaceAll('-', '');
+  t.after(() => dropTestDatabase(f.uri, controlName));
+  Object.assign(process.env, { KL_ENVIRONMENT_ID: environmentId, KL_CONTROL_MONGODB_URI: f.uri.replace(/\/kl_test_[^?]+/, '/' + controlName),
+    KL_SAFETY_LEDGER_ROOT: await child(root, 'legacy-registry-ledger'), KL_SAFETY_LEDGER_MIRROR_ROOT: await child(root, 'legacy-registry-mirror'),
+    KL_SAFETY_LEDGER_KEY: randomBytes(32).toString('hex'), FILE_STORAGE_ROOT: source });
+  const operator = { actor: 'legacy-email-registry-test', reason: '合成精确旧registry恢复' };
+  await control.registerEnvironment(f.client, f.db, { environmentId, fileRoot: source, ...operator });
+  const state = await f.db.collection('operational_state').findOne({ _id: 'environment' });
+  await control.enterMaintenance(f.client, f.db, { expectedRevision: state.revision, ...operator });
+  const legacy = schema.supportedSystemBackupRegistries()[0], key = randomBytes(32);
+  assert.equal(legacy.version, 10);
+  const documents = [];
+  for (const name of legacy.collections.filter(name => !legacy.excluded.includes(name))) {
+    for await (const row of rawDatabase(f.db).collection(name).find({}, { promoteValues: false, promoteLongs: false })) {
+      if (name === 'schema_migrations' && Number(row.version) === 22) continue;
+      documents.push({ name, row });
+    }
+  }
+  async function archive(file, registry, changedMarker = false) {
+    const frames = documents.map(({ name, row }) => ({ name, bytes: BSON.serialize(changedMarker && name === 'schema_migrations' && Number(row.version) === 10 ? { ...row, checksum: '0'.repeat(64) } : row) }));
+    const counts = Object.fromEntries(registry.collections.filter(name => !registry.excluded.includes(name)).map(name => [name, 0]));
+    const manifest = { format: 1, backup_id: randomUUID(), environment_id: environmentId, source_database: f.db.databaseName,
+      source_cluster_hash: await ledger.readDatabaseClusterIdentity(f.db), source_root_hash: archiveApi.hash(await fs.realpath(source)), created_at: new Date().toISOString(),
+      registry, ledger_sequence: (await ledger.readSafetyLedger(environmentId, 0)).sequence, db_bytes: frames.reduce((sum, frame) => sum + frame.bytes.length, 0), counts, files: [], missing: [] };
+    for (const frame of frames) counts[frame.name]++;
+    const writer = await archiveApi.createArchive(file, key);
+    try {
+      await writer.frame({ kind: 'header', manifest });
+      const indexes = Object.fromEntries(Object.keys(counts).map(name => [name, 0]));
+      for (const frame of frames) {
+        assert.ok(frame.bytes.length <= archiveApi.CHUNK);
+        await writer.frame({ kind: 'db', collection: frame.name, index: indexes[frame.name]++, part: 0, last: true, data: frame.bytes.toString('base64') });
+      }
+      await writer.publish(manifest);
+    } catch (error) { await writer.abort(); throw error; }
+  }
+  const file = path.join(root, 'pre-v22.klb'); await archive(file, legacy);
+  const authenticated = await verifyFile(file, key); assert.equal(authenticated.manifest.registry.version, 10);
+  const invalidRegistryFile = path.join(root, 'near-registry.klb');
+  await archive(invalidRegistryFile, { ...legacy, checksums: { ...legacy.checksums, '10': '0'.repeat(64) } });
+  await assert.rejects(verifyFile(invalidRegistryFile, key), /BACKUP_REGISTRY_UNSUPPORTED/);
+  const invalidMarkerFile = path.join(root, 'bad-marker.klb'); await archive(invalidMarkerFile, legacy, true);
+  await assert.rejects(verifyFile(invalidMarkerFile, key), /BACKUP_SCHEMA_MARKER_INVALID/);
+  const targetName = 'kl_restore_' + randomUUID().replaceAll('-', ''), db = objectIdDatabase(f.client.db(targetName)), target = await child(root, 'legacy-registry-target');
+  t.after(() => dropTestDatabase(f.uri, targetName));
+  await assert.rejects(backupApi.restore({ client: f.client, db, file: invalidRegistryFile, key, root: target }), /BACKUP_REGISTRY_UNSUPPORTED/);
+  assert.equal((await db.listCollections().toArray()).length, 0);
+  const restored = await backupApi.restore({ client: f.client, db, file, key, root: target });
+  const marker = await db.collection('schema_migrations').findOne({ version: 22 });
+  assert.equal(marker.status, 'completed'); assert.equal(marker.checksum, schema.AUTH_EMAIL_CHECKSUM);
+  assert.equal((await db.collection('users').findOne({ _id: user.user_id })).status, 'disabled');
+  for (const name of ['auth_email_identities', 'auth_admissions', 'auth_email_challenges', 'auth_invitations', 'auth_mail_outbox'])
+    assert.equal(await db.collection(name).countDocuments({}), 0);
+  await schema.assertSchema(db);
+  const proof = await backupApi.verifyRestore({ db, file, key, root: target, restoreId: restored.restore_id, apply: true });
+  assert.equal(proof.status, 'ready'); assert.equal(proof.checks.identities, true); assert.equal(proof.checks.ledger, true);
 });

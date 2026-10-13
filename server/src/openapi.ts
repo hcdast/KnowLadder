@@ -3,6 +3,7 @@ import type {
   OpenAPIObject,
   SchemaObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
+import { accountSecurityProperties } from "./auth-email/openapi";
 const string: SchemaObject = { type: "string" };
 const resourceId: SchemaObject = { type: "string", pattern: "^[0-9a-f]{24}$" };
 const date: SchemaObject = { type: "string", format: "date-time" };
@@ -28,7 +29,7 @@ export function completeOpenApi(document: OpenAPIObject): OpenAPIObject {
     }),
     "/api/v1/auth/refresh": object({ session_expires_at: date }),
     "/api/v1/me": object({
-      user: object({ id: resourceId, display_name: string }),
+      user: object({ id: resourceId, display_name: string, ...accountSecurityProperties }),
       organizations: array(
         object({
           id: resourceId,

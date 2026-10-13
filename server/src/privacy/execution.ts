@@ -56,7 +56,71 @@ interface Step {
   archiveEmptyClasses?: boolean;
   coursework?: boolean;
 }
-function steps(user: string): Step[] {
+function emailScope(user: string, related: Document[] = []): Document[] {
+  return [
+    { $lookup: { from: "auth_email_identities", let: { email: "$email_key" },
+      pipeline: [{ $match: { user_id: user, $expr: { $eq: ["$email_key", "$$email"] } } }], as: "privacy_email" } },
+    { $match: { $or: [{ user_id: user }, { target_user_id: user }, { accepted_user_id: user },
+      { actor_user_id: user }, { "privacy_email.0": { $exists: true } }, ...related] } },
+    { $unset: "privacy_email" },
+  ];
+}
+async function subjectEmailHashes(db: Db, user: string, session?: ClientSession, signal?: AbortSignal): Promise<string[]> {
+  const identities = await collection(db, "auth_email_identities").find({ user_id: user },
+    { session, projection: { email_key: 1 }, ...(signal ? { signal, maxTimeMS: 1000 } : {}) }).toArray();
+  return identities.map(identity => createHash("sha256").update(identity.email_key).digest("hex"));
+}
+function mailScope(user: string, emailHashes: string[]): Document[] {
+  return [
+    ...join("auth_email_challenges", "challenge_id", emailScope(user)).slice(0, 1),
+    { $lookup: { from: "auth_invitations", let: { invitation: "$invitation_id" },
+      pipeline: [{ $match: { $expr: { $eq: ["$_id", "$$invitation"] } } }, ...emailScope(user)], as: "privacy_invitation" } },
+    { $match: { $or: [{ user_id: user }, { actor_user_id: user }, { recipient_key_hash: { $in: emailHashes } },
+      { "privacy_parent.0": { $exists: true } }, { "privacy_invitation.0": { $exists: true } }] } },
+    { $unset: ["privacy_parent", "privacy_invitation"] },
+  ];
+}
+/** A missing/expired lease is not a socket-close proof. Only sender ACK or a
+ * stopped registration (graceful closure / explicitly verified retirement) may
+ * release transport ownership. The separate proof is excluded from TTL. */
+async function waitForEmailDrain(db: Db, user: string): Promise<string[]> {
+  const deadline = Date.now() + 15000, signal = AbortSignal.timeout(15000);
+  let emailHashes: string[];
+  try { emailHashes = await subjectEmailHashes(db, user, undefined, signal); }
+  catch (error) {
+    if (signal.aborted) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
+    throw error;
+  }
+  const pipeline: Document[] = [
+    { $match: { transport_token: { $ne: null } } }, ...mailScope(user, emailHashes),
+    { $project: { _id: 1, transport_token: 1, transport_writer_id: 1 } }, { $limit: BATCH },
+  ];
+  for (;;) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
+    let pending: Row[];
+    try {
+      pending = await collection(db, "auth_mail_outbox").aggregate<Row>(pipeline, { maxTimeMS: Math.min(1000, remaining), signal }).toArray();
+      if (!pending.length) return emailHashes;
+      for (const row of pending) {
+        if (!row.transport_writer_id) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
+        const stopped = await collection(db, "operational_writers").findOne({ _id: row.transport_writer_id,
+          kind: "api", state: "stopped", stopped_at: { $type: "date" } }, { projection: { _id: 1 }, maxTimeMS: 1000, signal });
+        if (!stopped) continue;
+        const writeBudget = Math.min(1000, deadline - Date.now());
+        if (writeBudget <= 0) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
+        await collection(db, "auth_mail_outbox").updateOne({ _id: row._id, transport_token: row.transport_token, transport_writer_id: row.transport_writer_id },
+          [{ $set: { transport_token: null, transport_writer_id: null, transport_closed_at: "$$NOW", updated_at: "$$NOW" } }],
+          { timeoutMS: writeBudget });
+      }
+    } catch (error) {
+      if (signal.aborted || Date.now() >= deadline) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
+      throw error;
+    }
+    await new Promise<void>(resolve => setTimeout(resolve, Math.min(100, Math.max(1, deadline - Date.now()))));
+  }
+}
+function steps(user: string, emailHashes: string[] = []): Step[] {
   const byMember = join("organization_members", "member_id", member(user));
   const bySession = join("sessions", "session_id", session(user));
   const bySubmission = join("submissions", "submission_id", submission(user));
@@ -240,6 +304,17 @@ function steps(user: string): Step[] {
     { name: "teaching_assignments", pipeline: byMember },
     { name: "member_roles", pipeline: byMember },
     { name: "member_capability_grants", pipeline: byMember },
+    // Email identities stay until all email-only children have been erased. A
+    // resumed batch can therefore still match unbound invitations and messages.
+    { name: "auth_mail_outbox", pipeline: mailScope(user, emailHashes) },
+    { name: "auth_email_challenges", pipeline: [
+      ...join("auth_invitations", "invitation_id", emailScope(user)).slice(0, 1),
+      ...emailScope(user, [{ "privacy_parent.0": { $exists: true } }]),
+      { $unset: "privacy_parent" },
+    ] },
+    { name: "auth_invitations", pipeline: emailScope(user) },
+    { name: "auth_admissions", pipeline: direct("user_id", user) },
+    { name: "auth_email_identities", pipeline: direct("user_id", user) },
   ];
 }
 async function redactAdministrationProvenance(
@@ -369,7 +444,7 @@ async function plan(db: Db, row: Row, transactionSession?: ClientSession) {
     `${row._id}:${row.policy_revision}:${hold}`,
   );
   const categories: Record<string, number> = {};
-  for (const step of steps(row.user_id)) {
+  for (const step of steps(row.user_id, await subjectEmailHashes(db, row.user_id, transactionSession))) {
     let count = 0;
     const cursor = collection(db, step.name).aggregate(
       [
@@ -572,7 +647,9 @@ async function freeze(
   sequence: number,
   session?: ClientSession,
 ) {
-  const now = new Date();
+  const clock = await db.aggregate<{ now: Date }>([{ $documents: [{}] }, { $project: { _id: 0, now: "$$NOW" } }], { session }).next();
+  if (!(clock?.now instanceof Date)) throw new Error("PRIVACY_DATABASE_CLOCK_UNAVAILABLE");
+  const now = clock.now;
   const options = { session };
   await collection(db, "privacy_tombstones").updateOne(
     { user_id: user },
@@ -607,6 +684,24 @@ async function freeze(
     options,
   );
   await collection(db, "auth_sessions").deleteMany({ user_id: user }, options);
+  const emails = (await collection(db, "auth_email_identities").find({ user_id: user }, { ...options, projection: { email_key: 1 } }).toArray()).map(row => row.email_key);
+  const emailHashes = emails.map(email => createHash("sha256").update(email).digest("hex"));
+  const invitationFilter = { $or: [{ target_user_id: user }, { accepted_user_id: user }, { actor_user_id: user }, { email_key: { $in: emails } }] };
+  const invitations = (await collection(db, "auth_invitations").find(invitationFilter, { ...options, projection: { _id: 1 } }).toArray()).map(row => row._id);
+  const challengeFilter = { $or: [{ user_id: user }, { email_key: { $in: emails } }, { invitation_id: { $in: invitations } }] };
+  const challenges = (await collection(db, "auth_email_challenges").find(challengeFilter, { ...options, projection: { _id: 1 } }).toArray()).map(row => row._id);
+  await collection(db, "auth_invitations").updateMany({ ...invitationFilter, state: "pending" },
+    { $set: { state: "revoked", updated_at: now }, $inc: { revision: 1 } }, options);
+  // Already SMTP-accepted mail cannot be recalled. Revoking its challenge makes
+  // the link unusable; cancelling leases also prevents a stale worker completion.
+  await collection(db, "auth_email_challenges").updateMany({ ...challengeFilter, status: "pending" },
+    { $set: { status: "revoked", updated_at: now } }, options);
+  await collection(db, "auth_mail_outbox").updateMany({ $or: [{ user_id: user }, { actor_user_id: user }, { recipient_key_hash: { $in: emailHashes } },
+    { challenge_id: { $in: challenges } }, { invitation_id: { $in: invitations } }] },
+    { $set: { status: "cancelled", encrypted_payload: null, lease_token: null, lease_until: null, safe_error_code: "PRIVACY_FROZEN", updated_at: now } }, options);
+  await collection(db, "administration_operations").updateMany({ status: { $in: ["applied", "void"] }, action: { $in: ["invitation.create", "approval.request.invitation.create"] },
+    $or: [{ "desired.email_key": { $in: emails } }, { "desired.payload.email_key": { $in: emails } }, { "desired.invitation_id": { $in: invitations } }] },
+    { $set: { before: {}, desired: {}, reason: "[redacted]", key: null, updated_at: now }, $inc: { revision: 1 } }, options);
 }
 async function eraseStep(
   client: MongoClient,
@@ -652,10 +747,11 @@ async function eraseStep(
             },
             { session },
           );
-        await collection(db, step.name).deleteMany(
-          { _id: { $in: ids.map((item) => item._id) } },
+        const removed = await collection(db, step.name).deleteMany(
+          { _id: { $in: ids.map((item) => item._id) }, ...(step.name === "auth_mail_outbox" ? { transport_token: null } : {}) },
           { session },
         );
+        if (step.name === "auth_mail_outbox" && removed.deletedCount !== ids.length) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
         if (step.archiveEmptyClasses) {
           const classIds = [
             ...new Set(
@@ -856,6 +952,7 @@ async function executeRegistered(
       await freeze(db, row.user_id, row._id, reservation.sequence, session);
     });
     await confirmSafetyIntent(db, reservation);
+    const emailHashes = await waitForEmailDrain(db, row.user_id);
     const hold = await held(db, row.user_id);
     await eraseCourseworkFileBytes(db, row.user_id, row._id, async () => {
       const at = new Date();
@@ -875,7 +972,7 @@ async function executeRegistered(
         throw Error("PRIVACY_LEASE_LOST");
     });
     // Preserve the complete dependency graph when retention applies.
-    for (const step of steps(row.user_id))
+    for (const step of steps(row.user_id, emailHashes))
       if (!(hold && (step.assessment || step.coursework)))
         await eraseStep(client, db, row, step, token);
     const password = await hashPassword(temporaryPassword());
@@ -941,7 +1038,7 @@ async function executeRegistered(
       {
         $set: {
           status: "failed",
-          remaining_actions: ["resume_erasure"],
+          remaining_actions: error instanceof Error && error.message === "PRIVACY_MAIL_DRAIN_PENDING" ? ["resume_erasure", "wait_mail_transport_close"] : ["resume_erasure"],
           lease_token: null,
           lease_until: null,
           updated_at: new Date(),
@@ -1082,8 +1179,9 @@ export async function suppressRestoredSubject(
     );
     throw new Error("PRIVACY_RESTORE_PROOF_REQUIRED");
   }
+  const emailHashes = await waitForEmailDrain(db, userId);
   await eraseCourseworkFileBytes(db, userId, id);
-  for (const step of steps(userId)) {
+  for (const step of steps(userId, emailHashes)) {
     if (hold && (step.assessment || step.coursework)) continue;
     for (;;) {
       const finished = await transaction(db.client, async (session) => {
@@ -1119,10 +1217,11 @@ export async function suppressRestoredSubject(
             },
             { session },
           );
-        await collection(db, step.name).deleteMany(
-          { _id: { $in: ids.map((item) => item._id) } },
+        const removed = await collection(db, step.name).deleteMany(
+          { _id: { $in: ids.map((item) => item._id) }, ...(step.name === "auth_mail_outbox" ? { transport_token: null } : {}) },
           { session },
         );
+        if (step.name === "auth_mail_outbox" && removed.deletedCount !== ids.length) throw new Error("PRIVACY_MAIL_DRAIN_PENDING");
         if (step.archiveEmptyClasses) {
           const classIds = [
             ...new Set(

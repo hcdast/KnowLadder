@@ -1,13 +1,21 @@
 import { Transform } from "class-transformer";
 import {
   IsString,
-  Matches,
   Validate,
   ValidatorConstraint,
   ValidatorConstraintInterface,
 } from "class-validator";
 import { ApiProperty } from "@nestjs/swagger";
 import { normalizeLogin, validPassword } from "./database/contracts";
+import { normalizeEmail } from "./auth-email/tokens";
+@ValidatorConstraint({ name: "loginIdentifier" })
+class LoginIdentifier implements ValidatorConstraintInterface {
+  validate(value: unknown) {
+    if (typeof value !== "string") return false;
+    if (!value.includes("@")) return /^[a-z0-9_-]{3,64}$/.test(value);
+    try { normalizeEmail(value); return true; } catch { return false; }
+  }
+}
 @ValidatorConstraint({ name: "passwordPolicy" })
 class PasswordPolicy implements ValidatorConstraintInterface {
   validate(value: unknown) {
@@ -18,12 +26,12 @@ class PasswordPolicy implements ValidatorConstraintInterface {
   }
 }
 export class LoginDto {
-  @ApiProperty({ pattern: "^[a-z0-9_-]{3,64}$", description: "规范化登录名" })
+  @ApiProperty({ maxLength: 254, description: "用户名或已验证邮箱；邮箱密码登录不依赖发信开关" })
   @Transform(({ value }: { value: unknown }) =>
     typeof value === "string" ? normalizeLogin(value) : value,
   )
   @IsString()
-  @Matches(/^[a-z0-9_-]{3,64}$/)
+  @Validate(LoginIdentifier)
   login_name!: string;
   @ApiProperty({
     minLength: 6,

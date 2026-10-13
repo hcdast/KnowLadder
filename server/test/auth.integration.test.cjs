@@ -54,8 +54,12 @@ test(
     await t.test(
       "F01 活跃租约拒绝抢占、过期租约可恢复、checksum漂移拒绝",
       async (t) => {
-        const f = await fixture(t, { app: false });
-        const { assertSchema } = require("../dist/migrations/schema.js");
+        const f = await fixture(t, { migrated: false, app: false });
+        const { assertSchema, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM } = require("../dist/migrations/schema.js");
+        const { initializeObjectId } = require("../dist/migrations/object-id-v10.js");
+        const { ROLE_CAPABILITIES } = require("../dist/database/contracts.js");
+        const initializeBase = () => initializeObjectId(f.uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);
+        await initializeBase();
         const migrations = f.db.collection("schema_migrations");
         const original = await migrations.findOne({ version: 10, status: "completed" });
         assert.ok(original);
@@ -73,7 +77,7 @@ test(
           },
         ]);
         const held = await migrations.findOne({ _id: original._id });
-        await assert.rejects(f.migrate(f.uri));
+        await assert.rejects(initializeBase());
         assert.deepEqual(
           await migrations.findOne({ _id: original._id }),
           held,
@@ -90,14 +94,14 @@ test(
             },
           ],
         );
-        await f.migrate(f.uri);
-        await assertSchema(f.db);
+        await initializeBase();
         const recovered = await migrations.findOne({ _id: original._id });
         assert.equal(recovered.status, "completed");
         assert.equal(recovered.lease_token, null);
         assert.equal(recovered.lease_until, null);
         assert.equal(await migrations.countDocuments({ version: 10 }), 1);
-        assert.equal(await migrations.countDocuments(), 1, "新库仅有v10初始化marker");
+        await f.migrate(f.uri);
+        await assertSchema(f.db);
         const alteredChecksum = `${original.checksum[0] === "0" ? "1" : "0"}${original.checksum.slice(1)}`;
         await migrations.updateOne(
           { _id: original._id },
@@ -527,10 +531,25 @@ test(
         const existing = f.browser.clone();
         const contender = new Browser(f.browser.base);
         await contender.prepare();
-        const [login, reset] = await Promise.all([
+        const before = await f.db.collection("users").findOne({ _id: user.user_id });
+        const [loginAttempt, resetAttempt] = await Promise.allSettled([
           contender.login(user.login_name, PASSWORD),
           f.ops.resetPassword(f.context, { user_id: user.user_id }),
         ]);
+        assert.equal(loginAttempt.status, "fulfilled");
+        const login = loginAttempt.value;
+        let reset;
+        if (resetAttempt.status === "rejected") {
+          // A concurrent login may win the identity fence. A rejected reset must
+          // leave credentials unchanged; a new, explicitly requested reset reads
+          // the current identity instead of replaying the rejected operation.
+          assert.equal(resetAttempt.reason.code, "INVALID_OPERATION");
+          const unchanged = await f.db.collection("users").findOne({ _id: user.user_id });
+          assert.equal(unchanged.credential_version, before.credential_version);
+          reset = await f.ops.resetPassword(f.context, { user_id: user.user_id });
+        } else reset = resetAttempt.value;
+        const changed = await f.db.collection("users").findOne({ _id: user.user_id });
+        assert.equal(changed.credential_version, before.credential_version + 1);
         assert.ok([200, 401, 403, 409].includes(login.status));
         error(await existing.request("/me"), 401);
         error(await contender.request("/me"), 401);

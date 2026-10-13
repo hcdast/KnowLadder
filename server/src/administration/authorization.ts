@@ -3,6 +3,12 @@ import { collections, type AdministrationGuard, type AdministrationOperation, ty
 import { ADMINISTRATIVE_CATALOG, scopeContains } from "./catalog";
 
 const NONTERMINAL: AdministrationOperation["status"][] = ["pending", "applying", "needs_recovery"];
+export class AdministrationTargetIsolatedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AdministrationTargetIsolatedError";
+  }
+}
 
 async function databaseNow(db: Db, session?: ClientSession): Promise<Date> {
   const row = await db.aggregate<{ now: Date }>(
@@ -19,19 +25,29 @@ async function assertTargetAccess(db: Db, subjects: AccessSubject[], session?: C
   const userIds = [...new Set(subjects.map(subject => subject.user_id).filter((id): id is string => !!id))];
   const orgIds = [...new Set(subjects.map(subject => subject.org_id).filter((id): id is string => !!id))];
   const memberIds = [...new Set(subjects.map(subject => subject.member_id).filter((id): id is string => !!id))];
-  if (guard.operation_id && (guard.blocked_targets.global ||
+  if (guard.operation_id && guard.blocked_targets.global)
+    throw new Error("Administration target is isolated pending explicit recovery");
+  const targetIsolated = guard.operation_id && (
       userIds.some(id => guard.blocked_targets.user_ids.includes(id)) ||
       orgIds.some(id => guard.blocked_targets.org_ids.includes(id)) ||
-      memberIds.some(id => guard.blocked_targets.member_ids.includes(id))))
-    throw new Error("Administration target is isolated pending explicit recovery");
+      memberIds.some(id => guard.blocked_targets.member_ids.includes(id)));
   const targetClauses: Document[] = [{ "targets.global": true }];
   if (userIds.length) targetClauses.push({ "targets.user_ids": { $in: userIds } });
   if (orgIds.length) targetClauses.push({ "targets.org_ids": { $in: orgIds } });
   if (memberIds.length) targetClauses.push({ "targets.member_ids": { $in: memberIds } });
   const unfinished = await db.collection<AdministrationOperation>("administration_operations").findOne({
     status: { $in: NONTERMINAL }, $or: targetClauses,
-  }, { session, projection: { _id: 1 } });
-  if (unfinished) throw new Error("Administration operation is unfinished for this target");
+  }, { session, projection: { _id: 1, "targets.global": 1 }, sort: { "targets.global": -1 } });
+  if (unfinished && unfinished.targets?.global !== false)
+    throw new Error("Administration operation is unfinished for this target");
+  if (targetIsolated)
+    throw new AdministrationTargetIsolatedError("Administration target is isolated pending explicit recovery");
+  if (unfinished)
+    throw new AdministrationTargetIsolatedError("Administration operation is unfinished for this target");
+}
+
+export async function assertAdministrationGlobalAccess(db: Db, session?: ClientSession): Promise<void> {
+  await assertTargetAccess(db, [], session);
 }
 
 export async function assertAdministrationOrganizationAccess(db: Db, orgId: string, session?: ClientSession): Promise<void> {

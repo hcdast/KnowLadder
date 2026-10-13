@@ -90,19 +90,50 @@ export async function inspectOperations(db:Db) {
 export async function registerEnvironment(client:MongoClient,db:Db,input:{environmentId:string;actor:string;reason:string;fileRoot:string|null}) {
   requireActor(input); assertLocalEnvironment(db,input.environmentId);
   if(!/^kl_test_/.test(db.databaseName)) throw new Error("OPERATIONS_SOURCE_DATABASE_REQUIRED");
-  const current=await getOperationalState(db);
-  if(!((current.mode==="unregistered"&&current.revision===0)||(current.mode==="draining"&&current.revision===1&&current.environment_id===input.environmentId&&current.owner===input.actor))) throw new Error("OPERATIONS_ALREADY_REGISTERED");
-  if(current.mode==="unregistered") await transaction(client,async session=> {
-    if(await db.collection("operational_writers").countDocuments({state:"running"},{session})) throw new Error("OPERATIONS_WRITERS_RUNNING");
-    const result=await db.collection<OperationalState>("operational_state").updateOne({_id:"environment",mode:"unregistered",revision:current.revision},{$set:{mode:"draining",environment_id:input.environmentId,owner:input.actor,updated_at:new Date()},$inc:{revision:1,access_fence:1}},{session});
-    if(result.modifiedCount!==1) throw new Error("OPERATIONS_REVISION_CONFLICT");
-    await auditOperation(db,input,"register",session);
-  });
-  // Lazy loading breaks the control/ledger/privacy runtime cycle; ledger calls control guards.
-  const {registerSafetyLedger}=await import("./ledger");
+  const current=await getOperationalState(db), actorHash=createHash("sha256").update(input.actor).digest("hex");
+  let held=current, owner:string, requestId:string;
+  if(current.mode==="unregistered"&&current.environment_id===null&&current.owner===null&&current.restore_id===null&&current.maintenance_token===null) {
+    requestId=randomUUID(); owner=`register:${actorHash}:${requestId}`;
+    await transaction(client,async session=> {
+      if(await db.collection("operational_writers").countDocuments({state:"running"},{session})) throw new Error("OPERATIONS_WRITERS_RUNNING");
+      const now=new Date();
+      const admitted=await db.collection<OperationalState>("operational_state").findOneAndUpdate({_id:"environment",mode:"unregistered",
+        revision:current.revision,access_fence:current.access_fence,environment_id:null,owner:null,restore_id:null,maintenance_token:null},
+        {$set:{mode:"draining",environment_id:input.environmentId,owner,updated_at:now},$inc:{revision:1,access_fence:1}},{session,returnDocument:"after"});
+      if(!admitted) throw new Error("OPERATIONS_REVISION_CONFLICT");
+      held=admitted;
+      await db.collection<Document>("audit_events").insertOne({_id:newId(),actor_id:input.actor,org_id:null,action:"operations.register",
+        resource_id:db.databaseName,reason:input.reason,request_id:requestId,created_at:now},{session});
+    });
+  } else {
+    const proof=typeof current.owner==="string"?/^register:([a-f0-9]{64}):([a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12})$/.exec(current.owner):null;
+    if(current.mode!=="draining"||current.environment_id!==input.environmentId||current.restore_id!==null||current.maintenance_token!==null||
+      !proof||proof[1]!==actorHash) throw new Error("OPERATIONS_ALREADY_REGISTERED");
+    owner=proof[0]; requestId=proof[2]!;
+    if(!await db.collection<Document>("audit_events").findOne({actor_id:input.actor,action:"operations.register",
+      resource_id:db.databaseName,request_id:requestId})) throw new Error("OPERATIONS_ALREADY_REGISTERED");
+  }
+  const heldFilter={_id:"environment",mode:"draining" as const,revision:held.revision,access_fence:held.access_fence,
+    environment_id:input.environmentId,owner,restore_id:null,maintenance_token:null};
+  if(!await db.collection<OperationalState>("operational_state").findOne(heldFilter)) throw new Error("OPERATIONS_REVISION_CONFLICT");
+  // Registration is a separate, audited saga. Migration may advance an
+  // unregistered revision; a normal drain or unknown owner is never its retry.
+  // Lazy loading is required for the existing control/ledger/privacy runtime cycle.
+  const {registerSafetyLedger,runWithCurrentSafetyLedger,inspectSafetyLedger}=await import("./ledger");
   await registerSafetyLedger(db,input.environmentId,input.fileRoot);
-  const result=await db.collection<OperationalState>("operational_state").updateOne({_id:"environment",mode:"draining",revision:1,environment_id:input.environmentId,owner:input.actor},{$set:{mode:"active",owner:null,updated_at:new Date()},$inc:{revision:1,access_fence:1}});
-  if(result.modifiedCount!==1) throw new Error("OPERATIONS_REVISION_CONFLICT");
+  await runWithCurrentSafetyLedger(input.environmentId,0,async ledger=> {
+    assertLocalEnvironment(db,input.environmentId);
+    await inspectSafetyLedger(db);
+    if(ledger.pending) throw new Error("OPERATIONS_PENDING_LEDGER");
+    await transaction(client,async session=> {
+      if(await db.collection("operational_writers").countDocuments({state:"running"},{session})) throw new Error("OPERATIONS_WRITERS_RUNNING");
+      if(!await db.collection<Document>("audit_events").findOne({actor_id:input.actor,action:"operations.register",
+        resource_id:db.databaseName,request_id:requestId},{session})) throw new Error("OPERATIONS_ALREADY_REGISTERED");
+      const result=await db.collection<OperationalState>("operational_state").updateOne(heldFilter,
+        {$set:{mode:"active",owner:null,updated_at:new Date()},$inc:{revision:1,access_fence:1}},{session});
+      if(result.modifiedCount!==1) throw new Error("OPERATIONS_REVISION_CONFLICT");
+    });
+  });
   return inspectOperations(db);
 }
 export async function drainEnvironment(client:MongoClient,db:Db,input:{actor:string;reason:string;expectedRevision:number}) {
@@ -204,9 +235,11 @@ export async function releaseRestoredLocal(client:MongoClient,db:Db,input:{resto
     const guard = await db.collection<AdministrationGuard>("administration_guard").findOne({ _id: "administration", state: "idle", operation_id: null, recovery_token: null }, { session });
     if (!guard || guard.blocked_targets?.global !== false || guard.blocked_targets?.user_ids?.length || guard.blocked_targets?.member_ids?.length || guard.blocked_targets?.org_ids?.length || guard.affected_orgs?.length)
       throw new Error("OPERATIONS_RESTORE_NOT_VALIDATED");
-    for (const name of ["member_roles", "member_capability_grants", "administrative_grants", "authorization_requests", "administration_operations", "auth_sessions"]) {
+    for (const name of ["member_roles", "member_capability_grants", "administrative_grants", "authorization_requests", "administration_operations", "auth_sessions", "auth_email_challenges", "auth_invitations", "auth_mail_outbox"]) {
       if (await db.collection(name).findOne({}, { session, projection: { _id: 1 } })) throw new Error("OPERATIONS_RESTORE_NOT_VALIDATED");
     }
+    if (await db.collection("auth_email_identities").findOne({ $or: [{ state: { $ne: "needs_reverify" } }, { verified_at: { $ne: null } }] }, { session, projection: { _id: 1 } }))
+      throw new Error("OPERATIONS_RESTORE_NOT_VALIDATED");
     const result=await db.collection<OperationalState>("operational_state").updateOne({_id:"environment",mode:"restore_quarantined",restore_id:input.restoreId,revision:input.expectedRevision},{$set:{mode:"active",owner:null,updated_at:new Date()},$inc:{revision:1,access_fence:1}},{session});
     if(result.modifiedCount!==1) throw new Error("OPERATIONS_REVISION_CONFLICT");
     await db.collection<Document>("backup_restore_runs").updateOne({_id:input.restoreId,status:"ready",revision:run.revision},{$set:{status:"released",updated_at:new Date()},$inc:{revision:1}},{session});

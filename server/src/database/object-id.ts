@@ -25,6 +25,7 @@ const dynamicRoots: Record<string, string[]> = {
 };
 const dynamicNames = new Set([
   "id", "_id", "org_id", "user_id", "member_id", "subject_member_id", "actor_org_id",
+  "invitation_id", "target_user_id", "actor_member_id",
   "target_org_id", "organization_ids", "user_ids", "member_ids", "org_ids",
   "grant_id", "grant_ids", "approval_id", "operation_id", "resource_id", "owner_version_id",
   "textbook_id", "textbook_edition_id", "question_id", "question_version_id", "chapter_id",

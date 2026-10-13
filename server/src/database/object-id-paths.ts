@@ -2,6 +2,12 @@ import { TRAINING_PATHS } from "../training/paths";
 // Reviewed v10 persistence paths. UUID tokens and arbitrary text are intentionally absent.
 export const OBJECT_ID_PATHS: Record<string, readonly string[]> = {
   ...TRAINING_PATHS,
+  auth_email_identities: ["_id", "user_id"],
+  auth_email_challenges: ["_id", "user_id", "invitation_id"],
+  auth_admissions: ["_id", "user_id"],
+  auth_mail_outbox: ["_id", "challenge_id", "user_id", "invitation_id", "transport_writer_id", "actor_user_id"],
+  auth_invitations: ["_id", "org_id", "actor_user_id", "target_user_id", "accepted_user_id", "approval_id", "operation_id",
+    "payload.invitation_id", "payload.org_id", "payload.actor_org_id", "payload.actor_member_id", "payload.target_user_id", "payload.member_id"],
   "users": [
     "_id"
   ],

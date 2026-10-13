@@ -18,16 +18,27 @@ const PAGES = [
 @Injectable()
 export class SiteService {
   constructor(readonly training: TrainingService) {}
+  private siteOrg() {
+    const org = process.env.KL_SITE_ORG_ID;
+    if (!org?.trim()) return null;
+    if (!/^[0-9a-f]{24}$/.test(org))
+      fail(503, "SITE_CONFIGURATION_INVALID", "站点组织配置无效，请联系管理员");
+    return org;
+  }
   async publicPage(key: string) {
     if (!PAGES.includes(key)) fail(404, "NOT_FOUND", "页面不存在");
+    const org = this.siteOrg();
+    if (!org)
+      return { page: null, consultation_enabled: false, retention_days: null };
     if (process.env.KL_TRAINING_ENABLED !== "true")
-      return { page: null, consultation_enabled: false };
+      return { page: null, consultation_enabled: false, retention_days: null };
     await assertOperationalAccess(this.training.db);
-    const activeOrg = await this.training.col("organizations").findOne({_id: process.env.KL_SITE_ORG_ID ?? "000000000000000000000000", status:"active"});
-    if (!activeOrg) return {page:null, consultation_enabled:false, retention_days:null};
+    const activeOrg = await this.training.col("organizations").findOne({ _id: org, status: "active" });
+    if (!activeOrg)
+      return { page: null, consultation_enabled: false, retention_days: null };
     const page = await this.training.col("site_revisions").findOne(
       {
-        org_id: process.env.KL_SITE_ORG_ID ?? "000000000000000000000000",
+        org_id: org,
         page_key: key,
         status: "published",
       },
@@ -36,20 +47,21 @@ export class SiteService {
         projection: { title: 1, body: 1 },
       },
     );
+    const handler = await this.handler();
     return {
       page: page ? { title: page.title, body: page.body } : null,
-      consultation_enabled: !!(await this.handler()),
-      retention_days: (await this.handler())?.days ?? null,
+      consultation_enabled: handler !== null,
+      retention_days: handler?.days ?? null,
     };
   }
   async handler(session?: ClientSession, write = false) {
-    const org = process.env.KL_SITE_ORG_ID,
+    const org = this.siteOrg(),
       member = process.env.KL_SITE_HANDLER_MEMBER_ID,
       days = Number(process.env.KL_SITE_LEAD_RETENTION_DAYS);
     if (
       !org ||
       !member ||
-      !/^[a-f0-9]{24}$/.test(org) ||
+      process.env.KL_TRAINING_ENABLED !== "true" ||
       !/^[a-f0-9]{24}$/.test(member) ||
       !Number.isInteger(days) ||
       days < 1 ||
@@ -196,8 +208,10 @@ export class SiteService {
     });
   }
   async consultation(req: ApiRequest, input: unknown) {
-    if (process.env.KL_TRAINING_ENABLED !== "true")
+    const org = this.siteOrg();
+    if (!org || process.env.KL_TRAINING_ENABLED !== "true")
       fail(503, "SITE_LEADS_DISABLED", "咨询服务暂未开放");
+    await assertOperationalAccess(this.training.db);
     this.training.access.assessment.auth.origin(req);
     await this.training.access.assessment.auth.rate(
       "site-leads",
@@ -224,7 +238,6 @@ export class SiteService {
     const contact = v.text(o.contact, 200),
       name = v.text(o.name, 80, true),
       receipt_hash = createHash("sha256").update(receipt).digest("hex");
-    await assertOperationalAccess(this.training.db);
     return runInTxn(this.training.db.client, async (session) => {
       const current = await this.handler(session, true);
       if (!current) fail(503, "SITE_LEADS_DISABLED", "咨询服务暂未开放");

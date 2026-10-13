@@ -12,6 +12,11 @@ import { ADMINISTRATIVE_CATALOG, MEMBER_CAPABILITY_CATALOG, DELEGABLE_CAPABILITI
 import { activeMemberGrants, activeMemberRoles, effectiveAdministrativeGrants, assertAdministrationAccess, assertRetainsGovernance } from './authorization';
 import { executeAdministrationOperation, recoverAdministrationOperation, cancelAdministrationOperation, releaseInvalidatedAdministration } from './operations';
 import { canonical, currentPassword, boundedReason, date, id, login, object, page, revision, roles, safeGrant, safeUser, scope, status, text } from './dto';
+import { protectedAccount } from './protected-account';
+import { emailCollections, type AuthInvitation, type EmailChallenge, type EmailIdentity } from '../auth-email/contracts';
+import { issueEmailChallenge, normalizeEmail, revokeEmailChallenges } from '../auth-email/tokens';
+import { enqueueEmail } from '../auth-email/mail';
+import { AuthEmailService } from '../auth-email/service';
 
 const privacyActive: Filter<User> = { $or: [{ privacy_state: 'active' }, { privacy_state: { $exists: false } }] };
 const sensitive: Record<string, true> = { 'platform:govern': true, 'account:platform-manage': true, 'authorization:delegate': true,
@@ -21,19 +26,13 @@ const adminCapabilities: Record<string, true> = { 'platform:govern': true, 'acco
   'account:manage': true, 'authorization:delegate': true };
 const platformBusiness: Record<string, true> = Object.fromEntries(Object.keys(ADMINISTRATIVE_CATALOG)
   .filter(capability => !Object.hasOwn(adminCapabilities, capability)).map(capability => [capability, true])) as Record<string, true>;
-const protectedMemberCapabilities: ControlledCapability[] = Object.keys(MEMBER_CAPABILITY_CATALOG)
-  .filter(isControlledCapability)
-  .filter(capability => MEMBER_CAPABILITY_CATALOG[capability].sensitivity !== 'ordinary');
-const notExpiredAtDatabaseTime: Document = { $or: [
-  { $eq: [{ $ifNull: ['$valid_to', null] }, null] },
-  { $gt: ['$valid_to', '$$NOW'] },
-] };
 const permissionHash = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex');
 const validAtDatabaseTime: Document = { $and: [
   { $lte: ['$valid_from', '$$NOW'] },
   { $or: [{ $eq: ['$valid_to', null] }, { $gt: ['$valid_to', '$$NOW'] }] },
 ] };
-type Actor = { identity: Identity; member: Member; orgId: string; roles: RoleCode[]; capabilities: string[]; grants: Document[]; admin: Document[]; organizationKind: string };
+type ActorPolicy = { identity: Pick<Identity, 'user'>; member: Member; orgId: string; roles: RoleCode[]; capabilities: string[]; grants: Document[]; admin: Document[]; organizationKind: string };
+type Actor = ActorPolicy & { identity: Identity };
 type Approval = AuthorizationRequest;
 type GrantRecord = AdministrativeGrant | MemberCapabilityGrant;
 function isAdministrativeCapability(value: string): value is AdministrativeCapability {
@@ -43,19 +42,33 @@ function isControlledCapability(value: string): value is ControlledCapability {
   return Object.hasOwn(MEMBER_CAPABILITY_CATALOG, value);
 }
 
+/** Management-role proof for callbacks that own the administration guard. */
+async function currentManagementRoles(db: Db, memberId: string, orgId: string, session?: ClientSession): Promise<RoleCode[]> {
+  const rows = await collections(db).memberRoles.find({ member_id: memberId, org_id: orgId,
+    role_id: { $in: ['platform_ops', 'org_admin'] }, $expr: { $and: [
+      { $eq: [{ $ifNull: ['$status', 'active'] }, 'active'] },
+      { $lte: [{ $ifNull: ['$valid_from', new Date(0)] }, '$$NOW'] },
+      { $or: [{ $eq: [{ $ifNull: ['$valid_to', null] }, null] }, { $gt: ['$valid_to', '$$NOW'] }] },
+    ] } }, { session }).toArray();
+  const roles: RoleCode[] = [];
+  for (const row of rows) {
+    if (row.operation_id && !await db.collection<AdministrationOperation>('administration_operations').findOne({ _id: row.operation_id, status: 'applied' }, { session, projection: { _id: 1 } })) continue;
+    roles.push(row.role_id);
+  }
+  return roles;
+}
 /** Used by HTTP approval and explicit CLI recovery; reads current authority, never the request snapshot as authority. */
 async function assertRequesterCurrent(db: Db, request: Approval, session?: ClientSession) {
   const c = collections(db);
   const user = await c.users.findOne({ _id: request.requester_user_id, status: 'active', ...privacyActive }, { session });
-  const member = await c.members.findOne({ _id: request.requester_member_id, status: 'active' }, { session });
+  const member = await c.members.findOne({ _id: request.requester_member_id, user_id: request.requester_user_id, status: 'active' }, { session });
   if (!user || !member || user.must_change_password || user.credential_version !== request.requester_credential_version)
     fail(409, 'REQUESTER_CHANGED', '申请人身份或凭据已变化');
   const org = await c.organizations.findOne({ _id: member.org_id, status: 'active' }, { session });
-  const roleRows = await c.memberRoles.find({ member_id: member._id }, { session }).toArray();
+  const roleIds = await currentManagementRoles(db, member._id, member.org_id, session);
   if (!org) fail(409, 'REQUESTER_CHANGED', '申请人组织已失效');
-  const roleIds = roleRows.map(r => r.role_id);
-  const relevant: AdministrativeCapability[] = request.action.startsWith('grant.')
-    ? ['platform:govern', 'authorization:delegate'] : ['account:platform-manage', 'account:manage', 'platform:govern'];
+  const relevant: AdministrativeCapability[] = request.action === 'invitation.create' ? ['platform:govern'] :
+    request.action.startsWith('grant.') ? ['platform:govern', 'authorization:delegate'] : ['account:platform-manage', 'account:manage', 'platform:govern'];
   const grants = await db.collection<AdministrativeGrant>('administrative_grants').find({ subject_member_id: member._id, actor_org_id: member.org_id, capability: { $in: relevant },
     status: 'active', $expr: validAtDatabaseTime }, { session }).toArray();
   for (const grant of grants) {
@@ -78,7 +91,7 @@ async function assertRequesterCurrent(db: Db, request: Approval, session?: Clien
 }
 @Injectable()
 export class AdministrationService {
-  constructor(readonly database: Database, readonly auth: AuthService) {}
+  constructor(readonly database: Database, readonly auth: AuthService, readonly email: AuthEmailService) {}
   private get c() { return collections(this.database.db); }
   private get db() { return this.database.db; }
   private async actor(req: ApiRequest, session?: ClientSession): Promise<Actor> {
@@ -101,37 +114,19 @@ export class AdministrationService {
     if (identity.user._id.startsWith('system:') || capabilities.includes('assessment:worker') || capabilities.includes('learning:projection-worker')) fail(403, 'FORBIDDEN', '内部身份不可使用控制台');
     return { identity, member, orgId, roles, grants, admin, capabilities, organizationKind: org.kind };
   }
-  private require(actor: Actor, capability: string): void {
+  private require(actor: ActorPolicy, capability: string): void {
     if (!actor.capabilities.includes(capability)) fail(403, 'FORBIDDEN', '没有相应管理职责');
     if ((capability === 'platform:govern' || capability === 'account:platform-manage') && (actor.organizationKind !== 'platform' || !actor.roles.includes('platform_ops'))) fail(403, 'FORBIDDEN', '需要平台职责');
     if (capability === 'account:manage' && !actor.roles.includes('org_admin')) fail(403, 'FORBIDDEN', '需要组织管理职责');
   }
-  private canAccounts(actor: Actor, orgId?: string): void {
+  private canAccounts(actor: ActorPolicy, orgId?: string): void {
     if (actor.capabilities.includes('account:platform-manage') && actor.organizationKind === 'platform' && actor.roles.includes('platform_ops')) return;
     this.require(actor, 'account:manage');
     if (orgId && actor.orgId !== orgId) fail(404, 'NOT_FOUND', '目标不在当前组织范围');
   }
-  private isPlatformAccounts(actor: Actor) { return actor.organizationKind === 'platform' && actor.roles.includes('platform_ops') && actor.capabilities.includes('account:platform-manage'); }
-  private async protectedAccount(userId: string, session?: ClientSession): Promise<boolean> {
-    const members = await this.c.members.find({ user_id: userId }, { session, projection: { _id: 1, org_id: 1 } }).toArray();
-    if (!members.length) return false;
-    const ids = members.map(m => m._id);
-    const sensitiveRole = await this.c.memberRoles.findOne({ member_id: { $in: ids },
-      role_id: { $in: ['platform_ops', 'content_reviewer'] }, status: { $ne: 'revoked' },
-      $expr: notExpiredAtDatabaseTime }, { session, projection: { _id: 1 } });
-    if (sensitiveRole) return true;
-    const local = await this.db.collection<MemberCapabilityGrant>('member_capability_grants').findOne({
-      member_id: { $in: ids }, capability: { $in: protectedMemberCapabilities },
-      status: { $in: ['pending', 'active'] }, $expr: notExpiredAtDatabaseTime,
-    }, { session, projection: { _id: 1 } });
-    if (local) return true;
-    const admin = await this.db.collection<AdministrativeGrant>('administrative_grants').findOne({
-      subject_member_id: { $in: ids }, status: { $in: ['pending', 'active'] },
-      $expr: notExpiredAtDatabaseTime,
-    }, { session, projection: { _id: 1 } });
-    if (admin) return true;
-    return !!await this.db.collection<AuthorizationRequest>('authorization_requests').findOne({ beneficiary_user_id: userId,
-      status: { $in: ['pending', 'approved', 'applying', 'needs_recovery'] } }, { session });
+  private isPlatformAccounts(actor: ActorPolicy) { return actor.organizationKind === 'platform' && actor.roles.includes('platform_ops') && actor.capabilities.includes('account:platform-manage'); }
+  private protectedAccount(userId: string, session?: ClientSession): Promise<boolean> {
+    return protectedAccount(this.db, userId, session);
   }
   private async writeActor(req: ApiRequest, body: Record<string, unknown>): Promise<Actor> {
     this.auth.origin(req);
@@ -142,13 +137,12 @@ export class AdministrationService {
     if (!req.get('Idempotency-Key')?.match(/^[A-Za-z0-9_-]{8,128}$/)) fail(422, 'IDEMPOTENCY_KEY_REQUIRED', '请提供有效幂等键');
     return actor;
   }
-  private async assertActorUnchanged(actor: Actor, session: ClientSession, capability: AdministrativeCapability, delegatedCapability?: string) {
+  private async assertActorUnchanged(actor: ActorPolicy, session: ClientSession, capability: AdministrativeCapability, delegatedCapability?: string) {
     const user = await this.c.users.findOne({ _id: actor.identity.user._id, credential_version: actor.identity.user.credential_version, status: 'active', ...privacyActive }, { session });
     const member = await this.c.members.findOne({ _id: actor.member._id, user_id: actor.identity.user._id, org_id: actor.orgId, status: 'active' }, { session });
     const org = await this.c.organizations.findOne({ _id: actor.orgId, status: 'active' }, { session });
     if (!user || !member || !org || user.must_change_password) fail(409, 'AUTHORIZATION_CHANGED', '操作者身份已改变');
-    const roleRows = await this.c.memberRoles.find({ member_id: member._id, org_id: actor.orgId }, { session }).toArray();
-    const roleIds = roleRows.map(r => r.role_id);
+    const roleIds = await currentManagementRoles(this.db, member._id, actor.orgId, session);
     if (capability === 'account:manage' && !roleIds.includes('org_admin') ||
         ['platform:govern', 'account:platform-manage'].includes(capability) && (org.kind !== 'platform' || !roleIds.includes('platform_ops'))) fail(403, 'FORBIDDEN', '操作者角色已失效');
     // Guard intentionally remains active; only this exact operation callback reads raw grant rows.
@@ -175,7 +169,7 @@ export class AdministrationService {
     if (addingReviewer && !value) fail(422, 'REVIEWER_EXPIRY_REQUIRED', '新增或续期内容审核角色必须设置期限');
     return value;
   }
-  private async roleDecision(actor: Actor, desired: RoleCode[], existing: RoleCode[], targetUser: string, orgId: string) {
+  private async roleDecision(actor: ActorPolicy, desired: RoleCode[], existing: RoleCode[], targetUser: string, orgId: string) {
     if (desired.includes('platform_ops') && (!actor.capabilities.includes('platform:govern') || actor.organizationKind !== 'platform')) fail(403, 'FORBIDDEN', '平台身份只能由治理管理员申请');
     if (desired.includes('platform_ops') && orgId !== actor.orgId) fail(422, 'VALIDATION_ERROR', '平台身份必须属于当前平台组织');
     const gained = desired.filter(role => !existing.includes(role)).flatMap(role => ROLE_CAPABILITIES[role]);
@@ -186,6 +180,225 @@ export class AdministrationService {
       if (gained.some(c => c !== 'account:read' && c !== 'learning:self' && c !== 'teaching:class' && c !== 'organization:admin' && c !== 'content:edit' && !Object.hasOwn(sensitive, c))) fail(403, 'FORBIDDEN', '不可授予未获委派的角色能力');
     }
     return sensitiveGained;
+  }
+  private async invitationActor(payload: AuthInvitation['payload'], session: ClientSession): Promise<ActorPolicy> {
+    const member = await this.c.members.findOne({ _id: payload.actor_member_id, org_id: payload.actor_org_id, status: 'active' }, { session });
+    const issuer = member && await this.c.users.findOne({ _id: member.user_id, status: 'active',
+      credential_version: payload.actor_credential_version, ...privacyActive }, { session });
+    const org = await this.c.organizations.findOne({ _id: payload.actor_org_id, status: 'active' }, { session });
+    if (!issuer || !member || !org || issuer.must_change_password) fail(409, 'INVITATION_UNAVAILABLE', '邀请操作者身份或权限已变化');
+    await assertAdministrationAccess(this.db, issuer._id, org._id, session);
+    const roleRows = await activeMemberRoles(this.db, { member_id: member._id, org_id: org._id }, session);
+    const [grants, admin] = await Promise.all([activeMemberGrants(this.db, { member_id: member._id, org_id: org._id }, session),
+      effectiveAdministrativeGrants(this.db, member._id, session)]);
+    const roleIds = roleRows.map(row => row.role_id);
+    const capabilities = [...new Set([...roleIds.flatMap(role => ROLE_CAPABILITIES[role]), ...grants.map(grant => grant.capability), ...admin.map(grant => grant.capability)])];
+    return { identity: { user: issuer }, member, orgId: org._id, roles: roleIds, capabilities, grants, admin, organizationKind: org.kind };
+  }
+  private async persistInvitation(payload: AuthInvitation['payload'], session: ClientSession, now: Date, operationId: string, approvalId: string | null) {
+    const expiresAt = date(payload.expires_at, 'expires_at')!, validTo = date(payload.valid_to, 'valid_to', true);
+    if (expiresAt <= now || validTo && validTo <= now) fail(409, 'INVITATION_UNAVAILABLE', '邀请或角色期限已过期');
+    if (!await this.c.organizations.findOne({ _id: payload.org_id, status: 'active' }, { session }))
+      fail(409, 'INVITATION_UNAVAILABLE', '目标组织已失效');
+    const member = payload.target_user_id ? await this.c.members.findOne({ user_id: payload.target_user_id, org_id: payload.org_id }, { session }) : null;
+    if (member) fail(409, 'MEMBER_EXISTS', '目标已关联本组织，请使用现有成员管理，不通过邀请替换角色');
+    if (payload.target_member_revision !== null) fail(409, 'TARGET_CHANGED', '邀请不是新的组织关联');
+    let identity: EmailIdentity | null = null;
+    if (payload.target_user_id) {
+      identity = await emailCollections(this.db).identities.findOne({ user_id: payload.target_user_id, email_key: payload.email_key, state: 'verified' }, { session });
+      if (!identity || !await this.c.users.findOne({ _id: payload.target_user_id, credential_version: payload.target_credential_version!, status: 'active', ...privacyActive }, { session }))
+        fail(409, 'TARGET_CHANGED', '目标账号或验证邮箱已变化');
+      if (!approvalId && await this.protectedAccount(payload.target_user_id, session)) fail(403, 'PROTECTED_ACCOUNT', '目标已受保护，必须重新申请独立治理审批');
+      const targetFence = await this.c.users.updateOne({ _id: payload.target_user_id, credential_version: payload.target_credential_version!, status: 'active', ...privacyActive },
+        { $inc: { identity_revision: 1 } }, { session });
+      const emailFence = await emailCollections(this.db).identities.updateOne({ _id: identity._id, revision: identity.revision, state: 'verified' }, { $set: { updated_at: now } }, { session });
+      if (!targetFence.modifiedCount || !emailFence.matchedCount) fail(409, 'TARGET_CHANGED', '目标账号或邮箱已变化');
+    } else if (await emailCollections(this.db).identities.findOne({ email_key: payload.email_key, state: 'verified' }, { session })) {
+      fail(409, 'TARGET_CHANGED', '邮箱已有确定账号，请重新邀请');
+    }
+    const issuer = await this.c.members.findOne({ _id: payload.actor_member_id, org_id: payload.actor_org_id, status: 'active' }, { session });
+    if (!issuer) fail(409, 'AUTHORIZATION_CHANGED', '操作者权限已变化');
+    const actorFence = await this.c.users.updateOne({ _id: issuer.user_id, credential_version: payload.actor_credential_version, status: 'active', ...privacyActive },
+      { $inc: { identity_revision: 1 } }, { session });
+    const permissionFence = await this.c.members.updateOne({ _id: issuer._id, authorization_revision: issuer.authorization_revision, status: 'active' }, { $set: { updated_at: now } }, { session });
+    if (!actorFence.modifiedCount || !permissionFence.matchedCount) fail(409, 'AUTHORIZATION_CHANGED', '操作者身份或权限已变化');
+    await emailCollections(this.db).invitations.insertOne({ _id: payload.invitation_id, org_id: payload.org_id, actor_user_id: issuer.user_id,
+      target_user_id: payload.target_user_id, email_key: payload.email_key, roles: payload.roles, valid_to: validTo,
+      payload, payload_hash: permissionHash(payload), revision: 1, state: 'pending', expires_at: expiresAt,
+      accepted_user_id: null, accepted_at: null, approval_id: approvalId, operation_id: operationId, created_at: now, updated_at: now }, { session });
+    const challenge = await issueEmailChallenge(this.db, session, { purpose: 'invite', userId: payload.target_user_id,
+      email: { key: payload.email_key, display: payload.email_key }, invitationId: payload.invitation_id, invitationRevision: 1,
+      credentialVersion: payload.target_credential_version, emailRevision: identity?.revision ?? null,
+      durationMs: Math.min(7 * 86400000, expiresAt.getTime() - now.getTime()) });
+    await enqueueEmail(this.db, session, { challengeId: challenge.id, userId: payload.target_user_id, invitationId: payload.invitation_id,
+      purpose: 'invite', email: payload.email_key, token: challenge.token, expiresAt: challenge.expiresAt });
+    return { invitation_id: payload.invitation_id, invitation_state: 'pending', invitation_revision: 1, delivery_status: 'accepted' };
+  }
+  async createInvitation(req: ApiRequest, orgIdRaw: string, raw: unknown) {
+    const body = object(raw, ['email', 'roles', 'valid_to', 'reason', 'current_password']);
+    const actor = await this.writeActor(req, body), orgId = id(orgIdRaw), desired = roles(body.roles), reason = boundedReason(body.reason);
+    const email = normalizeEmail(text(body.email, 'email', 254)), validTo = this.reviewerExpiry(body.valid_to, desired, desired.includes('content_reviewer'));
+    if (!actor.capabilities.includes('platform:govern')) this.canAccounts(actor, orgId);
+    const invitationId = await this.stableId(actor, req.get('Idempotency-Key')!, 'invitation.create', 'invitation');
+    const requestPayload = { invitation_id: invitationId, org_id: orgId, email_key: email.key, roles: desired, valid_to: validTo?.toISOString() ?? null };
+    const directReplay = await this.replay(actor, req, 'invitation.create', requestPayload);
+    if (directReplay) return { ...directReplay, ...await this.invitationReceipt(invitationId) };
+    const previousApproval = await this.db.collection<AdministrationOperation>('administration_operations').findOne({
+      actor_id: actor.identity.user._id, key: req.get('Idempotency-Key'), action: 'approval.request.invitation.create' });
+    if (previousApproval) {
+      const original = previousApproval.desired.payload;
+      if (canonical(requestPayload) !== canonical({ invitation_id: original?.invitation_id, org_id: original?.org_id, email_key: original?.email_key,
+        roles: original?.roles, valid_to: original?.valid_to })) fail(409, 'IDEMPOTENCY_CONFLICT', '原key对应不同邀请');
+      const { actorOrgId: _org, ...intent } = previousApproval.desired;
+      return this.replay(actor, req, previousApproval.action, intent, true);
+    }
+    await this.email.sendRate(req, email.key);
+    await this.email.assertAvailable();
+    const identity = await emailCollections(this.db).identities.findOne({ email_key: email.key, state: 'verified' });
+    const target = identity ? await this.target(identity.user_id) : null;
+    if (target && (target.status !== 'active' || target.must_change_password)) fail(409, 'INVITATION_UNAVAILABLE', '目标账号不可接受邀请');
+    const member = target ? await this.c.members.findOne({ user_id: target._id, org_id: orgId }) : null;
+    if (member) fail(409, 'MEMBER_EXISTS', '目标已关联本组织，请使用现有成员管理，不通过邀请替换角色');
+    const memberId = await this.stableId(actor, req.get('Idempotency-Key')!, 'invitation.create', 'member');
+    const sensitiveRoles = await this.roleDecision(actor, desired, [], target?._id ?? invitationId, orgId);
+    const protectedTarget = target ? await this.protectedAccount(target._id) : false;
+    if (!target && (sensitiveRoles || desired.some(role => role === 'platform_ops' || role === 'content_reviewer')))
+      fail(403, 'PROTECTED_ACCOUNT', '未固定身份的邮箱只能邀请非敏感角色');
+    const payload: AuthInvitation['payload'] = { ...requestPayload, actor_org_id: actor.orgId, actor_member_id: actor.member._id,
+      actor_credential_version: actor.identity.user.credential_version, actor_authorization_revision: actor.member.authorization_revision,
+      target_user_id: target?._id ?? null, expires_at: new Date(Date.now() + 7 * 86400000).toISOString(), member_id: memberId,
+      target_member_revision: null, target_credential_version: target?.credential_version ?? null };
+    if (protectedTarget || sensitiveRoles) {
+      this.require(actor, 'platform:govern');
+      if (!target || target._id === actor.identity.user._id) fail(403, 'SELF_ESCALATION', '治理邀请需要独立的确定受益人');
+      return this.approval(actor, req, 'invitation.create', payload, target._id, null, target, null, reason);
+    }
+    this.canAccounts(actor, orgId);
+    const receipt = await this.execute(req, actor, 'invitation.create', reason, requestPayload,
+      { user_ids: target ? [target._id] : [], member_ids: [], org_ids: [orgId] }, invitationId,
+      async (session, now, operationId) => {
+        await this.assertActorUnchanged(actor, session, this.isPlatformAccounts(actor) ? 'account:platform-manage' : 'account:manage');
+        return this.persistInvitation(payload, session, now, operationId, null);
+      });
+    return { ...receipt, ...await this.invitationReceipt(invitationId) };
+  }
+  private async invitationReceipt(invitationId: string) {
+    const invitation = await emailCollections(this.db).invitations.findOne({ _id: invitationId });
+    if (!invitation) return { invitation_id: invitationId };
+    const outbox = await this.db.collection('auth_mail_outbox').findOne({ invitation_id: invitationId }, { sort: { created_at: -1 }, projection: { status: 1 } });
+    return { invitation_id: invitationId, invitation_state: invitation.state, invitation_revision: invitation.revision,
+      delivery_status: outbox?.status === 'pending' || outbox?.status === 'sending' ? 'accepted' : outbox?.status ?? 'unavailable' };
+  }
+  async invitations(req: ApiRequest, orgIdRaw: string, raw: unknown) {
+    const actor = await this.actor(req), orgId = id(orgIdRaw);
+    if (!actor.capabilities.includes('platform:govern')) this.canAccounts(actor, orgId);
+    const p = page(raw, actor.identity.user._id, `${actor.orgId}:${orgId}`, 'invitations', {});
+    const rows = await emailCollections(this.db).invitations.find({ org_id: orgId, ...(p.after ? { _id: { $gt: p.after } } : {}) })
+      .sort({ _id: 1 }).limit(p.limit + 1).toArray();
+    return { items: await Promise.all(rows.slice(0, p.limit).map(async row => ({ id: row._id, org_id: row.org_id, state: row.expires_at <= new Date() && row.state === 'pending' ? 'expired' : row.state,
+      revision: row.revision, expires_at: row.expires_at, roles: row.roles, valid_to: row.valid_to, target_user_id: row.target_user_id,
+      approval_id: row.approval_id, delivery_status: (await this.invitationReceipt(row._id)).delivery_status ?? 'unavailable' }))),
+      next_cursor: rows.length > p.limit ? p.next(rows[p.limit - 1]!._id) : null };
+  }
+  async revokeInvitation(req: ApiRequest, invitationIdRaw: string, raw: unknown) {
+    const body = object(raw, ['expected_revision', 'reason', 'current_password']);
+    const actor = await this.writeActor(req, body), invitationId = id(invitationIdRaw), expected = revision(body.expected_revision, 'expected_revision'), reason = boundedReason(body.reason);
+    const row = await emailCollections(this.db).invitations.findOne({ _id: invitationId });
+    if (!row) fail(404, 'NOT_FOUND', '邀请不存在');
+    if (!actor.capabilities.includes('platform:govern')) this.canAccounts(actor, row.org_id);
+    const payload = { invitation_id: invitationId, org_id: row.org_id, expected_revision: expected };
+    const replay = await this.replay(actor, req, 'invitation.revoke', payload);
+    if (replay) return { ...replay, ...await this.invitationReceipt(invitationId) };
+    if (await resolvedTxnMode(this.db, this.auth.config) !== 'replicaSet') fail(503, 'AUTH_TRANSACTION_REQUIRED', '邮箱邀请需要副本集事务');
+    if (row.revision !== expected || row.state !== 'pending') fail(409, 'REVISION_CONFLICT', '邀请已变化或不能撤销');
+    const receipt = await this.execute(req, actor, 'invitation.revoke', reason, payload,
+      { user_ids: row.target_user_id ? [row.target_user_id] : [], org_ids: [row.org_id] }, invitationId, async (session, now) => {
+        await this.assertActorUnchanged(actor, session, actor.capabilities.includes('platform:govern') ? 'platform:govern' : this.isPlatformAccounts(actor) ? 'account:platform-manage' : 'account:manage');
+        const changed = await emailCollections(this.db).invitations.updateOne({ _id: invitationId, revision: expected, state: 'pending' },
+          { $set: { state: 'revoked', updated_at: now }, $inc: { revision: 1 } }, { session });
+        if (changed.modifiedCount !== 1) fail(409, 'REVISION_CONFLICT', '邀请已变化');
+        await revokeEmailChallenges(this.db, session, { invitation_id: invitationId });
+        return { invitation_id: invitationId, invitation_state: 'revoked', invitation_revision: expected + 1, delivery_status: 'cancelled' };
+      });
+    return { ...receipt, ...await this.invitationReceipt(invitationId) };
+  }
+  async invitationForChallenge(challenge: EmailChallenge, session: ClientSession) {
+    const invitation = await emailCollections(this.db).invitations.findOne({ _id: challenge.invitation_id!, state: 'pending', revision: challenge.invitation_revision!,
+      email_key: challenge.email_key, $expr: { $and: [{ $gt: ['$expires_at', '$$NOW'] },
+        { $or: [{ $eq: ['$valid_to', null] }, { $gt: ['$valid_to', '$$NOW'] }] }] } }, { session });
+    if (!invitation || invitation.payload_hash !== permissionHash(invitation.payload) ||
+      invitation.org_id !== invitation.payload.org_id || invitation.target_user_id !== invitation.payload.target_user_id ||
+      invitation.target_user_id !== challenge.user_id ||
+      invitation.target_user_id !== null && challenge.credential_version !== invitation.payload.target_credential_version ||
+      invitation.email_key !== invitation.payload.email_key || canonical(invitation.roles) !== canonical(invitation.payload.roles) ||
+      invitation.valid_to?.toISOString() !== (invitation.payload.valid_to ?? undefined) ||
+      invitation.expires_at.toISOString() !== invitation.payload.expires_at || invitation._id !== invitation.payload.invitation_id ||
+      !invitation.operation_id || !await this.db.collection<AdministrationOperation>('administration_operations').findOne({ _id: invitation.operation_id, status: 'applied' }, { session }))
+      fail(409, 'INVITATION_UNAVAILABLE', '邀请无效、已变化或尚未发布');
+    if (invitation.target_user_id) {
+      const identity = await emailCollections(this.db).identities.findOne({ user_id: invitation.target_user_id, email_key: invitation.email_key, state: 'verified', revision: challenge.email_revision! }, { session });
+      const target = await this.c.users.findOne({ _id: invitation.target_user_id, credential_version: challenge.credential_version!, status: 'active', ...privacyActive }, { session });
+      if (!identity || !target || target.must_change_password) fail(409, 'INVITATION_UNAVAILABLE', '邀请目标已失效');
+    }
+    if (!await this.c.organizations.findOne({ _id: invitation.org_id, status: 'active' }, { session }))
+      fail(409, 'INVITATION_UNAVAILABLE', '邀请组织已失效');
+    return invitation;
+  }
+  async applyInvitation(req: ApiRequest, challenge: EmailChallenge, userId: string, session: ClientSession, newAccount = false) {
+    const invitation = await this.invitationForChallenge(challenge, session), p = invitation.payload;
+    const guard = await this.db.collection<AdministrationGuard>('administration_guard').updateOne({ _id: 'administration', state: 'idle', operation_id: null },
+      { $inc: { revision: 1 }, $set: { updated_at: new Date() } }, { session });
+    if (guard.modifiedCount !== 1) fail(409, 'INVITATION_UNAVAILABLE', '当前管理状态不能接受邀请');
+    await assertAdministrationAccess(this.db, userId, invitation.org_id, session);
+    const identity = await emailCollections(this.db).identities.findOne({ user_id: userId, email_key: invitation.email_key, state: 'verified' }, { session });
+    if (!identity || invitation.target_user_id && invitation.target_user_id !== userId ||
+      newAccount && invitation.target_user_id) fail(409, 'INVITATION_UNAVAILABLE', '当前账号不能接受该邀请');
+    const actor = await this.invitationActor(p, session);
+    if (actor.identity.user._id !== invitation.actor_user_id) fail(409, 'INVITATION_UNAVAILABLE', '邀请操作者已变化');
+    const member = await this.c.members.findOne({ user_id: userId, org_id: invitation.org_id }, { session });
+    if (member) fail(409, 'MEMBER_EXISTS', '当前账号已关联本组织，请使用成员管理，不通过接受邀请替换既有角色');
+    if (p.target_member_revision !== null) fail(409, 'INVITATION_UNAVAILABLE', '邀请不是新的组织关联');
+    const desired = roles(invitation.roles), sensitiveRoles = await this.roleDecision(actor, desired, [], userId, invitation.org_id);
+    const protectedTarget = await this.protectedAccount(userId, session);
+    if (invitation.approval_id) {
+      this.require(actor, 'platform:govern');
+      const approval = await this.db.collection<Approval>('authorization_requests').findOne({ _id: invitation.approval_id, status: 'applied', action: 'invitation.create',
+        operation_id: invitation.operation_id, beneficiary_user_id: userId }, { session });
+      if (!approval || approval.payload_hash !== permissionHash(approval.payload) || canonical(approval.payload) !== canonical(p) ||
+        approval.requester_user_id !== actor.identity.user._id || approval.requester_user_id === approval.approver_user_id ||
+        approval.requester_user_id === userId || approval.approver_user_id === userId)
+        fail(409, 'INVITATION_UNAVAILABLE', '邀请独立审批已失效');
+      await assertRequesterCurrent(this.db, approval, session);
+      await assertApproverCurrent(this.db, approval, session);
+      if (approval.approver_user_id) {
+        const fenced = await this.c.users.updateOne({ _id: approval.approver_user_id, credential_version: approval.approver_credential_version!, status: 'active', ...privacyActive }, { $inc: { identity_revision: 1 } }, { session });
+        if (!fenced.modifiedCount) fail(409, 'INVITATION_UNAVAILABLE', '审批人身份已变化');
+      }
+    } else {
+      this.canAccounts(actor, invitation.org_id);
+      if (protectedTarget || sensitiveRoles) fail(403, 'PROTECTED_ACCOUNT', '目标已受保护或需要独立治理审批，请重新申请');
+    }
+    const clock = await this.db.aggregate<{ now: Date }>([{ $documents: [{}] }, { $project: { _id: 0, now: '$$NOW' } }], { session }).next();
+    if (!(clock?.now instanceof Date)) fail(503, 'DEPENDENCY_UNAVAILABLE', '数据库时钟暂不可用');
+    const now = clock.now;
+    const issuerFence = await this.c.users.updateOne({ _id: actor.identity.user._id, credential_version: p.actor_credential_version, status: 'active', ...privacyActive },
+      { $inc: { identity_revision: 1 } }, { session });
+    const memberFence = await this.c.members.updateOne({ _id: p.actor_member_id, authorization_revision: actor.member.authorization_revision, status: 'active' }, { $set: { updated_at: now } }, { session });
+    if (!issuerFence.modifiedCount || !memberFence.matchedCount) fail(409, 'INVITATION_UNAVAILABLE', '邀请操作者已变化');
+    const result = await this.applyMembership({ session, now }, userId, invitation.org_id, p.member_id, desired, 'active', null,
+      invitation.valid_to ?? undefined, invitation.operation_id!, invitation.approval_id ?? undefined);
+    const changed = await emailCollections(this.db).invitations.updateOne({ _id: invitation._id, state: 'pending', revision: invitation.revision,
+      $expr: { $gt: ['$expires_at', '$$NOW'] } }, { $set: { state: 'accepted', accepted_user_id: userId, accepted_at: now, updated_at: now }, $inc: { revision: 1 } }, { session });
+    if (changed.modifiedCount !== 1) fail(409, 'INVITATION_UNAVAILABLE', '邀请已被使用或撤销');
+    if (challenge.user_id === null) {
+      const subject = await emailCollections(this.db).challenges.updateOne({ _id: challenge._id, purpose: 'invite', status: 'pending', user_id: null },
+        { $set: { user_id: userId, updated_at: now } }, { session });
+      if (subject.modifiedCount !== 1) fail(409, 'INVITATION_UNAVAILABLE', '邀请挑战归属已变化');
+      await this.db.collection('auth_mail_outbox').updateMany({ challenge_id: challenge._id, user_id: null },
+        { $set: { user_id: userId, updated_at: now } }, { session });
+    }
+    await this.auth.audit('invitation.accept', userId, invitation._id, req, session);
+    return result;
   }
   async context(req: ApiRequest) {
     const actor = await this.actor(req);
@@ -391,6 +604,11 @@ export class AdministrationService {
         action.startsWith('grant.') && !actor.capabilities.includes('platform:govern') &&
           !actor.capabilities.includes('authorization:delegate'))
       fail(403, 'FORBIDDEN', '重放时操作者已失去该操作的当前职责');
+    if (action.startsWith('invitation.') || action === 'approval.request.invitation.create') {
+      const invitationOrg = payload.org_id ?? payload.payload?.org_id;
+      if (action === 'approval.request.invitation.create') this.require(actor, 'platform:govern');
+      else if (!actor.capabilities.includes('platform:govern')) this.canAccounts(actor, invitationOrg);
+    }
     const desired = { ...payload, actorOrgId: actor.orgId };
     if (canonical(row.desired) !== canonical(desired)) fail(409, 'IDEMPOTENCY_CONFLICT', '幂等键对应不同请求内容');
     if (row.status !== 'applied') fail(503, 'OPERATION_NEEDS_RECOVERY', '操作结果尚未确认，请按操作编号核对');
@@ -401,7 +619,8 @@ export class AdministrationService {
       const request = approvalEvidence?.approval_id
         ? await this.db.collection<Approval>('authorization_requests').findOne({ _id: approvalEvidence.approval_id }) : null;
       if (!request) fail(503, 'APPROVAL_NEEDS_RECOVERY', '申请结果待确认');
-      return { operation_id: row._id, status: request.status, approval_id: request._id, replayed: true };
+      return { operation_id: row._id, status: request.status, approval_id: request._id, replayed: true,
+        ...(request.action === 'invitation.create' ? await this.invitationReceipt(id(request.payload.invitation_id)) : {}) };
     }
     if (action === 'approval.approve' || action === 'approval.reject') {
       const evidence = await this.db.collection<AuditEvent>('audit_events').findOne({ operation_id: row._id, approval_id: { $type: 'objectId' } },
@@ -410,6 +629,7 @@ export class AdministrationService {
       const decision = await this.db.collection<Approval>('authorization_requests').findOne({ _id: evidence.approval_id });
       if (!decision) fail(503, 'APPROVAL_NEEDS_RECOVERY', '审批当前结果待核实');
       return { operation_id: row._id, status: decision.status, replayed: true, approval_id: evidence.approval_id,
+        ...(decision.action === 'invitation.create' ? await this.invitationReceipt(id(decision.payload.invitation_id)) : {}),
         ...(action === 'approval.approve' && decision.status === 'applied' ? { password_not_replayable: true } : {}) };
     }
     return { operation_id: row._id, status: 'applied', replayed: true,
@@ -845,7 +1065,7 @@ export class AdministrationService {
     const target = await this.c.users.findOne({ _id: request.beneficiary_user_id, ...privacyActive }, { session });
     if (request.action === 'user.create') {
       if (target) fail(409, 'TARGET_CHANGED', '申请目标已被占用');
-    } else if (!target || target.identity_revision !== request.target_identity_revision || target.credential_version !== request.target_credential_version) {
+    } else if (!target || request.action !== 'invitation.create' && target.identity_revision !== request.target_identity_revision || target.credential_version !== request.target_credential_version) {
       fail(409, 'TARGET_CHANGED', '申请以来目标身份或凭据已变化，请重新申请');
     }
     if (request.subject_member_id && request.action !== 'user.create' && request.action !== 'member.add') {
@@ -944,6 +1164,10 @@ export class AdministrationService {
   }
   private async applyApproved(request: Approval, session: ClientSession, now: Date, operationId: string, hashed: string | null, secret: string | null) {
     const p = request.payload;
+    if (request.action === 'invitation.create') {
+      if (p.target_user_id !== request.beneficiary_user_id) fail(409, 'APPROVAL_INVALID', '邀请受益人已变化');
+      return this.persistInvitation(p as AuthInvitation['payload'], session, now, operationId, request._id);
+    }
     if (request.action === 'user.create') {
       const userId = id(p.user_id), memberId = id(p.member_id), orgId = id(p.org_id), desired = roles(p.roles);
       if (!hashed || !secret || userId !== request.beneficiary_user_id || memberId !== request.subject_member_id) fail(409, 'APPROVAL_INVALID', '申请目标不一致');
@@ -1011,12 +1235,18 @@ export class AdministrationService {
       approval_id: { $type: 'objectId' } }, { projection: { operation_id: 1, approval_id: 1 } }).limit(25).toArray();
     const approvalIds = [...new Set(events.map(event => event.approval_id as string))];
     const approvals = await this.db.collection<Approval>('authorization_requests').find({ _id: { $in: approvalIds } },
-      { projection: { _id: 1, status: 1 } }).toArray();
+      { projection: { _id: 1, status: 1, action: 1, 'payload.invitation_id': 1 } }).toArray();
     const states = new Map(approvals.map(item => [item._id, item.status]));
     const byOperation = new Map(events.map(event => [event.operation_id, event.approval_id]));
-    return { items: rows.map(row => ({ id: row._id, operation_id: row._id, action: row.action, status: row.status,
-      approval_id: byOperation.get(row._id) ?? null, approval_status: states.get(byOperation.get(row._id) as string) ?? null,
-      created_at: row.created_at })), next_cursor: null };
+    const approvalById = new Map(approvals.map(item => [item._id, item]));
+    return { items: await Promise.all(rows.map(async row => {
+      if (row.action.startsWith('invitation.') && !actor.capabilities.includes('platform:govern')) this.canAccounts(actor, row.desired.org_id);
+      const approvalId = byOperation.get(row._id) ?? null;
+      const invitationId = row.desired.invitation_id ?? row.desired.payload?.invitation_id ?? approvalById.get(approvalId!)?.payload?.invitation_id;
+      return { id: row._id, operation_id: row._id, action: row.action, status: row.status,
+        approval_id: approvalId, approval_status: states.get(approvalId!) ?? null,
+        ...(typeof invitationId === 'string' ? await this.invitationReceipt(invitationId) : {}), created_at: row.created_at };
+    })), next_cursor: null };
   }
   async operation(req: ApiRequest, operationId: string) {
     const actor = await this.actor(req);
@@ -1029,9 +1259,12 @@ export class AdministrationService {
         { projection: { approval_id: 1 } }),
     ]);
     const approval = event?.approval_id ? await this.db.collection<Approval>('authorization_requests').findOne({ _id: event.approval_id },
-      { projection: { status: 1 } }) : null;
+      { projection: { status: 1, 'payload.invitation_id': 1 } }) : null;
+    if (row.action.startsWith('invitation.') && !actor.capabilities.includes('platform:govern')) this.canAccounts(actor, row.desired.org_id);
+    const invitationId = row.desired.invitation_id ?? row.desired.payload?.invitation_id ?? approval?.payload?.invitation_id;
     return { id: row._id, operation_id: row._id, action: row.action, status: row.status, step: row.step,
       approval_id: event?.approval_id ?? null, approval_status: approval?.status ?? null,
+      ...(typeof invitationId === 'string' ? await this.invitationReceipt(invitationId) : {}),
       ...(guard ? { recovery: { state: guard.state, recovery_token: guard.recovery_token } } : {}),
       created_at: row.created_at, updated_at: row.updated_at };
   }
@@ -1094,7 +1327,7 @@ async function assertApproverCurrent(db: Db, request: Approval, session: ClientS
   const members = await c.members.find({ user_id: user._id, status: 'active' }, { session }).toArray();
   for (const member of members) {
     const org = await c.organizations.findOne({ _id: member.org_id, status: 'active', kind: 'platform' }, { session });
-    if (!org || !await c.memberRoles.findOne({ member_id: member._id, role_id: 'platform_ops' }, { session })) continue;
+    if (!org || !(await currentManagementRoles(db, member._id, member.org_id, session)).includes('platform_ops')) continue;
     const grants = await db.collection<AdministrativeGrant>('administrative_grants').find({ subject_member_id: member._id, actor_org_id: org._id,
       capability: 'platform:govern', status: 'active', $expr: validAtDatabaseTime }, { session }).toArray();
     for (const grant of grants) if (grant.operation_id && grant.scope?.kind === 'organization_ids' &&
@@ -1111,6 +1344,12 @@ async function assertApprovedResult(db: Db, operation: AdministrationOperation, 
   const c = collections(db), p = request.payload, targetId = request.beneficiary_user_id;
   const user = await c.users.findOne({ _id: targetId, ...privacyActive }, { session });
   if (!user) fail(409, 'TARGET_CHANGED', '审批目标已失效');
+  if (request.action === 'invitation.create') {
+    const invitation = await emailCollections(db).invitations.findOne({ _id: id(p.invitation_id), approval_id: request._id, operation_id: operation._id }, { session });
+    if (!invitation || invitation.payload_hash !== request.payload_hash || canonical(invitation.payload) !== canonical(p))
+      fail(409, 'INVITATION_NOT_PUBLISHED', '批准邀请登记证据未确认');
+    return;
+  }
   if (request.action === 'grant.create') {
     const grantId = id(p.grant_id);
     const grant = await db.collection<AdministrativeGrant>('administrative_grants').findOne({ _id: grantId, operation_id: operation._id }, { session }) ??
@@ -1156,13 +1395,13 @@ async function assertOrdinaryActor(db: Db, operation: AdministrationOperation, s
   const member = await c.members.findOne({ _id: memberId, user_id: operation.actor_id, org_id: orgId, status: 'active' }, { session });
   const org = await c.organizations.findOne({ _id: orgId, status: 'active' }, { session });
   if (!user || !member || !org || user.must_change_password) fail(409, 'ACTOR_CHANGED', '原操作者当前身份或凭据已变化');
-  const roleRows = await c.memberRoles.find({ member_id: memberId }, { session }).toArray();
-  const roleIds = roleRows.filter(r => r.status !== 'revoked').map(r => r.role_id);
+  const roleIds = await currentManagementRoles(db, memberId, orgId, session);
   const action = operation.action, targetOrg = operation.targets.org_ids[0];
   let relevant: AdministrativeCapability[];
   if (action.startsWith('grant.')) relevant = ['platform:govern', 'authorization:delegate'];
   else if (action === 'member.add' || action === 'user.status') relevant = ['account:platform-manage'];
   else if (action === 'member.update' || action === 'user.create' || action === 'user.password.reset') relevant = ['account:platform-manage', 'account:manage'];
+  else if (action.startsWith('invitation.')) relevant = ['account:platform-manage', 'account:manage', ...(action === 'invitation.revoke' ? ['platform:govern' as const] : [])];
   else fail(422, 'RECOVERY_ACTION_INVALID', '不认识普通管理操作');
   const targetGrant = action === 'grant.revoke' ? await db.collection<MemberCapabilityGrant>('member_capability_grants').findOne({
     _id: id(operation.desired.grant_id), member_id: id(operation.desired.member_id),
@@ -1196,6 +1435,15 @@ async function assertOrdinaryPublished(db: Db, operation: AdministrationOperatio
   if (!await db.collection<AuditEvent>('audit_events').findOne({ operation_id: operation._id, action: operation.action }, { session }))
     fail(409, 'OPERATION_NOT_AUDITED', '操作审计尚未发布');
   const c = collections(db), p = operation.desired;
+  if (operation.action.startsWith('invitation.')) {
+    const invitation = await emailCollections(db).invitations.findOne({ _id: id(p.invitation_id), org_id: id(p.org_id) }, { session });
+    if (!invitation || invitation.payload_hash !== permissionHash(invitation.payload)) fail(409, 'INVITATION_NOT_PUBLISHED', '邀请登记证据未确认');
+    if (operation.action === 'invitation.create' && (invitation.operation_id !== operation._id ||
+      invitation.email_key !== p.email_key || canonical(invitation.roles) !== canonical(p.roles) ||
+      invitation.valid_to?.toISOString() !== (p.valid_to ?? undefined))) fail(409, 'INVITATION_NOT_PUBLISHED', '邀请内容与原操作不同');
+    if (operation.action === 'invitation.revoke') await assertInvitationRevoked(db, invitation._id, session);
+    return;
+  }
   if (operation.action.startsWith('grant.')) {
     const grantId = id(p.grant_id);
     const grant = await db.collection<AdministrativeGrant>('administrative_grants').findOne({ _id: grantId }, { session }) ??
@@ -1254,6 +1502,10 @@ async function recoverOrdinaryAdministrationOperation(input: {
   async function verifySafe(row: AdministrationOperation, session: ClientSession) {
     const audit = await input.db.collection<AuditEvent>('audit_events').findOne({ operation_id: row._id, action: 'administration.recovery.no_effect' }, { session });
     const p = row.desired;
+    if (row.action.startsWith('invitation.')) {
+      await assertInvitationRevoked(input.db, id(p.invitation_id), session);
+      return;
+    }
     if (row.action === 'grant.create') {
       const grant = await input.db.collection<AdministrativeGrant>('administrative_grants').findOne({ _id: id(p.grant_id) }, { session }) ??
         await input.db.collection<MemberCapabilityGrant>('member_capability_grants').findOne({ _id: id(p.grant_id) }, { session });
@@ -1281,6 +1533,10 @@ async function recoverOrdinaryAdministrationOperation(input: {
     ...input,
     invalidate: async (row, session) => {
       const p = row.desired, now = new Date();
+      if (row.action.startsWith('invitation.')) {
+        await invalidateInvitation(input.db, id(p.invitation_id), session);
+        return;
+      }
       if (row.action === 'grant.create') {
         for (const name of ['administrative_grants', 'member_capability_grants']) {
           const grant = await input.db.collection<GrantRecord>(name).findOne({ _id: id(p.grant_id) }, { session });
@@ -1382,7 +1638,7 @@ export async function recoverApprovedAdministrationOperation(input: {
   if ((operation.action.startsWith('approval.request.') || operation.action === 'approval.reject') &&
       typeof operation.desired.actorOrgId === 'string')
     return recoverApprovalRegistration(input, operation);
-  if (['user.create', 'member.add', 'member.update', 'user.status', 'user.password.reset', 'grant.create', 'grant.revoke'].includes(operation.action) &&
+  if (['user.create', 'member.add', 'member.update', 'user.status', 'user.password.reset', 'grant.create', 'grant.revoke', 'invitation.create', 'invitation.revoke'].includes(operation.action) &&
       typeof operation.desired.actorOrgId === 'string')
     return recoverOrdinaryAdministrationOperation(input, operation);
   const request = await recoveryApproval(input.db, operation);
@@ -1402,6 +1658,10 @@ export async function recoverApprovedAdministrationOperation(input: {
   async function verifyInvalidated(row: AdministrationOperation, session: ClientSession) {
     const evidence = await recoveryApproval(input.db, row, session);
     if (evidence.status !== 'rejected') fail(409, 'APPROVAL_NOT_INVALIDATED', '旧批准尚未失效');
+    if (evidence.action === 'invitation.create') {
+      await assertInvitationRevoked(input.db, id(evidence.payload.invitation_id), session);
+      return;
+    }
     if (evidence.action === 'grant.create') {
       const grantId = id(evidence.payload.grant_id);
       const grant = await input.db.collection<AdministrativeGrant>('administrative_grants').findOne({ _id: grantId }, { session }) ??
@@ -1435,7 +1695,9 @@ export async function recoverApprovedAdministrationOperation(input: {
     invalidate: async (row, session) => {
       const evidence = await recoveryApproval(input.db, row, session);
       const c = collections(input.db), now = new Date();
-      if (evidence.action === 'grant.create') {
+      if (evidence.action === 'invitation.create') {
+        await invalidateInvitation(input.db, id(evidence.payload.invitation_id), session);
+      } else if (evidence.action === 'grant.create') {
         const grantId = id(evidence.payload.grant_id);
         for (const name of ['administrative_grants', 'member_capability_grants']) {
           const grant = await input.db.collection<GrantRecord>(name).findOne({ _id: grantId }, { session });
@@ -1471,4 +1733,25 @@ export async function recoverApprovedAdministrationOperation(input: {
     },
     verifySafe: verifyInvalidated,
   });
+}
+
+async function assertInvitationRevoked(db: Db, invitationId: string, session: ClientSession) {
+  const invitation = await emailCollections(db).invitations.findOne({ _id: invitationId }, { session });
+  if (invitation && invitation.state !== 'revoked') fail(409, 'INVITATION_NOT_REVOKED', '邀请未安全撤销');
+  if (await emailCollections(db).challenges.findOne({ invitation_id: invitationId, status: 'pending' }, { session, projection: { _id: 1 } }) ||
+    await db.collection('auth_mail_outbox').findOne({ invitation_id: invitationId, $or: [{ status: { $in: ['pending', 'sending'] } }, { encrypted_payload: { $ne: null } }, { lease_token: { $ne: null } }] }, { session, projection: { _id: 1 } }))
+    fail(409, 'INVITATION_NOT_REVOKED', '邀请挑战或邮件密文仍然有效');
+}
+
+async function invalidateInvitation(db: Db, invitationId: string, session: ClientSession) {
+  const invitation = await emailCollections(db).invitations.findOne({ _id: invitationId }, { session });
+  if (invitation?.state === 'accepted') fail(409, 'INVITATION_ALREADY_ACCEPTED', '邀请已被接受，成员变更须另走当前授权流程');
+  if (invitation && invitation.state !== 'revoked') {
+    const changed = await emailCollections(db).invitations.updateOne({ _id: invitationId, state: invitation.state, revision: invitation.revision },
+      { $set: { state: 'revoked', updated_at: new Date() }, $inc: { revision: 1 } }, { session });
+    if (changed.modifiedCount !== 1) fail(409, 'INVITATION_CHANGED', '邀请已变化');
+  }
+  await revokeEmailChallenges(db, session, { invitation_id: invitationId });
+  await db.collection('auth_mail_outbox').updateMany({ invitation_id: invitationId },
+    { $set: { status: 'cancelled', encrypted_payload: null, lease_token: null, lease_until: null, safe_error_code: 'INVITATION_REVOKED', updated_at: new Date() } }, { session });
 }

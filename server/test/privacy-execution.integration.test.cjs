@@ -6,7 +6,7 @@ const { mkdtemp, mkdir, rm, realpath } = require("node:fs/promises");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
 const { promisify } = require("node:util");
-const { execFile } = require("node:child_process");
+const { execFile, fork } = require("node:child_process");
 const { MongoClient } = require("mongodb");
 const { fixture, guardedUri } = require("./helpers.cjs");
 const { assessmentFixture, good, practice } = require("./assessment-helpers.cjs");
@@ -98,8 +98,8 @@ Set-Acl -LiteralPath $path -AclObject $acl
     KL_SAFETY_LEDGER_ROOT: primary, KL_SAFETY_LEDGER_MIRROR_ROOT: mirror,
     KL_SAFETY_LEDGER_KEY: randomBytes(32).toString("hex") };
 }
-async function setup(t, assessment = false) {
-  const env = await setupLedger(t);
+async function setup(t, assessment = false, extraEnv = {}) {
+  const env = { ...await setupLedger(t), ...extraEnv };
   const f = assessment ? await assessmentFixture(t, { env }) : await fixture(t, { app: false, env });
   f.environmentId = env.KL_ENVIRONMENT_ID;
   f.register = async () => {
@@ -191,6 +191,246 @@ test("隐私本地执行：真实 Mongo、外部加密 ledger、恢复闭环", {
     const unknown = await capture(f.db);
     await assert.rejects(privacy.inspectPrivacyRequest(f.db, row._id), /PRIVACY_UNKNOWN_DATASET/);
     assert.deepEqual(await capture(f.db), unknown);
+  });
+
+  await t.test("邮箱only邀请/挑战/发送中密文冻结失效，批次失败后恢复清除五集合且保留其他收件人", async t => {
+    const queueEnv = { KL_AUTH_EMAIL_ENABLED: "true", KL_PUBLIC_REGISTRATION_ENABLED: "false", SMTP_HOST: "127.0.0.1", SMTP_PORT: "465",
+      SMTP_SECURE: "true", SMTP_USER: "synthetic-sender", SMTP_PASSWORD: "synthetic-smtp-fixture-only", SMTP_FROM: "sender@example.test",
+      AUTH_MAIL_ENCRYPTION_KEY: randomBytes(32).toString("hex"), AUTH_MAIL_ENCRYPTION_KEY_ID: "privacy-test",
+      AUTH_TERMS_VERSION: "test-terms", AUTH_PRIVACY_VERSION: "test-privacy", AUTH_TERMS_URL: "https://example.test/terms", AUTH_PRIVACY_URL: "https://example.test/privacy" };
+    const f = await setup(t, false, queueEnv), subject = await f.user(), issuer = await f.user(), now = new Date();
+    const org = (await f.ops.createOrganization(f.context, { name: "邮箱隐私合成组织", kind: "school" })).organization_id;
+    await f.ops.setMembership(f.context, { user_id: subject.user_id, org_id: org, roles: ["student"] });
+    const email = `subject-${randomUUID()}@example.test`, otherEmail = `other-${randomUUID()}@example.test`;
+    await f.db.collection("auth_email_identities").insertOne({ _id: newId(), user_id: subject.user_id, email_key: email, email_display: email,
+      state: "verified", verified_at: now, revision: 1, created_at: now, updated_at: now });
+    await f.db.collection("auth_admissions").insertOne({ _id: newId(), user_id: subject.user_id, age_band: "adult", source: "invite_activate",
+      terms_version: "test-terms", privacy_notice_version: "test-privacy", accepted_at: now, policy_basis: "adult_self_declaration" });
+    const invitationId = newId(), expiresAt = new Date(Date.now() + 7 * 86400000);
+    const payload = { invitation_id: invitationId, org_id: org, actor_org_id: org, actor_member_id: newId(), actor_credential_version: 1,
+      actor_authorization_revision: 1, target_user_id: null, email_key: email, roles: ["student"], valid_to: null,
+      expires_at: expiresAt.toISOString(), member_id: newId(), target_member_revision: null, target_credential_version: null };
+    const { issueEmailChallenge } = require("../dist/auth-email/tokens.js"), { enqueueEmail } = require("../dist/auth-email/mail.js");
+    let inviteChallenge, registerChallenge, unrelatedChallenge, inviteQueue, registerQueue;
+    const operation = await executeAdministrationOperation({ db: f.db, client: f.client, actor: issuer.user_id, action: "invitation.create",
+      reason: "合成邮箱only隐私图", key: randomUUID(), payload: { invitation_id: invitationId, email_key: email }, targets: { org_ids: [org] },
+      apply: async ({ session, now, operation_id }) => {
+        await f.db.collection("auth_invitations").insertOne({ _id: invitationId, org_id: org, actor_user_id: issuer.user_id, target_user_id: null,
+          email_key: email, roles: ["student"], valid_to: null, payload, payload_hash: createHash("sha256").update(require("../dist/administration/dto.js").canonical(payload)).digest("hex"),
+          revision: 1, state: "pending", expires_at: expiresAt, accepted_user_id: null, accepted_at: null, approval_id: null, operation_id, created_at: now, updated_at: now }, { session });
+        inviteChallenge = await issueEmailChallenge(f.db, session, { purpose: "invite", userId: null, email: { key: email, display: email }, invitationId, invitationRevision: 1, durationMs: 7 * 86400000 });
+        registerChallenge = await issueEmailChallenge(f.db, session, { purpose: "register", userId: null, email: { key: email, display: email } });
+        unrelatedChallenge = await issueEmailChallenge(f.db, session, { purpose: "register", userId: null, email: { key: otherEmail, display: otherEmail } });
+        const enqueue = (challenge, purpose, address, invitationId) => enqueueEmail(f.db, session, { challengeId: challenge.id, userId: null, invitationId,
+          purpose, email: address, token: challenge.token, expiresAt: challenge.expiresAt });
+        inviteQueue = await enqueue(inviteChallenge, "invite", email, invitationId);
+        registerQueue = await enqueue(registerChallenge, "register", email, null);
+        await enqueue(unrelatedChallenge, "register", otherEmail, null);
+        return { invitation_id: invitationId };
+      } });
+    await f.db.collection("auth_mail_outbox").updateOne({ _id: inviteQueue }, { $set: { status: "sent", encrypted_payload: null, updated_at: new Date() } });
+    await f.db.collection("auth_mail_outbox").updateOne({ _id: registerQueue }, { $set: { status: "sending", lease_token: randomUUID(), lease_until: new Date(Date.now() + 30000), updated_at: new Date() } });
+    const row = await deletionRequest(f, subject.user_id); await f.register(); const plan = await approve(f, row);
+    assert.equal(plan.categories.auth_email_identities, 1); assert.equal(plan.categories.auth_admissions, 1);
+    assert.equal(plan.categories.auth_invitations, 1); assert.equal(plan.categories.auth_email_challenges, 2); assert.equal(plan.categories.auth_mail_outbox, 2);
+    const options = (await f.db.listCollections({ name: "privacy_step_receipts" }).next()).options;
+    await f.db.command({ collMod: "privacy_step_receipts", validator: { $and: [options.validator, { step: { $ne: "auth_mail_outbox" } }] }, validationLevel: "strict", validationAction: "error" });
+    try { await assert.rejects(execute(f, row), error => error.code === 121); }
+    finally { await f.db.command({ collMod: "privacy_step_receipts", validator: options.validator, validationLevel: "strict", validationAction: "error" }); }
+    await assertFrozen(f, subject.user_id, "erasing");
+    assert.equal((await f.db.collection("auth_invitations").findOne({ _id: invitationId })).state, "revoked");
+    for (const challenge of [inviteChallenge, registerChallenge]) assert.equal((await f.db.collection("auth_email_challenges").findOne({ _id: challenge.id })).status, "revoked");
+    for (const queueId of [inviteQueue, registerQueue]) {
+      const queue = await f.db.collection("auth_mail_outbox").findOne({ _id: queueId });
+      assert.equal(queue.status, "cancelled"); assert.equal(queue.encrypted_payload, null); assert.equal(queue.lease_token, null); assert.equal(queue.lease_until, null);
+    }
+    assert.equal((await f.db.collection("auth_email_challenges").findOne({ _id: unrelatedChallenge.id })).status, "pending");
+    await execute(f, row); await assertFrozen(f, subject.user_id, "erased");
+    const finalPlan = await privacy.inspectPrivacyRequest(f.db, row._id);
+    for (const name of ["auth_email_identities", "auth_admissions", "auth_invitations", "auth_email_challenges", "auth_mail_outbox"]) assert.equal(finalPlan.categories[name], 0);
+    assert.equal(await f.db.collection("auth_email_challenges").countDocuments({}), 1);
+    assert.equal(await f.db.collection("auth_mail_outbox").countDocuments({}), 1);
+    const receipt = await f.db.collection("administration_operations").findOne({ _id: operation.operation_id });
+    assert.equal(receipt.key, null); assert.equal(receipt.reason, "[redacted]"); assert.equal(JSON.stringify(receipt).includes(email), false);
+    await assertSingleIntent(f, row);
+  });
+
+  await t.test("真实TLS AUTH滞留与关闭ACK故障：freeze取消socket，排空未证明不完成，父TTL消失仍按收件hash恢复", async t => {
+    const { createTlsSmtpFixture } = require("./smtp-fixture.cjs"), smtp = await createTlsSmtpFixture();
+    t.after(() => smtp.stop());
+    const env = { KL_AUTH_EMAIL_ENABLED: "true", KL_PUBLIC_REGISTRATION_ENABLED: "false", SMTP_HOST: smtp.host, SMTP_PORT: String(smtp.port),
+      SMTP_SECURE: "true", SMTP_USER: smtp.user, SMTP_PASSWORD: smtp.password, SMTP_FROM: smtp.from,
+      AUTH_MAIL_ENCRYPTION_KEY: randomBytes(32).toString("hex"), AUTH_MAIL_ENCRYPTION_KEY_ID: "privacy-smtp-test",
+      AUTH_TERMS_VERSION: "test-terms", AUTH_PRIVACY_VERSION: "test-privacy", AUTH_TERMS_URL: "https://example.test/terms", AUTH_PRIVACY_URL: "https://example.test/privacy" };
+    const f = await setup(t, false, env), subject = await f.user(), now = new Date(), email = `drain-${randomUUID()}@example.test`;
+    await f.db.collection("auth_email_identities").insertOne({ _id: newId(), user_id: subject.user_id, email_key: email, email_display: email,
+      state: "verified", verified_at: now, revision: 1, created_at: now, updated_at: now });
+    await f.register();
+    const row = await deletionRequest(f, subject.user_id), session = f.client.startSession();
+    let challenge, queueId;
+    try {
+      await session.withTransaction(async () => {
+        challenge = await require("../dist/auth-email/tokens.js").issueEmailChallenge(f.db, session, {
+          purpose: "register", userId: null, email: { key: email, display: email } });
+        queueId = await require("../dist/auth-email/mail.js").enqueueEmail(f.db, session, { challengeId: challenge.id, userId: null, invitationId: null,
+          purpose: "register", email, token: challenge.token, expiresAt: challenge.expiresAt });
+      });
+    } finally { await session.endSession(); }
+    const held = smtp.holdNextAuthentication(); let socketClosed = false;
+    const closed = held.waitForClosed().then(() => { socketClosed = true; });
+    const sender = fork(join(__dirname, "privacy-email-smtp-child.cjs"), [], { stdio: ["ignore", "ignore", "ignore", "ipc"],
+      env: { ...process.env, NODE_EXTRA_CA_CERTS: smtp.caPath, MONGODB_URI: f.uri } });
+    const exited = new Promise((resolve, reject) => {
+      sender.once("error", () => reject(Error("SMTP_CHILD_START_FAILED")));
+      sender.once("exit", (code, signal) => resolve({ code, signal }));
+    });
+    let stopping = false;
+    const stopSender = async () => {
+      if (!stopping && sender.connected) { stopping = true; sender.send({ action: "stop" }); }
+      const result = await exited;
+      assert.equal(result.code, 0, "隔离sender须真实关闭并成功退出");
+    };
+    f.apps.push({ close: stopSender });
+    async function within(work, milliseconds, code) {
+      let timer;
+      try { return await Promise.race([work, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(code)), milliseconds); })]); }
+      finally { clearTimeout(timer); }
+    }
+    async function waitFor(predicate) {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        if (await predicate()) return;
+        await new Promise(resolve => setTimeout(resolve, 25));
+      }
+      throw Error("SMTP_PRIVACY_STATE_TIMEOUT");
+    }
+    let validator, erasure;
+    try {
+      await within(Promise.race([held.waitForHeld(), exited.then(() => { throw Error("SMTP_CHILD_EARLY_EXIT"); })]), 30000, "SMTP_AUTH_HOLD_TIMEOUT");
+      const transport = await f.db.collection("auth_mail_outbox").findOne({ _id: queueId });
+      assert.ok(transport.transport_token && transport.transport_writer_id);
+      validator = (await f.db.listCollections({ name: "auth_mail_outbox" }).next()).options.validator;
+      // Real MongoDB rejects only the durable closed ACK; the actual socket still
+      // has to close. Missing ACK must not be inferred from an expired lease.
+      await f.db.command({ collMod: "auth_mail_outbox", validator: { $and: [validator,
+        { $or: [{ transport_token: { $ne: null } }, { transport_closed_at: null }] }] }, validationLevel: "strict", validationAction: "error" });
+      const plan = await approve(f, row); assert.equal(plan.categories.auth_mail_outbox, 1);
+      erasure = execute(f, row);
+      const rejected = assert.rejects(erasure, /PRIVACY_MAIL_DRAIN_PENDING/);
+      await waitFor(async () => (await f.db.collection("users").findOne({ _id: subject.user_id })).privacy_state === "erasing");
+      await f.db.collection("auth_email_challenges").deleteOne({ _id: challenge.id }); // TTL-equivalent parent disappearance.
+      await within(closed, 15000, "SMTP_SOCKET_DID_NOT_CLOSE");
+      assert.equal(smtp.messages.length, 0, "AUTH完成前已真实取消，不能将未accepted邮件解释为不可追回");
+      await rejected;
+      const failed = await f.db.collection("privacy_deletion_requests").findOne({ _id: row._id });
+      assert.equal(failed.status, "failed"); assert.ok(failed.remaining_actions.includes("wait_mail_transport_close"));
+      assert.ok(socketClosed);
+      const pending = await f.db.collection("auth_mail_outbox").findOne({ _id: queueId });
+      assert.equal(pending.status, "cancelled"); assert.equal(pending.encrypted_payload, null); assert.equal(pending.lease_token, null);
+      assert.ok(pending.transport_token === transport.transport_token); assert.ok(pending.transport_writer_id === transport.transport_writer_id);
+      assert.equal(pending.transport_closed_at, null);
+      assert.equal(await f.db.collection("auth_email_identities").countDocuments({ user_id: subject.user_id }), 1);
+      assert.equal((await f.db.collection("users").findOne({ _id: subject.user_id })).privacy_state, "erasing");
+      await f.db.command({ collMod: "auth_mail_outbox", validator, validationLevel: "strict", validationAction: "error" }); validator = null;
+      await within(stopSender(), 15000, "SMTP_CHILD_SHUTDOWN_TIMEOUT");
+      await execute(f, row);
+      assert.equal((await f.db.collection("privacy_deletion_requests").findOne({ _id: row._id })).status, "completed_with_retention");
+      assert.equal((await f.db.collection("users").findOne({ _id: subject.user_id })).privacy_state, "erased");
+      assert.equal(await f.db.collection("auth_mail_outbox").countDocuments({ _id: queueId }), 0);
+      assert.equal(await f.db.collection("auth_email_identities").countDocuments({ user_id: subject.user_id }), 0);
+      held.release(); assert.equal(smtp.messages.length, 0);
+      await assertSingleIntent(f, row);
+    } finally {
+      if (validator) await f.db.command({ collMod: "auth_mail_outbox", validator, validationLevel: "strict", validationAction: "error" });
+      if (erasure) await erasure.catch(() => {});
+      try { await within(stopSender(), 15000, "SMTP_CHILD_SHUTDOWN_TIMEOUT"); }
+      finally { held.release(); await smtp.stop(); }
+    }
+  });
+
+  await t.test("真实SMTP注册激活后解绑：已消费挑战/邮件仍归真实本人，隐私计划与删除不丢失个人关联", async t => {
+    const { Browser, status, PASSWORD } = require("./helpers.cjs"), { createTlsSmtpFixture } = require("./smtp-fixture.cjs");
+    const smtp = await createTlsSmtpFixture(); t.after(() => smtp.stop());
+    const env = { KL_AUTH_EMAIL_ENABLED: "true", KL_PUBLIC_REGISTRATION_ENABLED: "true", SMTP_HOST: smtp.host, SMTP_PORT: String(smtp.port),
+      SMTP_SECURE: "true", SMTP_USER: smtp.user, SMTP_PASSWORD: smtp.password, SMTP_FROM: smtp.from,
+      AUTH_MAIL_ENCRYPTION_KEY: randomBytes(32).toString("hex"), AUTH_MAIL_ENCRYPTION_KEY_ID: "privacy-consumed-test",
+      AUTH_TERMS_VERSION: "test-terms", AUTH_PRIVACY_VERSION: "test-privacy", AUTH_TERMS_URL: "https://example.test/terms", AUTH_PRIVACY_URL: "https://example.test/privacy" };
+    const f = await setup(t, false, env); await f.register();
+    const api = fork(join(__dirname, "shared-api-child.cjs"), [], { stdio: ["ignore", "ignore", "ignore", "ipc"],
+      env: { ...process.env, NODE_EXTRA_CA_CERTS: smtp.caPath, MONGODB_URI: f.uri } });
+    const exited = new Promise((resolve, reject) => { api.once("error", () => reject(Error("SMTP_PRIVACY_API_START_FAILED"))); api.once("exit", code => resolve(code)); });
+    const ready = new Promise((resolve, reject) => { api.on("message", message => {
+      if (message?.ready) resolve(message.base); else if (message?.error) reject(Error("SMTP_PRIVACY_API_START_FAILED"));
+    }); });
+    let stopping = false;
+    const stopApi = async () => {
+      if (!stopping && api.connected) { stopping = true; api.send({ stop: true }); }
+      assert.equal(await exited, 0, "真实隔离API须关闭mail socket后成功退出");
+    };
+    f.apps.push({ close: stopApi });
+    let timer;
+    try {
+      const base = await Promise.race([ready, exited.then(() => { throw Error("SMTP_PRIVACY_API_EARLY_EXIT"); }),
+        new Promise((_, reject) => { timer = setTimeout(() => reject(Error("SMTP_PRIVACY_API_START_TIMEOUT")), 45000); })]);
+      clearTimeout(timer);
+      const applicant = new Browser(base), recipient = new Browser(base), email = `consumed-${randomUUID()}@example.test`;
+      await applicant.prepare(); await recipient.prepare();
+      status(await applicant.request("/auth/register-email", { method: "POST", body: { email, age_band: "adult",
+        terms_version: env.AUTH_TERMS_VERSION, privacy_notice_version: env.AUTH_PRIVACY_VERSION } }), 202);
+      const message = await smtp.waitForMessage(message => message.to.includes(email), 25000);
+      const parts = message.data.split(/\r?\n\r?\n/), headers = parts.shift(), body = parts.join("\r\n\r\n");
+      const text = /Content-Transfer-Encoding:\s*base64/i.test(headers) ? Buffer.from(body.replace(/\s/g, ""), "base64").toString("utf8") :
+        body.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/gi, (_match, hex) => String.fromCharCode(parseInt(hex, 16)));
+      const token = /\/verify-email#token=([A-Za-z0-9_-]{43})/.exec(text)?.[1]; assert.ok(token, "须从真实SMTP正文获得用途token");
+      const activated = await recipient.request("/auth/activate-email", { method: "POST", body: { token, age_band: "adult", accepted_terms: true,
+        terms_version: env.AUTH_TERMS_VERSION, privacy_notice_version: env.AUTH_PRIVACY_VERSION, display_name: "隔离注册删除本人", new_password: PASSWORD } });
+      status(activated, 200); const userId = activated.data.data.user_id; await recipient.prepare();
+      status(await recipient.request("/auth/email-binding/remove", { method: "POST", body: { expected_user_id: userId, current_password: PASSWORD } }), 204);
+      assert.equal(await f.db.collection("auth_email_identities").countDocuments({ user_id: userId }), 0);
+      assert.equal((await f.db.collection("auth_email_challenges").findOne({ email_key: email, purpose: "register" })).user_id, userId);
+      assert.equal((await f.db.collection("auth_mail_outbox").findOne({ recipient_key_hash: createHash("sha256").update(email).digest("hex") })).user_id, userId);
+      await stopApi();
+      const row = await deletionRequest(f, userId), plan = await approve(f, row);
+      assert.equal(plan.categories.auth_email_challenges, 1); assert.equal(plan.categories.auth_mail_outbox, 1); assert.equal(plan.categories.auth_admissions, 1);
+      await execute(f, row);
+      assert.equal((await f.db.collection("users").findOne({ _id: userId })).privacy_state, "erased");
+      assert.equal(await f.db.collection("auth_email_challenges").countDocuments({ user_id: userId }), 0);
+      assert.equal(await f.db.collection("auth_mail_outbox").countDocuments({ user_id: userId }), 0);
+      assert.equal(await f.db.collection("auth_admissions").countDocuments({ user_id: userId }), 0);
+      await assertSingleIntent(f, row);
+    } finally {
+      clearTimeout(timer);
+      try { await stopApi(); } finally { await smtp.stop(); }
+    }
+  });
+
+  await t.test("新库v22门禁递增后可登记：原注册中断只允许同owner恢复，普通drain不冒充注册，随后真实隐私完成", async t => {
+    const f = await setup(t), user = await f.user(), before = await f.db.collection("operational_state").findOne({ _id: "environment" });
+    assert.equal((await f.db.collection("schema_migrations").findOne({ version: 22 })).status, "completed");
+    assert.equal(before.mode, "unregistered"); assert.ok(before.revision > 0);
+    const registration = { environmentId: f.environmentId, fileRoot: null, ...operator }, key = process.env.KL_SAFETY_LEDGER_KEY;
+    delete process.env.KL_SAFETY_LEDGER_KEY;
+    try { await assert.rejects(registerEnvironment(f.client, f.db, registration), /SAFETY_LEDGER_UNAVAILABLE/); }
+    finally { process.env.KL_SAFETY_LEDGER_KEY = key; }
+    const held = await f.db.collection("operational_state").findOne({ _id: "environment" });
+    assert.equal(held.mode, "draining"); assert.ok(held.revision > before.revision);
+    await assert.rejects(registerEnvironment(f.client, f.db, { ...registration, actor: "different-registration-owner" }), /OPERATIONS_ALREADY_REGISTERED/);
+    assert.ok((await f.db.collection("operational_state").findOne({ _id: "environment" })).owner === held.owner);
+    await registerEnvironment(f.client, f.db, registration);
+    const registered = await f.db.collection("operational_state").findOne({ _id: "environment" });
+    assert.equal(registered.mode, "active"); assert.equal(registered.environment_id, f.environmentId); assert.ok(registered.revision > held.revision);
+    assert.equal(await f.db.collection("audit_events").countDocuments({ action: "operations.register", resource_id: f.db.databaseName }), 1);
+    const control = require("../dist/operations/control.js");
+    await control.drainEnvironment(f.client, f.db, { ...operator, expectedRevision: registered.revision });
+    await assert.rejects(registerEnvironment(f.client, f.db, registration), /OPERATIONS_ALREADY_REGISTERED/);
+    const drained = await control.getOperationalState(f.db);
+    assert.equal(drained.mode, "draining");
+    const maintenance = await enterMaintenance(f.client, f.db, { ...operator, expectedRevision: drained.revision });
+    await leaveMaintenance(f.client, f.db, { ...operator, token: maintenance.token });
+    const row = await deletionRequest(f, user.user_id); await approve(f, row); await execute(f, row);
+    assert.equal((await f.db.collection("users").findOne({ _id: user.user_id })).privacy_state, "erased");
+    assert.equal((await f.db.collection("privacy_deletion_requests").findOne({ _id: row._id })).status, "completed_with_retention");
+    await assertSingleIntent(f, row);
   });
 
   await t.test("批准、拒绝校验revision和plan，执行前再次拒绝过期plan", async t => {

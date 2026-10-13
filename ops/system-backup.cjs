@@ -13,7 +13,7 @@ const KEY = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const AREAS = ['tmp', 'quarantine', 'ready'];
 // Restore is a locked disaster-recovery copy, never an authorization rollback or an approval replay.
-const SKIP_IMPORT = new Set(['operational_state','operational_writers','backup_restore_runs','member_roles','member_capability_grants','administrative_grants','authorization_requests','administration_operations','administration_guard','object_id_allocations']);
+const SKIP_IMPORT = new Set(['operational_state','operational_writers','backup_restore_runs','member_roles','member_capability_grants','administrative_grants','authorization_requests','administration_operations','administration_guard','object_id_allocations','auth_email_challenges','auth_invitations','auth_mail_outbox']);
 function exact(value, fields) { ensure(value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).sort().join('|') === fields.slice().sort().join('|')); }
 async function requireReplicaSet(db) { ensure(typeof (await db.admin().command({ hello: 1 })).setName === 'string', 'LOCAL_REPLICA_SET_REQUIRED'); }
 function uriDatabase(uri, restore = false) {
@@ -131,9 +131,16 @@ async function backup({ client, db, file, key, root, maintenanceToken }) {
   } catch (e) { if (session.inTransaction()) await session.abortTransaction(); await archive.abort(); throw e; } finally { await session.endSession(); }
 }
 async function authenticate(handle, key, onDocument = async () => {}, onFile = async () => {}, checkpoint = () => {}) {
-  const registry = schema.systemBackupRegistry(); let header = null, active = null, dbBytes = 0, totalFiles = 0, filePhase = false, lastCollection = -1; const counts = Object.fromEntries(registry.collections.filter(n => !registry.excluded.includes(n)).map(n => [n, 0])); const files = []; const fileKeys = new Set();
+  const supported = schema.supportedSystemBackupRegistries(); let registry = null, header = null, active = null, dbBytes = 0, totalFiles = 0, filePhase = false, lastCollection = -1, counts = null; const files = []; const fileKeys = new Set(); const markers = new Set();
   const result = await readArchive(handle, key, async record => {
-    if (!header) { exact(record, ['kind','manifest']); ensure(record.kind === 'header'); header = record.manifest; exact(header, ['format','backup_id','environment_id','source_database','source_cluster_hash','source_root_hash','created_at','registry','ledger_sequence','db_bytes','counts','files','missing']); ensure(JSON.stringify(header.registry) === JSON.stringify(registry)); return; }
+    if (!header) {
+      exact(record, ['kind','manifest']); ensure(record.kind === 'header'); header = record.manifest;
+      exact(header, ['format','backup_id','environment_id','source_database','source_cluster_hash','source_root_hash','created_at','registry','ledger_sequence','db_bytes','counts','files','missing']);
+      registry = supported.find(candidate => JSON.stringify(header.registry) === JSON.stringify(candidate));
+      ensure(registry, 'BACKUP_REGISTRY_UNSUPPORTED');
+      counts = Object.fromEntries(registry.collections.filter(name => !registry.excluded.includes(name)).map(name => [name, 0]));
+      return;
+    }
     ensure(record.kind === 'db' || record.kind === 'file'); exact(record, record.kind === 'db' ? ['kind','collection','index','part','last','data'] : ['kind','area','key','part','last','data']);
     ensure(Number.isSafeInteger(record.part) && record.part >= 0 && typeof record.last === 'boolean' && typeof record.data === 'string' && record.data.length <= Math.ceil(CHUNK / 3) * 4 && /^[A-Za-z0-9+/]*={0,2}$/.test(record.data));
     const bytes = Buffer.from(record.data, 'base64'); ensure(bytes.toString('base64') === record.data && bytes.length <= CHUNK);
@@ -149,7 +156,16 @@ async function authenticate(handle, key, onDocument = async () => {}, onFile = a
     if (record.kind === 'db') { dbBytes += bytes.length; ensure(dbBytes <= MAX_DB, 'BACKUP_LIMIT_EXCEEDED'); active.parts.push(bytes); }
     else { totalFiles += bytes.length; ensure(totalFiles <= MAX_FILES, 'BACKUP_LIMIT_EXCEEDED'); await onFile(record, bytes); }
     if (record.last) {
-      if (record.kind === 'db') { const doc = BSON.deserialize(Buffer.concat(active.parts), { promoteLongs: false, promoteValues: false }); counts[record.collection]++; await onDocument(record.collection, doc); }
+      if (record.kind === 'db') {
+        const doc = BSON.deserialize(Buffer.concat(active.parts), { promoteLongs: false, promoteValues: false });
+        if (record.collection === 'schema_migrations') {
+          const version = Number(doc.version);
+          ensure(Number.isSafeInteger(version) && !markers.has(version) && registry.checksums[String(version)] === doc.checksum &&
+            doc.status === 'completed' && doc.completed_at instanceof Date && Number.isFinite(doc.completed_at.getTime()), 'BACKUP_SCHEMA_MARKER_INVALID');
+          markers.add(version);
+        }
+        counts[record.collection]++; await onDocument(record.collection, doc);
+      }
       else files.push({ area: record.area, key: record.key, size: active.size, checksum: active.hash.digest('hex') });
       active = null;
     }
@@ -158,6 +174,7 @@ async function authenticate(handle, key, onDocument = async () => {}, onFile = a
   exact(manifest, ['format','backup_id','environment_id','source_database','source_cluster_hash','source_root_hash','created_at','registry','ledger_sequence','db_bytes','counts','files','missing']);
   ensure(manifest.format === 1 && KEY.test(manifest.backup_id) && UUID.test(manifest.environment_id) && /^kl_test_[\w-]+$/.test(manifest.source_database) && /^[a-f0-9]{64}$/.test(manifest.source_cluster_hash) && /^[a-f0-9]{64}$/.test(manifest.source_root_hash) && typeof manifest.created_at === 'string' && Number.isFinite(Date.parse(manifest.created_at)));
   ensure(Number.isSafeInteger(manifest.ledger_sequence) && manifest.ledger_sequence >= 0 && JSON.stringify(manifest.registry) === JSON.stringify(registry) && manifest.db_bytes === dbBytes && JSON.stringify(manifest.counts) === JSON.stringify(counts));
+  ensure(Object.keys(registry.checksums).filter(version => Number(version) >= 10).every(version => markers.has(Number(version))), 'BACKUP_SCHEMA_MARKER_INVALID');
   for (const field of ['format','backup_id','environment_id','source_database','source_cluster_hash','source_root_hash','created_at','registry','ledger_sequence']) ensure(JSON.stringify(header[field]) === JSON.stringify(manifest[field]));
   ensure(Array.isArray(manifest.files) && manifest.files.length === files.length && Array.isArray(manifest.missing) && manifest.missing.every(id => OID.test(id)));
   manifest.files.forEach((f, index) => { exact(f, ['area','key','size','checksum','classification','resource_id']); ensure(['ready','quarantined','unresolved','orphan'].includes(f.classification) && (f.resource_id === null || OID.test(f.resource_id))); for (const field of ['area','key','size','checksum']) ensure(f[field] === files[index][field]); });
@@ -166,6 +183,7 @@ async function authenticate(handle, key, onDocument = async () => {}, onFile = a
 function transform(name, row) {
   const now = new Date();
   if (name === 'users') { row.status = 'disabled'; row.must_change_password = true; row.temporary_password_expires_at = new Date(0); row.credential_version = Number(row.credential_version) + 1; row.identity_revision = Number(row.identity_revision) + 1; row.updated_at = now; }
+  if (name === 'auth_email_identities') { row.state = 'needs_reverify'; row.verified_at = null; row.revision = Number(row.revision) + 1; row.updated_at = now; }
   if (name === 'organization_members') { row.status = 'disabled'; row.authorization_revision = Number(row.authorization_revision) + 1; row.updated_at = now; }
   if (name === 'outbox_events' && row.status === 'running') { row.status = 'pending'; row.lease_owner = row.lease_token = row.lease_until = null; row.available_at = now; row.updated_at = now; }
   if (name === 'knowledge_import_jobs') { row.preview=[]; row.warnings=[]; row.lease_token=row.lease_until=null; if(row.status!=='applied'){row.status='failed';row.error_code='IMPORT_RESTORE_INVALIDATED';row.generation=Number(row.generation)+1;row.revision=Number(row.revision)+1;} row.updated_at=now; }
@@ -199,6 +217,11 @@ async function restore({ client, db, file, key, root }) {
         await writeAll(output, bytes); if (record.last) { await output.sync(); await output.close(); output = null; }
       });
       ensure(second.manifestHash === verified.manifestHash);
+      const emailMarker = await db.collection('schema_migrations').findOne({ version: 22 });
+      if (manifest.registry.version < 22) {
+        ensure(!emailMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
+        await db.collection('schema_migrations').insertOne({ _id: newId(), version: 22, checksum: schema.AUTH_EMAIL_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+      } else ensure(emailMarker?.status === 'completed' && emailMarker.checksum === schema.AUTH_EMAIL_CHECKSUM && emailMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
       // Apply external holds/erasures before any reconciliation or physical deletion.
       const latest = await ledgerApi.readSafetyLedger(manifest.environment_id, safety.sequence); await ledgerApi.applySafetyLedger(db, latest);
       await db.collection('backup_restore_runs').updateOne({ _id: restoreId }, { $set: { ledger_sequence: latest.sequence, updated_at: new Date() } });
@@ -272,9 +295,10 @@ async function verifyRestore({ db, file, key, root, restoreId, apply = false }) 
     let files = manifest.missing.filter(id => !suppressed.has(id)).length === 0 && inventory.missing.length === 0 && inventory.descriptors.length === expected.length;
     for (const descriptor of expected) { const actual = inventory.descriptors.find(f => f.area === descriptor.area && f.key === descriptor.key); if (!actual || actual.checksum !== descriptor.checksum || actual.size !== descriptor.size || !['ready','quarantined'].includes(actual.classification)) files = false; }
     const emptyAuthorization = ['member_roles', 'member_capability_grants', 'administrative_grants',
-      'authorization_requests', 'administration_operations', 'auth_sessions'];
+      'authorization_requests', 'administration_operations', 'auth_sessions', 'auth_email_challenges', 'auth_invitations', 'auth_mail_outbox'];
     const identities = await db.collection('users').countDocuments({ status: { $ne: 'disabled' } }) === 0
       && await db.collection('organization_members').countDocuments({ status: { $ne: 'disabled' } }) === 0
+      && await db.collection('auth_email_identities').countDocuments({ $or: [{ state: { $ne: 'needs_reverify' } }, { verified_at: { $ne: null } }] }) === 0
       && await db.collection('administration_guard').countDocuments({ _id: 'administration', state: 'idle', operation_id: null, recovery_token: null,
         'blocked_targets.user_ids': [], 'blocked_targets.member_ids': [], 'blocked_targets.org_ids': [],
         'blocked_targets.global': false, affected_orgs: [] }) === 1

@@ -22,6 +22,8 @@ import { ApiRequest, fail } from "./errors";
 import { dummyHash, hashPassword, verifyPassword } from "./security/password";
 import { assertOperationalAccess } from "./operations/control";
 import { activeMemberGrants, activeMemberRoles, assertAdministrationAccess, scopedBusinessCapabilities } from "./administration/authorization";
+import { emailCollections } from "./auth-email/contracts";
+import { maskedEmail, normalizeEmail } from "./auth-email/tokens";
 
 const privacyActive: Filter<User> = {
   $or: [{ privacy_state: "active" }, { privacy_state: { $exists: false } }],
@@ -103,8 +105,8 @@ export class AuthService {
       { session: transaction },
     );
   }
-  async rate(scope: string, key: string, limit: number, windowMs = 300000) {
-    if (!Number.isSafeInteger(windowMs) || windowMs < 1000 || windowMs > 300000) throw new Error("RATE_WINDOW_INVALID");
+  async rate(scope: string, key: string, limit: number, windowMs = 300000, response?: Response) {
+    if (!Number.isSafeInteger(windowMs) || windowMs < 1000 || windowMs > 3600000) throw new Error("RATE_WINDOW_INVALID");
     await assertOperationalAccess(this.database.db);
     const id = createHmac("sha256", this.config.rateLimitKey)
       .update(`${scope}:${key}`)
@@ -142,8 +144,16 @@ export class AuthService {
         returnDocument: "after",
       });
     }
-    if (!row || row.count > limit)
+    if (!row || row.count > limit) {
+      if (response && row?.expires_at instanceof Date) {
+        const clock = await this.database.db.aggregate<{ now: Date }>([
+          { $documents: [{}] }, { $project: { _id: 0, now: "$$NOW" } },
+        ]).next();
+        if (!(clock?.now instanceof Date)) throw new Error("RATE_CLOCK_UNAVAILABLE");
+        response.setHeader("Retry-After", String(Math.max(1, Math.ceil((row.expires_at.getTime() - clock.now.getTime()) / 1000))));
+      }
       fail(429, "RATE_LIMITED", "尝试过于频繁，请稍后再试");
+    }
   }
   async audit(
     action: string,
@@ -260,10 +270,16 @@ export class AuthService {
     if (!preauth || preauth.kind !== "preauth")
       fail(403, "CSRF_REJECTED", "请先获取登录安全令牌");
     this.csrf(req, preauth);
-    const key = normalizeLogin(loginName);
+    const email = loginName.includes("@") ? normalizeEmail(loginName) : null;
+    const key = email?.key ?? normalizeLogin(loginName);
     await this.rate("login-ip", req.ip ?? "unknown", 30);
     await this.rate("login-user", key, 10);
-    const user = await this.c.users.findOne({ login_key: key, ...privacyActive });
+    const emailIdentity = email
+      ? await emailCollections(this.database.db).identities.findOne({ email_key: key, state: "verified" })
+      : null;
+    const user = email
+      ? emailIdentity && await this.c.users.findOne({ _id: emailIdentity.user_id, ...privacyActive })
+      : await this.c.users.findOne({ login_key: key, ...privacyActive });
     const matched = await verifyPassword(
       user?.password_hash ?? (await dummyHash()),
       password,
@@ -275,6 +291,13 @@ export class AuthService {
     await assertAdministrationAccess(this.database.db, user._id);
     const created = await this.database.transaction(async (transaction) => {
       await assertAdministrationAccess(this.database.db, user._id, undefined, transaction);
+      if (emailIdentity) {
+        const currentEmail = await emailCollections(this.database.db).identities.findOne({
+          _id: emailIdentity._id, user_id: user._id, email_key: key,
+          state: "verified", revision: emailIdentity.revision,
+        }, { session: transaction });
+        if (!currentEmail) fail(401, "INVALID_CREDENTIALS", "登录名或密码错误");
+      }
       const fence = await this.c.users.updateOne(
         {
           _id: user._id,
@@ -577,9 +600,28 @@ export class AuthService {
   async me(req: ApiRequest) {
     return this.database.transaction(async (transaction) => {
       const identity = await this.identify(req, true, transaction);
+      const emailIdentity = await emailCollections(this.database.db).identities.findOne(
+        { user_id: identity.user._id }, { session: transaction, sort: { revision: -1 } },
+      );
+      const admission = await emailCollections(this.database.db).admissions.findOne(
+        { user_id: identity.user._id }, { session: transaction },
+      );
       const user = {
         id: identity.user._id,
         display_name: identity.user.display_name,
+        login_name: identity.user.login_key,
+        email: {
+          state: emailIdentity?.state ?? "unbound",
+          masked: emailIdentity ? maskedEmail(emailIdentity.email_display) : null,
+        },
+        admission: {
+          state: admission ? "adult_self_declared" : "not_recorded",
+          age_band: admission?.age_band ?? null,
+          source: admission?.source ?? null,
+          terms_version: admission?.terms_version ?? null,
+          privacy_notice_version: admission?.privacy_notice_version ?? null,
+          accepted_at: admission?.accepted_at ?? null,
+        },
       };
       if (identity.user.must_change_password)
         return {
@@ -604,7 +646,12 @@ export class AuthService {
       let context = null;
       if (orgId) {
         const capabilities = await this.authorize(identity, orgId, "account:read", transaction);
-        const scoped = await scopedBusinessCapabilities(this.database.db, identity.user._id, orgId, transaction);
+        // The active organization list is already proven in this transaction's snapshot.
+        // Without a platform membership there can be no scoped platform grant; standalone
+        // has no snapshot, so it retains the full current authorization path.
+        const scoped = transaction.inTransaction() && !orgs.some(org => org.kind === "platform")
+          ? []
+          : await scopedBusinessCapabilities(this.database.db, identity.user._id, orgId, transaction);
         context = {
           org_id: orgId,
           capabilities,

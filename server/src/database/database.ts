@@ -69,6 +69,10 @@ export class Database implements OnModuleInit, OnApplicationShutdown {
   async writerStopRequested(): Promise<boolean> {
     return this.writer ? this.writer.stopRequested() : false;
   }
+  /** Stable identity of this API writer, used only for durable transport close proof. */
+  writerRegistrationId(): string | null {
+    return this.writer?.id ?? null;
+  }
   ready(): Promise<void> {
     // Concurrent probes share the full check, including its failure.
     // A rejected check is never cached as ready; the next probe retries.

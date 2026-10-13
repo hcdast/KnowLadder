@@ -1,6 +1,9 @@
 import { resolveFeatureFlags } from './runtime/feature-flags';
 export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
   resolveFeatureFlags(env);
+  const siteOrg = env.KL_SITE_ORG_ID;
+  if (siteOrg?.trim() && !/^[0-9a-f]{24}$/.test(siteOrg))
+    throw new Error("SITE_CONFIGURATION_INVALID: KL_SITE_ORG_ID 必须是小写24位hex或留空关闭站点");
   const production = env.NODE_ENV === "production";
   const mongoUri = env.MONGODB_URI;
   if (!mongoUri || !/^mongodb(?:\+srv)?:\/\//.test(mongoUri))

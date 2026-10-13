@@ -1,4 +1,6 @@
 export const FEATURE_FLAGS = [
+  "KL_AUTH_EMAIL_ENABLED",
+  "KL_PUBLIC_REGISTRATION_ENABLED",
   "FILE_SCAN_ENABLED",
   "KL_TRAINING_ENABLED",
   "KL_COURSEWORK_FILES_ENABLED",
@@ -36,6 +38,8 @@ export function resolveFeatureFlags(env: NodeJS.ProcessEnv = process.env) {
           "KL_MONGO_ALLOW_STANDALONE",
           "KL_MONGO_ALLOW_COLLECTION_REBUILD",
           "ALLOW_INSECURE_HTTP",
+          "KL_AUTH_EMAIL_ENABLED",
+          "KL_PUBLIC_REGISTRATION_ENABLED",
         ].includes(key) && on(key),
     )
   )
@@ -57,5 +61,7 @@ export function resolveFeatureFlags(env: NodeJS.ProcessEnv = process.env) {
     !on("KL_STANDALONE_RECOVERY_ENABLED")
   )
     throw Error("FEATURE_RECOVERY_REQUIRED");
+  if (on("KL_PUBLIC_REGISTRATION_ENABLED") && !on("KL_AUTH_EMAIL_ENABLED"))
+    throw Error("FEATURE_AUTH_EMAIL_REQUIRED");
   return flags;
 }

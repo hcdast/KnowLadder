@@ -26,6 +26,12 @@ export class AdministrationController {
   async members(@Req() req: ApiRequest, @Param('orgId') orgId: string, @Query() query: unknown) { return this.result(req, await this.administration.members(req, orgId, query)); }
   @Post('organizations/:orgId/members') @HttpCode(200)
   async addMember(@Req() req: ApiRequest, @Param('orgId') orgId: string, @Body() body: unknown, @Res({ passthrough: true }) res: Response) { return this.result(req, await this.administration.addMember(req, orgId, body), res); }
+  @Get('organizations/:orgId/invitations')
+  async invitations(@Req() req: ApiRequest, @Param('orgId') orgId: string, @Query() query: unknown) { return this.result(req, await this.administration.invitations(req, orgId, query)); }
+  @Post('organizations/:orgId/invitations') @HttpCode(200)
+  async createInvitation(@Req() req: ApiRequest, @Param('orgId') orgId: string, @Body() body: unknown, @Res({ passthrough: true }) res: Response) { return this.result(req, await this.administration.createInvitation(req, orgId, body), res); }
+  @Post('invitations/:invitationId/revoke') @HttpCode(200)
+  async revokeInvitation(@Req() req: ApiRequest, @Param('invitationId') invitationId: string, @Body() body: unknown) { return this.result(req, await this.administration.revokeInvitation(req, invitationId, body)); }
   @Put('members/:memberId')
   async updateMember(@Req() req: ApiRequest, @Param('memberId') memberId: string, @Body() body: unknown, @Res({ passthrough: true }) res: Response) { return this.result(req, await this.administration.updateMember(req, memberId, body), res); }
   @Put('users/:userId/status')

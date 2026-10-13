@@ -1,3 +1,8 @@
+import { AUTH_EMAIL_SCHEMAS, AUTH_EMAIL_CHECKSUM, AUTH_EMAIL_COLLECTIONS, AUTH_EMAIL_EXCLUDED } from "../auth-email/schema";
+import { migrateAuthEmail } from "./auth-email-v22";
+import { loadEmailConfig } from "../auth-email/config";
+import { probeTopology } from "../database/topology";
+export { AUTH_EMAIL_CHECKSUM };
 import {recoveryEnabled,assertRecoveryConfiguration,STANDALONE_RECOVERY_SCHEMAS,RECOVERY_COLLECTIONS,RECOVERY_CHECKSUM,migrateRecovery,initializeRecovery,withRecoveryMigration} from '../training/standalone-recovery-lifecycle';
 import {surveySchemas,migrateSurveys,SURVEY_CHECKSUM} from "../training/survey-schema";
 import {provenanceSchemas,migrateProvenance,PROVENANCE_CHECKSUM} from '../training/import-provenance-schema';
@@ -422,13 +427,22 @@ function baseSystemBackupRegistry() {
   return { version: process.env.KL_TRAINING_ENABLED === "true" ? (process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? 20 : process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? 19 : process.env.KL_KNOWLEDGE_ENABLED === "true" ? 17 : process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? 16 : process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? 15 : process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? 14 : process.env.KL_AI_POLICY_ENABLED === "true" ? 13 : process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? 12 : 11) : CURRENT_SCHEMA_VERSION, collections: Object.keys(process.env.KL_TRAINING_ENABLED === "true" ? effectiveTrainingSchemas() : OBJECT_ID_SCHEMAS).filter(name => !["auth_sessions", "auth_rate_limits"].includes(name)), excluded: ["auth_sessions", "auth_rate_limits"], checksums: { "1": CHECKSUM, "2": CONTENT_SCHEMA_CHECKSUM, "3": CONTENT_V3_CHECKSUM, "4": ASSESSMENT_V4_CHECKSUM, "5": LEARNING_V5_CHECKSUM, "6": LEARNING_API_V6_CHECKSUM, "7": PRIVACY_V7_CHECKSUM, "8": TEACHING_V8_CHECKSUM, "9": ADMINISTRATION_V9_CHECKSUM, "10": OBJECT_ID_CHECKSUM, ...(process.env.KL_TRAINING_ENABLED === "true" ? { "11": TRAINING_CHECKSUM, ...(process.env.KL_COURSEWORK_FILES_ENABLED === "true" ? {"12":COURSEWORK_FILES_CHECKSUM}:{}), ...(process.env.KL_AI_POLICY_ENABLED === "true" ? {"13":AI_POLICY_CHECKSUM}:{}), ...(process.env.KL_TRAINING_REPORTS_ENABLED === "true" ? {"14":TRAINING_REPORT_CHECKSUM}:{}), ...(process.env.KL_TRAINING_PHASE2_ENABLED === "true" ? {"15":TRAINING_PHASE2_CHECKSUM}:{}), ...(process.env.KL_AI_LEARNING_REPORTS_ENABLED === "true" ? {"16":AI_LEARNING_CHECKSUM}:{}), ...(process.env.KL_KNOWLEDGE_ENABLED === "true" ? {"17":KNOWLEDGE_CHECKSUM}:{}),...(process.env.KL_KNOWLEDGE_IMPORT_ENABLED === "true" ? {"18":IMPORT_CHECKSUM,"19":PROVENANCE_CHECKSUM}:{}),...(process.env.KL_TRAINING_SURVEYS_ENABLED === "true" ? {"20":SURVEY_CHECKSUM}:{}) } : {}) } };
 }
 
-export function systemBackupRegistry(){
+function legacySystemBackupRegistry() {
  assertRecoveryConfiguration();
  const base=baseSystemBackupRegistry();
  if(!recoveryEnabled())return base;
  return {...base,version:21,collections:[...base.collections,...RECOVERY_COLLECTIONS],excluded:[...base.excluded,...RECOVERY_COLLECTIONS],checksums:{...base.checksums,'21':RECOVERY_CHECKSUM}};
 }
-function effectiveRuntimeSchemas(){const base=process.env.KL_TRAINING_ENABLED==='true'?effectiveTrainingSchemas():OBJECT_ID_SCHEMAS;return recoveryEnabled()?{...base,...STANDALONE_RECOVERY_SCHEMAS}:base;}
+export function systemBackupRegistry() {
+ const base = legacySystemBackupRegistry();
+ return { ...base, version: 22, collections: [...base.collections, ...AUTH_EMAIL_COLLECTIONS],
+   excluded: [...base.excluded, ...AUTH_EMAIL_EXCLUDED], checksums: { ...base.checksums, "22": AUTH_EMAIL_CHECKSUM } };
+}
+/** Exact pre-email registry for this supported feature combination, never a wildcard. */
+export function supportedSystemBackupRegistries() {
+ return [legacySystemBackupRegistry(), systemBackupRegistry()] as const;
+}
+function effectiveRuntimeSchemas(){const base=process.env.KL_TRAINING_ENABLED==='true'?effectiveTrainingSchemas():OBJECT_ID_SCHEMAS;return {...base,...(recoveryEnabled()?STANDALONE_RECOVERY_SCHEMAS:{}),...AUTH_EMAIL_SCHEMAS};}
 
 /** Empty restore targets only. No markers, epochs, role catalog or state seeds. */
 export async function initializeRestoreSchema(db: Db): Promise<void> {
@@ -1026,6 +1040,14 @@ export async function migrateVersion8(uri: string): Promise<void> {
 }
 
 export async function migrate(uri:string):Promise<void>{
+ const emailClient = new MongoClient(uri);
+ try {
+  await emailClient.connect();
+  await assertTopology(emailClient.db(), loadConfig());
+  if (!await emailClient.db().collection("schema_migrations").findOne({version:10,status:"completed",checksum:OBJECT_ID_CHECKSUM}))
+   await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);
+  await migrateAuthEmail(emailClient.db(), OBJECT_ID_CHECKSUM);
+ } finally { await emailClient.close(); }
  if(!recoveryEnabled())return migrateCore(uri);
  assertRecoveryConfiguration();const coordinator=new MongoClient(uri);await coordinator.connect();
  try{
@@ -1036,7 +1058,11 @@ export async function migrate(uri:string):Promise<void>{
 async function migrateCore(uri: string): Promise<void> {
   requireLearningAiDependencies();
   if (process.env.KL_TRAINING_ENABLED !== "true") {
-    if(!recoveryEnabled()){await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);return;}
+    if(!recoveryEnabled()){
+      const coreClient = new MongoClient(uri); await coreClient.connect();
+      try { await assertSchema(coreClient.db()); } finally { await coreClient.close(); }
+      return;
+    }
     assertRecoveryConfiguration();
     const controlClient=new MongoClient(uri);await controlClient.connect();
     try{if(!await controlClient.db().collection('schema_migrations').findOne({version:10,status:'completed',checksum:OBJECT_ID_CHECKSUM}))await initializeObjectId(uri,OBJECT_ID_SCHEMAS,OBJECT_ID_CHECKSUM,ROLE_CAPABILITIES);
@@ -1145,7 +1171,10 @@ export async function assertSchema(
 ): Promise<void> {
   assertRecoveryConfiguration();
   requireLearningAiDependencies();
+  if (loadEmailConfig().actionsEnabled && (await probeTopology(db)).mode !== "replicaSet")
+    throw Error("AUTH_TRANSACTION_REQUIRED");
   const requirements: Array<[number, string, string]> = [];
+  requirements.push([22, AUTH_EMAIL_CHECKSUM, "Auth email v22 migration incomplete"]);
   const add = (
     enabled: boolean,
     version: number,
@@ -1248,7 +1277,8 @@ export async function assertSchema(
   const records = new Map(rows.map((r) => [r.version, r]));
   for (const [version, checksum, message] of requirements) {
     const row = records.get(version);
-    if (!row || row.status !== "completed" || row.checksum !== checksum)
+    if (!row || row.status !== "completed" || row.checksum !== checksum ||
+        !(row.completed_at instanceof Date) || !Number.isFinite(row.completed_at.getTime()))
       throw Error(message);
   }
   await assertObjectIdSchema(
