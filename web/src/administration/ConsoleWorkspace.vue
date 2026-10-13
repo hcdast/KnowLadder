@@ -11,7 +11,7 @@ import ConsoleLayout from "./ConsoleLayout.vue";
 import ConsoleOverview from "./ConsoleOverview.vue";
 import type { Approval, ConsoleContext, ConsoleMenu, ConsoleWrite, Operation, Page, Receipt } from "./types";
 import { consoleActionLabel, consoleCapabilityLabel, consoleRoleLabel, consoleScopeLabel, consoleStatusLabel } from "./presentation";
-const props = defineProps<{ identity: Identity; request: BusinessRequest; busy?: boolean }>();
+const props = defineProps<{ identity: Identity; request: BusinessRequest; busy?: boolean; emailActions?: boolean }>();
 const emit = defineEmits<{ unavailable: []; writeActive: [value: boolean]; organization: [event: Event]; password: []; logout: [] }>();
 const route = useRoute();
 const context = ref<ConsoleContext>(), loading = ref(false), writing = ref(false), error = ref(""), message = ref(""), operationError = ref("");
@@ -92,6 +92,8 @@ function summary(path: string, body: Record<string, unknown>) {
   if (path === "/console/users") { action = "创建用户"; target = `${String(body.display_name || "")}（${String(body.login_name || "")}）`; impact = "创建账号及初始成员关系；直接生效时仅首次响应交付临时密码。"; }
   else if (path.endsWith("/password-reset")) { action = "重置用户密码"; impact = "重置影响该账号在所有组织的登录，生效后旧密码失效；新临时密码仅首次确定响应交付，目标人员首次登录须改密。"; }
   else if (path.endsWith("/status")) { action = body.status === "disabled" ? "停用用户" : "启用用户"; impact = "账号状态影响目标用户在所有组织的访问；停用可能使其现有会话失效。"; }
+  else if (parts[2] === "organizations" && parts[4] === "invitations") { action = "发起机构邮箱邀请"; target = typeof body.email === "string" ? `${body.email}（仅本次内存）` : "原请求邮箱（需重新输入原正文核对）"; impact = "仅登记邀请及允许的邮件受理；不代表送达或已经加入。受保护或敏感目标必须先独立审批，新邮箱不能直接获得敏感职责。"; }
+  else if (parts[2] === "invitations" && parts[4] === "revoke") { action = "撤销机构邀请"; target = `邀请 ${id} · 预期修订 ${String(body.expected_revision ?? "待核对")}`; impact = "使邀请链接、用途挑战及待发邮件失效；不能追回已被邮件服务器接受的邮件。不会删除成员或撤销已接受成员职责。"; }
   else if (parts[2] === "organizations" && parts[4] === "members") action = "添加组织成员";
   else if (parts[2] === "members") { action = "更新成员角色或状态"; impact = "变更组织内角色、有效期或访问状态；职责变更仍须服务端权限和版本核验。"; }
   else if (path === "/console/grants") { action = `授予授权：${consoleCapabilityLabel(String(body.capability || ""))}`; impact = "仅授权所列职责、范围与期限，不扩展其他能力；敏感授权可能需独立审批。"; }
@@ -233,6 +235,8 @@ function accept(receipt: Receipt) {
     ? `审批 ${receipt.approval_id} · ${consoleStatusLabel(receipt.status)} · 操作 ${receipt.operation_id}。`
     : `申请已登记 ${receipt.approval_id} · 原操作 ${consoleStatusLabel(receipt.status)}。是否生效以审批页的当前状态为准。`;
   else message.value = `操作 ${receipt.operation_id} · ${receipt.status === "pending" ? "结果待确认" : consoleStatusLabel(receipt.status)}。`;
+  if (receipt.invitation_id) message.value += ` 邀请 ${receipt.invitation_id}${receipt.invitation_state ? ` · ${receipt.invitation_state}` : ""}${receipt.invitation_revision ? ` · 修订 ${receipt.invitation_revision}` : ""}。`;
+  if (receipt.delivery_status) message.value += ` 邮件状态：${receipt.delivery_status === "accepted" ? "受理入队（非送达）" : receipt.delivery_status}。`;
   recoveryStatus.value = receipt.status === "pending" && !receipt.approval_id ? "结果待确认" : consoleStatusLabel(receipt.status);
   if (receipt.status === "applied" || receipt.status === "rejected" || receipt.approval_id && receipt.status === "pending" && !decision) {
     if (receipt.status === "applied" && receipt.temporary_password && receipt.user_id) { temporaryTarget.value = `${receipt.user_id}${originalBody.value?.display_name ? ` · ${String(originalBody.value.display_name)}` : ""}`; temporaryOperation.value = receipt.operation_id; temporaryPassword.value = receipt.temporary_password; }
@@ -250,7 +254,15 @@ async function send(replay: boolean): Promise<Receipt | undefined> {
   if (!currentPassword.value) throw new Error("请重新输入当前密码，恢复原请求也重新核验身份。");
   writing.value = true; error.value = ""; operationError.value = ""; clearDelivery();
   const token = writeGeneration, password = currentPassword.value, recoveryStorageKey = storageKey.value; currentPassword.value = "";
-  try { const result = await props.request<Receipt>(metadata.path, { method: metadata.method, idempotencyKey: metadata.key, body: { ...originalBody.value, current_password: password }, signal: writeController.signal }); if (!alive || token !== writeGeneration) return; accept(result); return { operation_id: result.operation_id, status: result.status, ...(result.approval_id ? { approval_id: result.approval_id } : {}), ...(result.user_id ? { user_id: result.user_id } : {}) }; }
+  try {
+    const result = await props.request<Receipt>(metadata.path, { method: metadata.method, idempotencyKey: metadata.key, body: { ...originalBody.value, current_password: password }, signal: writeController.signal });
+    if (!alive || token !== writeGeneration) return;
+    accept(result);
+    return { operation_id: result.operation_id, status: result.status, ...(result.approval_id ? { approval_id: result.approval_id } : {}),
+      ...(result.user_id ? { user_id: result.user_id } : {}), ...(result.invitation_id ? { invitation_id: result.invitation_id } : {}),
+      ...(result.invitation_state ? { invitation_state: result.invitation_state } : {}), ...(result.invitation_revision ? { invitation_revision: result.invitation_revision } : {}),
+      ...(result.delivery_status ? { delivery_status: result.delivery_status } : {}) };
+  }
   catch (cause) {
     const rejected = !replay && cause instanceof ApiError && [400,401,403,404,409,413,422,429].includes(cause.status) && !["IDEMPOTENCY_CONFLICT","IDEMPOTENCY_RESULT_INVALID","COMMIT_OUTCOME_UNKNOWN","OPERATION_NEEDS_RECOVERY"].includes(cause.code);
     if (rejected) {
@@ -302,7 +314,7 @@ async function recover() {
   writing.value = true; operationError.value = ""; clearDelivery(); const token = writeGeneration;
   try {
     const operation = metadata.operation_id
-      ? await props.request<Operation>(`/console/operations/${encodeURIComponent(metadata.operation_id)}`, { signal: writeController.signal })
+      ? await props.request<Operation>(`/console/operations/${encodeURIComponent(metadata.operation_id)}`, { signal: writeController.signal, notFound: "lookup" })
       : (await props.request<Page<Operation>>(`/console/operations?${new URLSearchParams({ key: metadata.key })}`, { signal: writeController.signal })).items[0];
     if (!alive || token !== writeGeneration) return;
     if (!operation) { message.value = "服务器尚未确认原请求；未查到回执不代表失败。请继续以原编号查询或在保留原正文时重新核验密码后恢复。"; return; }
@@ -311,6 +323,8 @@ async function recover() {
       const approvalState = operation.approval_id ? ` · 审批 ${operation.approval_id}：${operation.approval_status ? consoleStatusLabel(operation.approval_status) : "状态待查询"}` : "";
       recoveryStatus.value = consoleStatusLabel(operation.status);
       message.value = `原请求 ${metadata.key} · 操作登记 ${operation.operation_id} · ${consoleStatusLabel(operation.status)}${approvalState}。`;
+      if (operation.invitation_id) message.value += ` 邀请 ${operation.invitation_id}${operation.invitation_state ? ` · ${operation.invitation_state}` : ""}${operation.invitation_revision ? ` · 修订 ${operation.invitation_revision}` : ""}。`;
+      if (operation.action === "invitation.create" || operation.action === "invitation.revoke") message.value += ` 只读核对未重发邮件或恢复秘密${operation.delivery_status ? `；邮件状态 ${operation.delivery_status === "accepted" ? "受理入队（非送达）" : operation.delivery_status}` : ""}，操作登记不代表加入。`;
       if (operation.status === "applied" && expectsPassword(metadata, operation.approval_id ?? undefined) && (!operation.approval_id || operation.approval_status === "applied"))
         message.value += " 操作已生效但密码未收到；原请求不回放密码。请重新核验身份后发起新的重置。";
     }
@@ -349,7 +363,7 @@ watch(identityStamp, () => {
 }, { flush: "sync" });
 function beforeUnload(event: BeforeUnloadEvent) { if (pageDirty.value || locked.value || businessUnknown.value) { event.preventDefault(); event.returnValue = ""; } cancelConfirmation(); clearSecret(); }
 function restoreMetadata() {
-  try { const raw = sessionStorage.getItem(storageKey.value); if (raw) { const value = JSON.parse(raw) as Recovery; if (!value.key || !["POST", "PUT"].includes(value.method) || !/^\/console\/(users|organizations|members|grants|approvals)(\/|$)/.test(value.path)) throw new Error("恢复元数据无效"); remember(value); } } catch { storageBlocked.value = true; error.value = "安全恢复元数据不可读取，写入已冻结，请核对原操作。"; }
+  try { const raw = sessionStorage.getItem(storageKey.value); if (raw) { const value = JSON.parse(raw) as Recovery; if (!value.key || !["POST", "PUT"].includes(value.method) || !(/^\/console\/(users|organizations|members|grants|approvals)(\/|$)/.test(value.path) || value.method === "POST" && /^\/console\/invitations\/[a-f0-9]{24}\/revoke$/.test(value.path))) throw new Error("恢复元数据无效"); remember(value); } } catch { storageBlocked.value = true; error.value = "安全恢复元数据不可读取，写入已冻结，请核对原操作。"; }
 }
 onMounted(() => {
   restoreMetadata();
@@ -404,7 +418,7 @@ onBeforeUnmount(() => { alive = false; generation++; invalidateWrites(); context
         <p v-if="!allowed" class="notice" role="alert">当前身份无此页面权限，未读取页面数据。请选择仍可见的菜单。</p>
         <ConsoleOverview v-else-if="page === 'overview'" :key="`overview:${pageEpoch}`" :context="context" :request="request" />
         <UsersPage v-else-if="page === 'users'" :key="`users:${pageEpoch}:${route.fullPath}`" :context="context" :request="request" :write="write" :locked="pageLocked" :resource-id="resourceId" :exact-lookup-only="exactLookupOnly" @dirty="pageDirty = $event" />
-        <OrganizationsPage v-else-if="page === 'organizations'" :key="`organizations:${pageEpoch}:${route.fullPath}`" :context="context" :request="request" :write="write" :locked="pageLocked" :resource-id="resourceId" @dirty="pageDirty = $event" />
+        <OrganizationsPage v-else-if="page === 'organizations'" :key="`organizations:${pageEpoch}:${route.fullPath}`" :context="context" :request="request" :write="write" :locked="pageLocked" :resource-id="resourceId" :email-actions="emailActions" @dirty="pageDirty = $event" />
         <GrantsPage v-else-if="page === 'authorizations'" :key="`grants:${pageEpoch}:${route.fullPath}`" :context="context" :request="request" :write="write" :locked="pageLocked" :resource-id="resourceId" @dirty="pageDirty = $event" />
         <ApprovalsAuditPage v-else-if="page === 'approvals' || page === 'audit'" :key="`${page}:${pageEpoch}:${route.fullPath}`" :mode="page === 'approvals' ? 'approvals' : 'audit'" :actor-user-id="identity.user.id" :context="context" :request="request" :write="write" :locked="pageLocked" :resource-id="resourceId" @dirty="pageDirty = $event" />
         <BusinessPage v-else-if="page === 'business'" ref="business" :key="`business:${pageEpoch}`" :identity="identity" :context="context" :request="request" :locked="locked" @dirty="pageDirty = $event" @unknown="businessRecoveryState" @context-change="clearSecret" />

@@ -22,7 +22,7 @@ async function load(next = false) {
   busy.value = true;
   try {
     if (!directory.value || queryKind.value === "id") {
-      const user = await props.request<User>(`/console/users/${encodeURIComponent(value)}`, { signal: controller.signal });
+      const user = await props.request<User>(`/console/users/${encodeURIComponent(value)}`, { signal: controller.signal, notFound: "lookup" });
       if (alive && token === generation) { users.value = [user]; cursor.value = null; loaded.value = true; }
     } else {
       const filter = next ? appliedLogin.value : value;

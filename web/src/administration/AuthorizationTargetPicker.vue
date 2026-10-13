@@ -20,7 +20,7 @@ async function locate(userId?: string) {
   busy.value = true; error.value = ""; loaded.value = false; user.value = undefined; members.value = []; cursor.value = null; emit("select", undefined);
   try {
     if (userId || lookupKind.value === "user_id" || !canAccounts.value) {
-      const found = await props.request<User>(`/console/users/${encodeURIComponent(value)}`, { signal: life.signal });
+      const found = await props.request<User>(`/console/users/${encodeURIComponent(value)}`, { signal: life.signal, notFound: "lookup" });
       if (!alive) return;
       user.value = found;
     } else {
@@ -38,7 +38,7 @@ async function loadMembers(next = false) {
   error.value = "";
   try {
     const q = new URLSearchParams({ limit: "20" }); if (next && cursor.value) q.set("cursor", cursor.value);
-    const page = await props.request<Page<Member & { org_id: string; organization_name: string }>>(`/console/users/${encodeURIComponent(target.id)}/members?${q}`, { signal: life.signal });
+    const page = await props.request<Page<Member & { org_id: string; organization_name: string }>>(`/console/users/${encodeURIComponent(target.id)}/members?${q}`, { signal: life.signal, notFound: "lookup" });
     if (!alive) return;
     const rows = page.items.map(member => ({ ...member, user_id: target.id, display_name: target.display_name, login_name: target.login_name, user_status: target.status }));
     members.value = next ? [...members.value, ...rows] : rows; cursor.value = page.next_cursor; loaded.value = true;

@@ -8,12 +8,14 @@ import PageHeader from "./components/PageHeader.vue";
 import ResourceTable from "./components/ResourceTable.vue";
 import StatusBadge from "./components/StatusBadge.vue";
 import PeopleUserPicker from "./PeopleUserPicker.vue";
+import InvitationsPanel from "./InvitationsPanel.vue";
 
-const props = defineProps<ConsolePageProps>();
+const props = defineProps<ConsolePageProps & { emailActions?: boolean }>();
 const emit = defineEmits<{ dirty: [value: boolean] }>();
 const route = useRoute();
 const mode = computed(() => String(route.meta.consoleMode || "detail"));
 const creating = computed(() => mode.value === "create"), editing = computed(() => mode.value === "edit");
+const invitations = computed(() => mode.value === "invitations");
 const organizationId = computed(() => props.resourceId || ""), memberId = computed(() => String(route.params.memberId || ""));
 const platformAccounts = computed(() => props.context.capabilities.includes("account:platform-manage"));
 const governing = computed(() => props.context.capabilities.includes("platform:govern"));
@@ -128,7 +130,7 @@ onMounted(() => {
   if (!organizationId.value) { void loadOrganizations(); return; }
   void resolveOrganization();
   if (editing.value) void loadMemberEditor();
-  else if (!creating.value) void loadMembers();
+  else if (!creating.value && !invitations.value) void loadMembers();
 });
 onBeforeUnmount(() => { alive = false; life.abort(); emit("dirty", false); });
 </script>
@@ -136,7 +138,7 @@ onBeforeUnmount(() => { alive = false; life.abort(); emit("dirty", false); });
 <template>
   <section class="admin-page" :aria-busy="busy || organizationsLoading">
     <PageHeader :title="!organizationId ? '组织与成员' : creating ? `关联成员 · ${targetOrganization?.name || '目标组织'}` : editing ? `成员详情与编辑 · ${targetOrganization?.name || '目标组织'}` : targetOrganization?.name || '目标组织成员'" :description="!organizationId ? '只读组织目录；选择组织后查看当前有权成员，不显示未经服务端提供的成员总数。' : '此处显示的是操作目标组织，与顶栏当前管理身份分开。'">
-      <template #actions><RouterLink v-if="organizationId && !creating && !editing && canAssociate" class="button" :to="`/console/organizations/${organizationId}/members/new`">关联已有用户</RouterLink><RouterLink v-if="organizationId" class="button secondary" :to="creating || editing ? `/console/organizations/${organizationId}` : '/console/organizations'">{{ creating || editing ? '返回组织成员' : '返回组织目录' }}</RouterLink></template>
+      <template #actions><RouterLink v-if="organizationId && !creating && !editing && canAssociate" class="button" :to="`/console/organizations/${organizationId}/members/new`">关联已有用户</RouterLink><RouterLink v-if="organizationId && canReadMembers && !invitations" class="button secondary" :to="`/console/organizations/${organizationId}/invitations`">管理邮箱邀请</RouterLink><RouterLink v-if="organizationId" class="button secondary" :to="creating || editing || invitations ? `/console/organizations/${organizationId}` : '/console/organizations'">{{ creating || editing || invitations ? '返回组织成员' : '返回组织目录' }}</RouterLink></template>
     </PageHeader>
     <p v-if="organizationId" class="admin-meta">目标组织 <code>{{ organizationId }}</code><template v-if="targetOrganization"> · {{ organizationKindLabel(targetOrganization.kind) }} · <StatusBadge :status="targetOrganization.status || ''" :label="targetOrganization.status === 'active' ? '已启用' : undefined" /></template></p>
     <p v-if="organizationError" class="notice" role="alert">{{ organizationError }}</p>
@@ -147,6 +149,7 @@ onBeforeUnmount(() => { alive = false; life.abort(); emit("dirty", false); });
       <div class="admin-toolbar"><span class="field-help">当前可见组织，不提供网页创建、删除或假计数。</span><button class="button secondary" :disabled="organizationsLoading" @click="loadOrganizations()">刷新目录</button></div>
       <ResourceTable :headers="['组织名称', '类型', '状态', '操作']" :busy="organizationsLoading" :empty="organizationsLoaded && !organizations.length" empty-label="当前职责范围没有可见组织。"><tr v-for="item in organizations" :key="item.id"><td><RouterLink :to="`/console/organizations/${item.id}`">{{ item.name }}</RouterLink><code v-if="organizations.some(other => other.id !== item.id && other.name === item.name)" class="admin-meta">{{ item.id }}</code></td><td>{{ organizationKindLabel(item.kind) }}</td><td><StatusBadge :status="item.status || ''" :label="item.status === 'active' ? '已启用' : undefined" /></td><td><RouterLink class="text-button" :to="`/console/organizations/${item.id}`">查看组织</RouterLink></td></tr></ResourceTable><div v-if="organizationsLoaded" class="admin-toolbar"><span class="field-help">已载入 {{ organizations.length }} 条，非组织总数。</span><button v-if="orgCursor" class="button secondary" :disabled="organizationsLoading" @click="loadOrganizations(true)">加载下一页组织</button></div>
     </template>
+    <template v-else-if="invitations"><InvitationsPanel v-if="targetOrganization" :context="context" :request="request" :write="write" :locked="locked" :organization="targetOrganization" :email-actions="emailActions === true" @dirty="emit('dirty', $event)" /></template>
 
     <template v-else-if="!creating && !editing">
       <p v-if="!canReadMembers" class="admin-empty">当前身份只能查看组织目录，没有此组织的成员读取或账号管理职责；未调用成员接口。</p>

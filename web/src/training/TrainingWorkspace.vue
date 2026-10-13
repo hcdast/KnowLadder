@@ -10,6 +10,7 @@ import CourseworkAttachments from "./CourseworkAttachments.vue";
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ApiError, type BusinessRequest, type Identity } from "../session";
+import { canUseStudentLearning } from "../auth/entry";
 type Row = Record<string, any>;
 const props = defineProps<{ identity: Identity; request: BusinessRequest }>();
 const emit = defineEmits<{ dirty: [boolean]; unknown: [boolean]; reading:[{editionId:string;chapterId:string}] }>();
@@ -54,10 +55,11 @@ const reportEpoch = ref(0),
   reportReceipt = ref<Row | null>(null),
   phase2Receipt = ref<Row | null>(null), knowledgeReceipt = ref<Row | null>(null);
 const editableLessons = ref<Row[]>([]);
+const canLearner = computed(() => canUseStudentLearning(props.identity));
+const canAssist = computed(() => canLearner.value && has("ai:assist"));
 const canCourses = computed(() =>
-  caps.value.some((x) =>
+  canLearner.value || caps.value.some((x) =>
     [
-      "learning:self",
       "course:edit",
       "course:review",
       "course:assign",
@@ -68,9 +70,8 @@ const canCourses = computed(() =>
   ),
 );
 const canTasks = computed(() =>
-  caps.value.some((x) =>
+  canLearner.value || caps.value.some((x) =>
     [
-      "learning:self",
       "task:manage",
       "coursework:grade",
       "ai:generate",
@@ -454,7 +455,7 @@ async function load() {
       );
     }
     if (has("ai:manage")) await loadRecovery();
-    if (has("ai:assist") || has("ai:generate"))
+    if (canAssist.value || has("ai:generate"))
       aiJobs.value = (
         await request<{ items: Row[] }>("/training/ai/jobs")
       ).items;
@@ -968,7 +969,7 @@ function unload(e: BeforeUnloadEvent) {
   }
 }
 onMounted(() => {
-  if (has("ai:generate") && !has("ai:assist")) aiKind.value = "prepare";
+  if (has("ai:generate") && !canAssist.value) aiKind.value = "prepare";
   void load().then(() => {
     if (tab.value === "site") void loadSite();
   });
@@ -1077,11 +1078,11 @@ onBeforeUnmount(() => {
         取消重新载入
       </button>
     </section>
-    <button v-if="has('learning:self')" class="button secondary" @click="selectTrainingTab('workbench')">我的学习工作台</button>
-    <TrainingWorkbench v-if="tab==='workbench' && has('learning:self')" :key="reportEpoch" :request="request" @course="selectTrainingTab('courses');openCourse($event,true)" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
-    <button v-if="catalog.knowledge_enabled && (has('learning:self') || has('ai:generate') || has('content:edit') || has('content:review') || has('ai:manage'))" class="button secondary" :aria-pressed="tab === 'knowledge'" @click="selectTrainingTab('knowledge')">知识检索与答疑</button>
+    <button v-if="canLearner" class="button secondary" @click="selectTrainingTab('workbench')">我的学习工作台</button>
+    <TrainingWorkbench v-if="tab==='workbench' && canLearner" :key="reportEpoch" :request="request" @course="selectTrainingTab('courses');openCourse($event,true)" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
+    <button v-if="catalog.knowledge_enabled && (canLearner || has('ai:generate') || has('content:edit') || has('content:review') || has('ai:manage'))" class="button secondary" :aria-pressed="tab === 'knowledge'" @click="selectTrainingTab('knowledge')">知识检索与答疑</button>
     <TrainingKnowledge v-if="tab === 'knowledge' && catalog.knowledge_enabled" :key="reportEpoch" :request="request" :write="write" :caps="caps" :blocked="busy || storageBlocked || fileUnknown" :recovered="knowledgeReceipt" @reading="emit('reading', $event)" @course="openKnowledgeCourse" />
-    <button v-if="catalog.phase2_enabled && (caps.some(x=>x.startsWith('training:')) || has('learning:self'))" class="button secondary" @click="selectTrainingTab('phase2')">课表、结业与通知</button>
+    <button v-if="catalog.phase2_enabled && (caps.some(x=>x.startsWith('training:')) || canLearner)" class="button secondary" @click="selectTrainingTab('phase2')">课表、结业与通知</button>
     <TrainingPhase2 v-if="tab === 'phase2' && catalog.phase2_enabled" :key="reportEpoch" :user-id="identity.user.id" :receipt="phase2Receipt" :request="request" :write="write" :caps="caps" :catalog="catalog" :blocked="busy || storageBlocked || fileUnknown" @dirty="reportDirty = $event" />
     <TrainingReports
       v-if="tab === 'reports'"
@@ -1117,7 +1118,7 @@ onBeforeUnmount(() => {
         </aside>
         <div v-if="course" class="course-detail">
           <TrainingBatchAssign v-if="has('course:assign') && course.status === 'published'" :key="'batch'+course._id+reportEpoch" :course-id="course._id" :user-id="identity.user.id" :org-id="identity.context!.org_id" :classes="catalog.classes" :request="request" :blocked="busy || storageBlocked || fileUnknown || !!pending || surveyDirty" @dirty="batchDirty=$event" @unknown="batchUnknown=$event" />
-          <TrainingSurveys v-if="catalog.surveys_enabled && (has('course:edit') || has('learning:self'))" :key="course._id + reportEpoch" :course-id="course._id" :user-id="identity.user.id" :request="request" :manage="has('course:edit')" :blocked="busy || storageBlocked || fileUnknown || batchDirty" @dirty="surveyDirty = $event" @unknown="surveyUnknown = $event" />
+          <TrainingSurveys v-if="catalog.surveys_enabled && (has('course:edit') || canLearner)" :key="course._id + reportEpoch" :course-id="course._id" :user-id="identity.user.id" :request="request" :manage="has('course:edit')" :blocked="busy || storageBlocked || fileUnknown || batchDirty" @dirty="surveyDirty = $event" @unknown="surveyUnknown = $event" />
           <p class="muted">
             课程版本 {{ course.version_no }} ·
             {{ labels[course.status] || course.status }}
@@ -1275,7 +1276,7 @@ onBeforeUnmount(() => {
                 @loadedmetadata="restoreMedia($event, lesson.key)"
               /><button
                 v-if="
-                  has('learning:self') &&
+                  canLearner &&
                   ['video', 'audio'].includes(lesson.kind) &&
                   mediaUrls[lesson.key]
                 "
@@ -1290,7 +1291,7 @@ onBeforeUnmount(() => {
                 download="课程资料"
                 >保存课程资料</a
               ></template
-            ><template v-if="has('learning:self')"
+            ><template v-if="canLearner"
               ><p
                 v-if="
                   course.progress?.some(
@@ -1439,7 +1440,7 @@ onBeforeUnmount(() => {
             >
               取消任务</button
             ><button
-              v-if="has('learning:self') && t.target_type === 'coursework'"
+              v-if="canLearner && t.target_type === 'coursework'"
               class="button"
               :disabled="busy"
               @click="openWork(t)"
@@ -1453,7 +1454,7 @@ onBeforeUnmount(() => {
             >
               查看提交与批阅</button
             ><button
-              v-if="t.target_type === 'course' && has('learning:self')"
+              v-if="t.target_type === 'course' && canLearner"
               class="button secondary"
               @click="
                 tab = 'courses';
@@ -1699,7 +1700,7 @@ onBeforeUnmount(() => {
       <form class="training-form" @submit.prevent="generate">
         <label
           >使用场景<select v-model="aiKind">
-            <option v-if="has('ai:assist')" value="assist">课程学习助教</option>
+            <option v-if="canAssist" value="assist">课程学习助教</option>
             <template v-if="has('ai:generate')"
               ><option value="prepare">教师备课草稿</option>
               <option value="questions">题目建议草稿</option>

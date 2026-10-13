@@ -9,30 +9,138 @@ import {
   watch,
 } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
-import { useSession } from "./session";
+import { ApiError, useSession } from "./session";
 import CertificateVerification from "./training/CertificateVerification.vue";
 import PublicSite from "./site/PublicSite.vue";
-import TrainingWorkspace from "./training/TrainingWorkspace.vue";
 import BrandJourney from "./components/BrandJourney.vue";
 import BrandIcon from "./components/BrandIcon.vue";
-import ContentWorkspace from "./content/ContentWorkspace.vue";
-import AssessmentWorkspace from "./assessment/AssessmentWorkspace.vue";
-import LearningWorkspace from "./learning/LearningWorkspace.vue";
-import PrivacyWorkspace from "./privacy/PrivacyWorkspace.vue";
-import TeacherWorkspace from "./teaching/TeacherWorkspace.vue";
-import BusinessSafetyPage from "./administration/BusinessSafetyPage.vue";
+import WorkspaceLoadState from "./components/WorkspaceLoadState.vue";
 import type { ConsoleContext } from "./administration/types";
-const ConsoleWorkspace = defineAsyncComponent(
-  () => import("./administration/ConsoleWorkspace.vue"),
-);
+import { availableWorkspaces, canUseStudentLearning, createEntryCoordinator, readPreference, targetAllowed, writePreference, type TargetOutcome, type WorkspacePath } from "./auth/entry";
+import { createEmailClient, createEmailFlow, hasEmailTokenFragment, type ActivationResult, type EmailCapabilities } from "./auth/email";
+const workspaceLoadOptions = {
+  loadingComponent: WorkspaceLoadState,
+  errorComponent: WorkspaceLoadState,
+  delay: 0,
+  timeout: 15_000,
+};
+const AuthPages = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./auth/AuthPages.vue"),
+});
+const AccountEmailSecurity = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./auth/AccountEmailSecurity.vue"),
+});
+const ConsoleWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./administration/ConsoleWorkspace.vue"),
+});
+const ContentWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./content/ContentWorkspace.vue"),
+});
+const AssessmentWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./assessment/AssessmentWorkspace.vue"),
+});
+const LearningWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./learning/LearningWorkspace.vue"),
+});
+const TeacherWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./teaching/TeacherWorkspace.vue"),
+});
+const TrainingWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./training/TrainingWorkspace.vue"),
+});
+const PrivacyWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./privacy/PrivacyWorkspace.vue"),
+});
+const BusinessSafetyPage = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./administration/BusinessSafetyPage.vue"),
+});
 
-const { state, synchronize, mutate, businessRequest, globalRequest } =
-  useSession();
+const entry = createEntryCoordinator();
+const targetOutcome = ref<TargetOutcome>();
+const pendingAccountLanding = ref(false);
 const route = useRoute(),
   router = useRouter();
+const { state, synchronize, mutate, businessRequest, globalRequest, setIdentityRequired, authenticationActionActive, confirmAuthentication, authenticationUncertain } =
+  useSession({
+    preferredOrganization: userId => readPreference(userId)?.orgId,
+    onAccessDenied: status => { targetOutcome.value = entry.reject(status); },
+    identityRequired: () => ["auth", "account", "organization", "management"].includes(String(route.meta.category)),
+  });
+const emailClient = createEmailClient(), emailFlow = createEmailFlow();
+const emailRoutes: Record<string, true> = { "/register": true, "/verify-email": true, "/forgot-password": true, "/reset-password": true, "/accept-invitation": true };
+const emailPage = computed(() => Object.hasOwn(emailRoutes, route.path));
+const emailCapabilities = ref<EmailCapabilities>(), emailCapabilityError = ref("");
+const emailIntentPath = ref(""), emailWriteActive = ref(false), emailUnknown = ref(false);
+const authPages = ref<{ beforeLeave: (preserveIntent?: boolean) => Promise<boolean> }>();
+const accountEmailSecurity = ref<{ beforeLeave: () => Promise<boolean> }>();
+const emailAccount = computed(() => state.identity?.user);
+let preserveEmailNavigation = false, emailCapabilityGeneration = 0;
+const emailCapabilityController = new AbortController();
+async function checkEmailCapabilities() {
+  const epoch = ++emailCapabilityGeneration;
+  emailCapabilityError.value = "";
+  try { const result = await emailClient.capabilities(emailCapabilityController.signal); if (epoch === emailCapabilityGeneration) emailCapabilities.value = result; }
+  catch { if (epoch === emailCapabilityGeneration) { emailCapabilities.value = undefined; emailCapabilityError.value = "邮箱服务能力暂未确认；用户名登录仍可使用，邮件动作不能提交。"; } }
+}
+function emailActionState(active: boolean) { emailWriteActive.value = active; authenticationActionActive(active); }
+async function confirmEmailSession(budget: number, expectedUserId?: string | null) {
+  const scope = route.path;
+  const confirmed = await confirmAuthentication(budget);
+  if (confirmed && (expectedUserId === null && state.phase !== "anonymous" || typeof expectedUserId === "string" && (state.phase !== "authenticated" || state.identity?.user.id !== expectedUserId))) {
+    authenticationUncertain();
+    state.message = "服务端已确认邮件操作，但当前浏览器会话与预期账号不匹配。请只读核对会话或明确重新登录，不会重复消费邮件凭证。";
+    return false;
+  }
+  if (confirmed && scope === "/account" && route.path === scope && emailAccount.value?.email.state === "unbound")
+    state.message = "恢复邮箱已解绑，旧恢复凭证已失效。请保存备用用户名；未绑定邮箱时不能通过邮件找回。";
+  return confirmed;
+}
+async function switchEmailAccount() {
+  const previousPhase = state.phase;
+  if (emailWriteActive.value || state.busy || previousPhase !== "authenticated" || !await confirmContentLeave(true)) return false;
+  clearAssessmentRecovery(); await mutate("logout");
+  return state.phase === "anonymous";
+}
+async function emailLogin() {
+  if (state.phase === "authenticated") {
+    if (!window.confirm("确定退出当前账号并登录邮件目标账号？不会将他人的邮箱绑定到当前账号，也不会自动接受邀请。")) return;
+    if (!await switchEmailAccount()) return;
+  }
+  preserveEmailNavigation = true;
+  try { await router.push("/login"); } finally { preserveEmailNavigation = false; }
+}
+async function resumeEmailIntent() {
+  if (!emailIntentPath.value || !emailFlow.purpose) { emailIntentPath.value = ""; return; }
+  preserveEmailNavigation = true;
+  try { await router.push(emailIntentPath.value); } finally { preserveEmailNavigation = false; }
+}
+async function emailCompleted(result: ActivationResult | undefined) {
+  emailIntentPath.value = ""; emailUnknown.value = false;
+  if (route.path === "/reset-password" && state.phase === "anonymous") {
+    state.message = "密码已更新，所有旧会话已失效。请使用新密码重新登录。";
+    await router.push("/login");
+  } else if (!result && route.path === "/verify-email" && state.phase === "authenticated") {
+    state.message = "本人邮箱绑定已确认，旧恢复凭证已失效。";
+    await router.push("/account");
+  }
+}
+watch(() => route.path, () => { if (route.path === "/login" || route.path.startsWith("/console") || route.path === "/account") void checkEmailCapabilities(); }, { immediate: true });
+watch(() => route.meta.category, value => setIdentityRequired(["auth", "account", "organization", "management"].includes(String(value))), { immediate: true });
 const consoleAvailable = ref(false),
   consoleDatabaseMode = ref("");
 const consoleStatus = ref<"idle" | "loading" | "ready" | "error">("idle");
+const consoleContext = ref<ConsoleContext | null>(null);
+const consoleProbeMessage = ref("");
 const accountMenu = ref<HTMLDetailsElement>();
 const signingIn = ref(false);
 const consoleWriteActive = ref(false);
@@ -48,8 +156,8 @@ async function checkConsole() {
     identity.must_change_password
   )
     return;
-  if (consoleWriteActive.value || state.busy) return;
-  consoleStatus.value = "loading";
+  if (consoleWriteActive.value || state.busy || targetOutcome.value) return;
+  if (!consoleContext.value) consoleStatus.value = "loading";
   const token = ++consoleGeneration;
   consoleController.abort();
   consoleController = new AbortController();
@@ -58,13 +166,22 @@ async function checkConsole() {
       signal: consoleController.signal,
     });
     if (token === consoleGeneration) {
+      consoleProbeMessage.value = "";
+      consoleContext.value = context;
       consoleAvailable.value = context.menus.length > 0;
       consoleDatabaseMode.value = context.database_mode;
       consoleStatus.value = "ready";
     }
-  } catch {
+  } catch (error) {
     if (token === consoleGeneration) {
+      const sameScope = state.phase === "authenticated" && state.identity?.user.id === identity.user.id &&
+        state.identity.context?.org_id === identity.context.org_id && consoleContext.value?.actor_org_id === identity.context.org_id;
+      if (sameScope && consoleContext.value && !(error instanceof ApiError && [401, 403, 404].includes(error.status))) {
+        consoleProbeMessage.value = "管理职责的后台复查暂未完成，当前草稿与一次性密码仍保留。请重新检查；新的操作仍须服务端实时核验。";
+        return;
+      }
       consoleAvailable.value = false;
+      consoleContext.value = null;
       consoleDatabaseMode.value = "";
       consoleStatus.value = "error";
     }
@@ -89,17 +206,39 @@ watch(
     consoleGeneration++;
     consoleController.abort();
     consoleAvailable.value = false;
+    consoleContext.value = null;
     consoleDatabaseMode.value = "";
+    consoleProbeMessage.value = "";
     consoleStatus.value = "idle";
     void checkConsole();
   },
   { flush: "sync" },
 );
+let preparedEmailDestination = "";
 const removeRouteGuard = router.beforeEach(async (to, from) => {
-  if (to.fullPath === from.fullPath || state.phase !== "authenticated")
-    return true;
-  return confirmContentLeave();
+  if (to.fullPath === from.fullPath) return true;
+  const prepared = preparedEmailDestination === to.path && !to.hash;
+  preparedEmailDestination = "";
+  const tokenFragment = Object.hasOwn(emailRoutes, to.path) && hasEmailTokenFragment(to.hash);
+  const samePageAnchor = Object.hasOwn(emailRoutes, to.path) && to.path === from.path && !!to.hash && !tokenFragment;
+  const clearingFragment = to.path === from.path && hasEmailTokenFragment(from.hash) && !to.hash && Object.hasOwn(emailRoutes, to.path);
+  if (!prepared && !samePageAnchor && !clearingFragment && (state.phase === "authenticated" || authPages.value || accountEmailSecurity.value) && !(await confirmContentLeave(true))) return false;
+  const captured = tokenFragment && emailFlow.capture(to.path, to.hash);
+  const keepEmail = captured || tokenFragment || samePageAnchor || prepared || clearingFragment || preserveEmailNavigation || !!emailIntentPath.value && ["/login", "/account", emailIntentPath.value].includes(to.path);
+  if (!keepEmail) { emailFlow.clear(); emailIntentPath.value = ""; }
+  if (tokenFragment) {
+    if (captured) emailIntentPath.value = to.path;
+    preparedEmailDestination = to.path;
+    return { path: to.path, query: {}, hash: "", replace: true };
+  }
+  return true;
 });
+watch(() => route.fullPath, () => {
+  if (emailPage.value && hasEmailTokenFragment(route.hash)) {
+    if (emailFlow.capture(route.path, route.hash)) emailIntentPath.value = route.path;
+    void router.replace({ path: route.path, query: {}, hash: "" });
+  }
+}, { immediate: true });
 onMounted(() => {
   consoleTimer = window.setInterval(() => void checkConsole(), 30000);
 });
@@ -107,6 +246,7 @@ onBeforeUnmount(() => {
   removeRouteGuard();
   consoleGeneration++;
   consoleController.abort();
+  emailCapabilityController.abort(); emailFlow.clear(); authenticationActionActive(false);
   window.clearInterval(consoleTimer);
 });
 const contentDirty = ref(false);
@@ -136,20 +276,7 @@ const publicPage = computed(() =>
 );
 const trainingDirty = ref(false),
   trainingUnknown = ref(false);
-const canTraining = computed(
-  () =>
-    state.identity?.context?.capabilities.some(
-      (cap) =>
-        cap.startsWith("course:") ||
-        cap.startsWith("task:") ||
-        cap.startsWith("ai:") ||
-        cap.startsWith("site:") ||
-        cap.startsWith("training:") ||
-        cap === "teaching:report" ||
-        cap === "coursework:grade" ||
-        cap === "learning:self",
-    ) || false,
-);
+const canTraining = computed(() => availableEntries.value.includes("/training"));
 const workspace = computed(() =>
   route.path.startsWith("/console")
     ? "console"
@@ -189,21 +316,7 @@ watch(
   },
 );
 onBeforeUnmount(() => decideTrainingLeave(false));
-const canLearn = computed(() => {
-  const caps = state.identity?.context?.capabilities || [];
-  return (
-    caps.includes("learning:self") &&
-    !state.identity?.context?.student_conflict &&
-    !caps.some((value) =>
-      [
-        "content:edit",
-        "content:review",
-        "assessment:manage",
-        "assessment:review",
-      ].includes(value),
-    )
-  );
-});
+const canLearn = computed(() => !!state.identity && canUseStudentLearning(state.identity));
 const canTeach = computed(() =>
   (state.identity?.context?.capabilities || []).includes("teaching:class"),
 );
@@ -239,94 +352,91 @@ async function selectWorkspace(
     | "training"
     | "console",
 ) {
-  if (value !== workspace.value)
-    await router.push(value === "console" ? "/console" : `/${value}`);
+  const destination = value === "console" ? "/console/overview" : `/${value}`;
+  if (targetOutcome.value && destination === route.path) {
+    if (!(await confirmContentLeave())) return;
+    entry.explicitNavigation();
+    targetOutcome.value = undefined;
+    await checkConsole();
+  } else if (value !== workspace.value || targetOutcome.value) {
+    await router.push(destination);
+    if (route.path === destination) { entry.explicitNavigation(); targetOutcome.value = undefined; await checkConsole(); }
+  }
 }
-// Only the entry route chooses a workspace; explicit account/privacy links remain stable.
 const workspaceAllowed = computed(() =>
-  workspace.value === "content"
-    ? canReadContent.value || canSafety.value || canLearn.value
-    : workspace.value === "assessment"
-      ? canAssessment.value
-      : workspace.value === "learning"
-        ? canLearn.value
-        : workspace.value === "teaching"
-          ? canTeach.value
-          : workspace.value === "training"
-            ? canTraining.value
-            : true,
+  !!state.identity && targetAllowed(route.fullPath, state.identity, consoleContext.value),
 );
-const defaultWorkspace = computed(() =>
-  consoleAvailable.value
-    ? "/console/overview"
-    : canTeach.value
-      ? "/teaching"
-      : canLearn.value
-        ? "/learning"
-        : canReadContent.value || canSafety.value
-          ? "/content"
-          : canAssessment.value
-            ? "/assessment"
-            : "",
-);
-let selectingOnlyOrganization = false;
+const availableEntries = computed(() => state.identity ? availableWorkspaces(state.identity, consoleContext.value) : []);
+const workspaceLabels: Record<WorkspacePath, string> = { "/teaching": "教学工作台", "/learning": "学习首页", "/training": "课程与培训", "/content": "教材与内容", "/assessment": "练习与考试", "/console/overview": "管理控制台" };
+const defaultWorkspace = computed(() => {
+  const identity = state.identity;
+  if (!identity?.context) return "";
+  const preference = readPreference(identity.user.id);
+  return preference?.orgId === identity.context.org_id && preference.workspace && availableEntries.value.includes(preference.workspace)
+    ? preference.workspace : availableEntries.value[0] || "";
+});
+let entryNavigation = false;
+let organizationSwitch = false;
+let previousRoute = route.fullPath;
 watch(
-  () =>
-    [
-      state.phase,
-      state.busy,
-      signingIn.value,
-      state.identity?.user.id,
-      state.identity?.context?.org_id,
-      route.path,
-      state.identity?.must_change_password,
-    ] as const,
+  () => [route.fullPath, state.phase, state.busy, state.identity, consoleStatus.value, consoleContext.value] as const,
   async () => {
-    const identity = state.identity;
-    if (
-      state.phase !== "authenticated" ||
-      state.busy ||
-      signingIn.value ||
-      !identity ||
-      identity.must_change_password ||
-      identity.context ||
-      identity.organizations.length !== 1 ||
-      selectingOnlyOrganization ||
-      workspace.value === "account" ||
-      workspace.value === "privacy"
-    )
-      return;
-    selectingOnlyOrganization = true;
-    try {
-      await synchronize(identity.organizations[0]!.id);
-    } finally {
-      selectingOnlyOrganization = false;
+    if (emailPage.value || route.path === "/login" && emailIntentPath.value) return;
+    if (entryNavigation || publicPage.value || route.meta.category === "not-found") return;
+    if (route.fullPath !== previousRoute) {
+      entry.explicitNavigation();
+      targetOutcome.value = undefined;
+      previousRoute = route.fullPath;
     }
+    const identity = state.identity;
+    if (identity) {
+      if (entry.identify(identity)) pendingAccountLanding.value = true;
+      targetOutcome.value = entry.outcome;
+    }
+    if (!identity || identity.must_change_password) {
+      if (!pendingAccountLanding.value)
+        entry.capture(route.path === "/login" ? route.query.returnTo : route.fullPath);
+      return;
+    }
+    if (state.phase !== "authenticated" || state.busy || passwordPage.value || targetOutcome.value) return;
+    const entryRoute = route.path === "/home" || route.path === "/login" || pendingAccountLanding.value ||
+      (!identity.organizations.length && !["/account", "/privacy"].includes(route.path));
+    if (!identity.context && identity.organizations.length) {
+      if (entryRoute) return;
+      if (!pendingAccountLanding.value) entry.capture(route.fullPath);
+      return;
+    }
+    const preference = readPreference(identity.user.id);
+    const needsManagementContext = entry.needsManagementContext(identity, route.fullPath, preference, entryRoute || organizationSwitch);
+    // Ordinary business destinations never wait for the optional management request.
+    if (needsManagementContext && consoleStatus.value !== "ready" && consoleStatus.value !== "error") return;
+    if (needsManagementContext && consoleStatus.value === "error") return;
+    if (!entryRoute && !organizationSwitch) {
+      if (!workspaceAllowed.value) targetOutcome.value = entry.reject(403);
+      else {
+        entry.explicitNavigation();
+        if (identity.context && availableEntries.value.includes(route.path as WorkspacePath))
+          writePreference(identity.user.id, { orgId: identity.context.org_id, workspace: route.path as WorkspacePath });
+      }
+      return;
+    }
+    const decision = entry.decide(identity, consoleContext.value, preference);
+    if (decision.denied) {
+      if (!organizationSwitch) { targetOutcome.value = entry.reject(403); return; }
+      state.message = "当前组织无法访问原页面，已转到仍有权访问的工作台。";
+      decision.target = defaultWorkspace.value || "/home";
+    }
+    organizationSwitch = false;
+    if (decision.target && decision.target !== route.fullPath) {
+      entryNavigation = true;
+      try { await router.replace(decision.target); previousRoute = route.fullPath; }
+      finally { entryNavigation = false; }
+    }
+    if (decision.target) pendingAccountLanding.value = false;
+    if (identity.context && availableEntries.value.includes(route.path as WorkspacePath))
+      writePreference(identity.user.id, { orgId: identity.context.org_id, workspace: route.path as WorkspacePath });
   },
-  { flush: "post" },
-);
-watch(
-  () =>
-    [
-      route.path,
-      state.phase,
-      state.busy,
-      consoleStatus.value,
-      defaultWorkspace.value,
-      state.identity?.must_change_password,
-    ] as const,
-  () => {
-    if (
-      (route.path === "/home" || route.path === "/login") &&
-      state.phase === "authenticated" &&
-      !state.busy &&
-      !mustChange.value &&
-      consoleStatus.value === "ready" &&
-      defaultWorkspace.value
-    )
-      void router.replace(defaultWorkspace.value);
-  },
-  { flush: "post" },
+  { flush: "pre", immediate: true },
 );
 watch(
   () => route.fullPath,
@@ -340,11 +450,13 @@ async function openReading(target: { editionId: string; chapterId: string }) {
   } else await router.push("/content");
   if (workspace.value === "content") readingTarget.value = target;
 }
-async function confirmContentLeave() {
+async function confirmContentLeave(preserveEmailIntent = false) {
   if (navigationBusy.value) return false;
   navigationBusy.value = true;
   const epoch = state.formEpoch;
   try {
+    if (authPages.value && !await authPages.value.beforeLeave(preserveEmailIntent)) return false;
+    if (accountEmailSecurity.value && !await accountEmailSecurity.value.beforeLeave()) return false;
     if (
       trainingDirty.value &&
       !(await confirmTrainingLeave(
@@ -471,6 +583,7 @@ async function logout() {
   }
 }
 const loginName = ref("");
+const showPassword = ref(false);
 const password = ref("");
 const currentPassword = ref("");
 const newPassword = ref("");
@@ -487,9 +600,12 @@ const consoleShell = computed(
     workspace.value === "console" &&
     state.phase === "authenticated" &&
     !!state.identity &&
-    !passwordPage.value,
+    !passwordPage.value && !targetOutcome.value && workspaceAllowed.value && consoleStatus.value === "ready",
 );
 const title = computed(() =>
+  route.meta.category === "not-found" ? "页面不存在" :
+  emailPage.value && !passwordPage.value ? ({ "/register": "成年个人注册", "/verify-email": "邮箱确认", "/forgot-password": "找回密码", "/reset-password": "重置密码", "/accept-invitation": "机构邀请" } as Record<string, string>)[route.path] || "邮箱认证" :
+  targetOutcome.value && !passwordPage.value ? (targetOutcome.value.status === 404 ? "页面不存在或已不可访问" : "原目标无法访问") :
   publicPage.value
     ? (
         {
@@ -502,7 +618,9 @@ const title = computed(() =>
           "/contact": "联系咨询",
         } as Record<string, string>
       )[route.path] || "知阶"
-    : state.phase === "loading"
+    : signingIn.value
+      ? "登录知阶"
+      : state.phase === "loading"
       ? "正在确认你的身份"
       : state.phase === "unknown"
         ? "会话状态待确认"
@@ -636,19 +754,16 @@ watch(title, async () => {
   heading.value?.focus();
 });
 async function login() {
+  if (signingIn.value || state.busy) return;
   localError.value = "";
   signingIn.value = true;
-  const pending = mutate("login", {
-    login_name: loginName.value,
-    password: password.value,
-  });
+  const pending = mutate("login", { login_name: loginName.value, password: password.value });
   password.value = "";
   try {
     await pending;
-    if (state.phase === "authenticated") await router.replace("/home");
-  } finally {
-    signingIn.value = false;
+    if (state.phase === "authenticated" && emailIntentPath.value) await resumeEmailIntent();
   }
+  finally { signingIn.value = false; showPassword.value = false; }
 }
 async function changePassword() {
   localError.value = "";
@@ -673,24 +788,22 @@ async function changePassword() {
   await pending;
 }
 async function selectOrganization(event: Event) {
-  const org = (event.target as HTMLSelectElement).value;
-  if (await confirmContentLeave()) {
-    if (
-      state.identity?.context?.org_id &&
-      org !== state.identity.context.org_id
-    )
-      clearAssessmentRecovery(undefined, undefined, state.identity.user.id);
-    await synchronize(org);
-    if (
-      state.phase === "authenticated" &&
-      !mustChange.value &&
-      workspace.value !== "account" &&
-      workspace.value !== "privacy"
-    )
-      await router.replace("/home");
-  } else
-    (event.target as HTMLSelectElement).value =
-      state.identity?.context?.org_id || "";
+  const select = event.target as HTMLSelectElement;
+  const org = select.value;
+  const identity = state.identity;
+  if (!org || org === identity?.context?.org_id || !identity?.organizations.some(item => item.id === org)) {
+    select.value = identity?.context?.org_id || "";
+    return;
+  }
+  if (!(await confirmContentLeave())) { select.value = state.identity?.context?.org_id || ""; return; }
+  if (identity.context) entry.explicitNavigation();
+  targetOutcome.value = undefined;
+  if (!pendingAccountLanding.value) entry.capture(route.fullPath);
+  organizationSwitch = !!identity.context;
+  await synchronize(org);
+  const next = state.identity;
+  if (state.phase === "authenticated" && next?.context?.org_id === org)
+    writePreference(next.user.id, { orgId: org });
 }
 async function openPassword() {
   if (workspace.value !== "account") {
@@ -740,8 +853,30 @@ async function retry() {
     </div>
   </section>
   <a class="skip-link" href="#main-content">跳至正文</a>
+  <nav v-if="consoleShell && availableEntries.length > 1" class="content-toolbar" aria-label="工作区切换"><RouterLink v-for="path in availableEntries" :key="path" class="button secondary" :to="path" :aria-current="route.path === path ? 'page' : undefined">{{ workspaceLabels[path] }}</RouterLink></nav>
+  <aside v-if="consoleShell && consoleProbeMessage" class="notice" role="status">{{ consoleProbeMessage }} <button class="button secondary" :disabled="state.busy || consoleWriteActive" @click="checkConsole">重新检查管理职责</button></aside>
   <CertificateVerification v-if="route.path === '/verify-certificate'" />
   <PublicSite v-else-if="publicPage" />
+  <main v-else-if="emailPage && !passwordPage" id="main-content" class="layout">
+    <AuthPages ref="authPages" :client="emailClient" :flow="emailFlow" :phase="state.phase" :user-id="state.identity?.user.id"
+      :locked="state.busy || navigationBusy" :before-auth-switch="switchEmailAccount" :session-changed="confirmEmailSession"
+      :recover-session="async () => { await confirmAuthentication(); }" @unknown="emailUnknown = $event"
+      @active="emailActionState" @session-uncertain="authenticationUncertain" @login="emailLogin" @completed="emailCompleted" />
+  </main>
+  <main v-else-if="route.meta.category === 'not-found' || (targetOutcome && !passwordPage)" id="main-content" class="layout">
+    <section class="panel stack content-workspace" role="status">
+      <p class="eyebrow">{{ route.meta.category === 'not-found' || targetOutcome?.status === 404 ? '404 / 页面不存在' : '403 / 无法访问' }}</p>
+      <h1>{{ route.meta.category === 'not-found' || targetOutcome?.status === 404 ? '页面不存在或已不可访问' : '原目标无法访问' }}</h1>
+      <p>未展示原页面内容，也不会自动重试原目标。你可以明确选择其他入口。</p>
+      <p v-if="state.phase === 'unknown'">账号或组织权限尚待确认，原身份与内容已隐藏。</p>
+      <button v-if="state.phase === 'unknown'" class="button" :disabled="state.busy" @click="retry">重新查询会话</button>
+      <button v-if="state.phase === 'authenticated'" class="button" :disabled="state.busy || navigationBusy" @click="selectWorkspace('home')">查看有权工作台</button>
+      <RouterLink to="/account" v-if="state.phase === 'authenticated'">账号与安全</RouterLink>
+      <RouterLink to="/login" v-else-if="state.phase === 'anonymous'">前往登录</RouterLink>
+      <RouterLink to="/">返回网站首页</RouterLink>
+    </section>
+  </main>
+  <main v-else-if="pendingAccountLanding && state.identity?.context && !passwordPage" id="main-content" class="layout"><section class="panel stack"><h1>正在确认当前账号的工作台</h1><p>原账号的目标已丢弃，不会继续读取原页面。</p><button v-if="consoleStatus === 'error'" class="button" :disabled="state.busy" @click="checkConsole">重新确认可用工作台</button></section></main>
   <ConsoleWorkspace
     v-else-if="consoleShell && state.identity"
     ref="consoleWorkspace"
@@ -749,6 +884,7 @@ async function retry() {
     :identity="state.identity"
     :request="businessRequest"
     :busy="state.busy || navigationBusy"
+    :email-actions="emailCapabilities?.email_actions === true"
     @organization="selectOrganization"
     @password="openPassword"
     @logout="logout"
@@ -758,6 +894,7 @@ async function retry() {
   <template v-else>
     <header class="app-header">
       <div class="brand" aria-label="知阶 KnowLadder">
+        <img class="brand-mark" src="/visuals/logo.svg" alt="" width="40" height="40" />
         <span class="brand-name">知阶</span
         ><span class="brand-en">KnowLadder</span>
       </div>
@@ -957,6 +1094,11 @@ async function retry() {
         </button>
         <RouterLink to="/account">账号与安全</RouterLink>
       </section>
+      <section v-if="workspace === 'console' && state.phase === 'authenticated' && !passwordPage && !consoleShell" class="panel stack content-workspace">
+        <h1>{{ consoleStatus === "error" ? "暂时无法确认管理入口" : "正在确认管理入口" }}</h1>
+        <p>管理页面只使用当前组织的实时职责；确认前不展示资源内容。</p>
+        <button v-if="consoleStatus === 'error'" class="button" :disabled="state.busy" @click="checkConsole">重新读取管理职责</button>
+      </section>
       <section
         v-if="
           !workspaceAllowed && state.phase === 'authenticated' && !passwordPage
@@ -1031,7 +1173,7 @@ async function retry() {
           </p>
         </div>
         <div
-          v-if="message"
+          v-if="message && state.phase !== 'unknown'"
           ref="errorSummary"
           class="notice"
           role="status"
@@ -1047,12 +1189,9 @@ async function retry() {
               state.retryAfter
             }}（秒数或服务器指定时间），请稍后再试。
           </p>
-          <p v-if="state.requestId" class="request-id">
-            请求编号：{{ state.requestId }}
-          </p>
         </div>
         <div
-          v-if="state.phase === 'loading'"
+          v-if="state.phase === 'loading' && !signingIn"
           class="status-block"
           role="status"
         >
@@ -1060,20 +1199,17 @@ async function retry() {
           <p>正在安全连接，请稍候…</p>
         </div>
         <div v-else-if="state.phase === 'unknown'" class="stack">
-          <p>
-            为保护账号，已隐藏身份与组织信息。重新查询只会读取当前状态，不会重放登录或改密请求。
-          </p>
           <button class="button" :disabled="state.busy" @click="retry">
             重新查询会话
           </button>
         </div>
         <form
-          v-else-if="state.phase === 'anonymous'"
+          v-else-if="state.phase === 'anonymous' || signingIn"
           class="stack"
           @submit.prevent="login"
         >
           <div class="field">
-            <label for="login-name">登录名</label>
+            <label for="login-name">{{ emailCapabilities?.email_password_login ? "用户名或已验证邮箱" : "用户名" }}</label>
             <input
               id="login-name"
               v-model="loginName"
@@ -1087,7 +1223,7 @@ async function retry() {
               aria-describedby="login-help"
             />
             <p id="login-help" class="field-help">
-              登录名由管理员提供，不是显示姓名。
+              {{ emailCapabilities?.email_password_login ? "使用原用户名、本人已验证邮箱或激活时交付的备用用户名；不是显示姓名。" : "使用管理员提供的用户名；邮箱登录能力尚未确认。" }}
             </p>
           </div>
           <div class="field">
@@ -1096,12 +1232,13 @@ async function retry() {
               id="login-password"
               v-model="password"
               name="password"
-              type="password"
+              :type="showPassword ? 'text' : 'password'"
               autocomplete="current-password"
               required
               :disabled="state.busy"
               :aria-invalid="!!state.fields.password"
             />
+            <button type="button" class="text-button" :aria-pressed="showPassword" :disabled="state.busy" @click="showPassword = !showPassword">{{ showPassword ? "隐藏密码" : "显示密码" }}</button>
           </div>
           <button
             class="button login-submit"
@@ -1109,14 +1246,12 @@ async function retry() {
             :disabled="state.busy"
           >
             {{ state.busy ? "正在登录…" : "登录" }}
-            <BrandIcon name="arrow-right" />
+            <span v-if="signingIn" class="loading-mark" aria-hidden="true"></span><BrandIcon v-else name="arrow-right" />
           </button>
-          <div class="login-help">
-            <BrandIcon name="shield-check" />
-            <p class="field-help">
-              账号由组织管理员开通，不提供自行注册。<br />忘记密码或临时密码已过期？请联系组织管理员重置。
-            </p>
-          </div>
+          <div class="login-help"><BrandIcon name="shield-check" /><p class="field-help">已有机构账号仍可使用原用户名。敏感治理与审核账号恢复仍须独立审批，邮箱不能绕过审批。</p></div>
+          <p v-if="emailCapabilityError" class="notice" role="status">{{ emailCapabilityError }} <button type="button" class="text-button" :disabled="state.busy" @click="checkEmailCapabilities">重新查询邮件能力</button></p>
+          <div class="actions"><RouterLink v-if="emailCapabilities?.email_actions" to="/forgot-password">通过验证邮箱找回密码</RouterLink><RouterLink v-if="emailCapabilities?.public_registration && emailCapabilities.email_actions" to="/register">成年个人注册</RouterLink><button v-if="emailIntentPath" type="button" class="text-button" :disabled="state.busy" @click="resumeEmailIntent">返回当前邮件流程</button></div>
+          <details class="account-diagnostics"><summary>机构受控恢复与邮件不可用说明</summary><p>受保护机构账号请通过已知管理员联系方式核验身份后发起独立审批恢复；不要向管理员提供旧密码。</p><p v-if="!emailCapabilities?.email_actions">邮件申请目前未开放或能力尚未确认，不会提交找回邮件。无机构个人账号需等待邮件服务恢复；已有已验证邮箱与备用用户名仍可密码登录。</p><RouterLink to="/help">查看使用帮助</RouterLink></details>
         </form>
         <template v-else-if="state.identity">
           <form
@@ -1190,6 +1325,9 @@ async function retry() {
               <h2>{{ state.identity.user.display_name }}</h2>
             </div>
             <p class="muted">在这里管理登录安全与个人数据。</p>
+            <p v-if="emailAccount?.admission?.state === 'adult_self_declared'" class="notice">个人准入记录：成年自助声明（不是年龄或监护证明） · {{ emailAccount.admission.source === 'invite_activate' ? '机构邀请激活' : '个人注册' }} · 条款 {{ emailAccount.admission.terms_version }} / 隐私告知 {{ emailAccount.admission.privacy_notice_version }}<span v-if="emailAccount.admission.accepted_at"> · 接受时间 {{ new Date(emailAccount.admission.accepted_at).toLocaleString() }}</span></p>
+            <p v-else-if="emailAccount?.admission?.state === 'not_recorded'" class="field-help">此账号没有新的自助准入声明记录；不会据此推断年龄、监护关系或机构准入来源。</p>
+            <p v-if="!state.identity.organizations.length" class="notice">你尚未加入组织，目前可管理本人账号安全与隐私。请联系机构；收到真实邮件邀请后打开链接并明确接受。本页不会创建虚假的加入申请。</p>
             <section class="settings-section">
               <div>
                 <h2>登录安全</h2>
@@ -1205,6 +1343,12 @@ async function retry() {
                 修改密码
               </button>
             </section>
+            <AccountEmailSecurity v-if="emailAccount" ref="accountEmailSecurity" :key="state.identity.user.id" :client="emailClient"
+              :user-id="state.identity.user.id" :login-name="emailAccount.login_name" :email-state="emailAccount.email.state" :masked-email="emailAccount.email.masked"
+              :locked="state.busy || navigationBusy" :session-changed="confirmEmailSession" :recover-session="async () => { await confirmAuthentication(); }"
+              @active="emailActionState" @unknown="emailUnknown = $event" @session-uncertain="authenticationUncertain" />
+            <p v-else class="notice">服务端尚未提供可核对的邮箱状态，请重新查询本人账号后再管理邮箱。</p>
+            <button v-if="emailIntentPath" type="button" class="button secondary" :disabled="state.busy || emailWriteActive" @click="resumeEmailIntent">返回内存中的邮件确认流程</button>
             <section class="settings-section">
               <div>
                 <h2>隐私与数据</h2>

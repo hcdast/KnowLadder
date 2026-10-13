@@ -27,11 +27,21 @@ export interface BusinessOptions {
   headers?: Record<string, string>;
   signal?: AbortSignal;
   responseType?: "json" | "blob";
+  /** Only form-local lookups opt out of route-terminal 404; 401/403 are never suppressed. */
+  notFound?: "lookup";
 }
 export type BusinessRequest = <T>(path: string, options?: BusinessOptions) => Promise<T>;
 export type GlobalRequest = BusinessRequest;
 
-export function useSession() {
+export interface SessionOptions {
+  preferredOrganization?: (userId: string) => string | undefined;
+  onAccessDenied?: (status: 403 | 404) => void;
+  identityRequired?: () => boolean;
+}
+
+export function useSession(options: SessionOptions = {}) {
+  const onAccessDenied = options.onAccessDenied;
+  let identityEnabled = options.identityRequired?.() ?? true;
   const state = reactive({
     phase: "loading" as Phase,
     identity: null as Identity | null,
@@ -55,9 +65,10 @@ export function useSession() {
   let pendingQuietCheck = false;
   let quietController: AbortController | undefined;
   let businessRetryAt = 0;
+  let externalAuthenticationActive = false;
   let identityTimer = 0;
 
-  function begin() {
+  function begin(budget = 15000) {
     quietController?.abort();
     quietController = undefined;
     pendingQuietCheck = false;
@@ -70,7 +81,19 @@ export function useSession() {
     state.fields = {};
     state.requestId = "";
     state.retryAfter = "";
-    return { id: generation, signal: controller.signal };
+    const operationController = controller;
+    const timer = window.setTimeout(
+      () => operationController.abort(new DOMException("认证确认超时", "TimeoutError")),
+      budget,
+    );
+    if (budget <= 0)
+      operationController.abort(new DOMException("认证确认超时", "TimeoutError"));
+    return {
+      id: generation,
+      signal: operationController.signal,
+      timer,
+      deadline: performance.now() + budget,
+    };
   }
   function clearIdentity() {
     state.identity = null;
@@ -93,8 +116,12 @@ export function useSession() {
       state.requestId = error.requestId;
       state.retryAfter = error.retryAfter;
     } else {
-      state.message =
-        "连接中断，暂时无法确认会话状态。请检查网络后重新查询；不会自动重试密码操作。";
+      state.fields = {};
+      state.requestId = "";
+      state.retryAfter = "";
+      state.message = error instanceof DOMException && error.name === "TimeoutError"
+        ? "会话确认超时，暂时无法确认结果。请重新查询会话；不会自动重试密码操作。"
+        : "网络连接中断，暂时无法确认会话状态。请检查网络后重新查询；不会自动重试密码操作。";
     }
   }
   async function request<T>(
@@ -104,10 +131,13 @@ export function useSession() {
     org = "",
   ): Promise<T> {
     const timeout = new AbortController();
-    const cancel = () => timeout.abort();
+    const cancel = () => timeout.abort(signal.reason);
     signal.addEventListener("abort", cancel, { once: true });
     if (signal.aborted) cancel();
-    const timer = window.setTimeout(cancel, 15000);
+    const timer = window.setTimeout(
+      () => timeout.abort(new DOMException("认证请求超时", "TimeoutError")),
+      15000,
+    );
     try {
       const headers: Record<string, string> = { Accept: "application/json" };
       if (org) headers["X-Org-Id"] = org;
@@ -135,6 +165,9 @@ export function useSession() {
           payload?.error?.operation_id || "",
         );
       return payload?.data as T;
+    } catch (error) {
+      if (timeout.signal.aborted) throw timeout.signal.reason;
+      throw error;
     } finally {
       window.clearTimeout(timer);
       signal.removeEventListener("abort", cancel);
@@ -196,6 +229,8 @@ export function useSession() {
           const seconds = /^\d+$/.test(retry) ? Number(retry) : NaN;
           businessRetryAt = Number.isFinite(seconds) ? Date.now() + seconds * 1000 : Math.max(Date.now(), Date.parse(retry) || Date.now());
         }
+        if (response.status === 403 || (response.status === 404 && !isWrite && options.notFound !== "lookup"))
+          onAccessDenied?.(response.status as 403 | 404);
         if (response.status === 401 || response.status === 403) {
           quietController?.abort();
           quietController = undefined;
@@ -224,28 +259,41 @@ export function useSession() {
     const result = await request<Csrf>("/auth/csrf", signal);
     if (!signal.aborted) csrf = result.csrf_token;
   }
-  async function readIdentity(signal: AbortSignal) {
+  async function fetchIdentity(signal: AbortSignal, org: string, recoverOrganization = true) {
     let identity: Identity;
+    let organizationRemoved = false;
     try {
-      identity = await request<Identity>(
-        "/me",
-        signal,
-        undefined,
-        organization,
-      );
+      identity = await request<Identity>("/me", signal, undefined, org);
     } catch (error) {
-      if (!(error instanceof ApiError) || error.status !== 403 || !organization)
-        throw error;
-      organization = "";
-      clearIdentity();
+      if (!(error instanceof ApiError) || error.status !== 403 || !org || !recoverOrganization) throw error;
+      organizationRemoved = true;
+      onAccessDenied?.(403);
       identity = await request<Identity>("/me", signal);
-      state.message =
-        "原组织已不可访问，已清除组织上下文。请选择仍可访问的组织。";
     }
+    if (!identity.must_change_password && !identity.context) {
+      const preferred = options.preferredOrganization?.(identity.user.id);
+      const selected = identity.organizations.find(item => item.id === preferred)?.id ||
+        (identity.organizations.length === 1 ? identity.organizations[0]!.id : "");
+      if (selected && (!organizationRemoved || selected !== org)) {
+        try {
+          identity = await request<Identity>("/me", signal, undefined, selected);
+        } catch (error) {
+          if (!(error instanceof ApiError) || error.status !== 403 || !recoverOrganization) throw error;
+          // Membership can change between the unscoped and scoped reads.
+          // Confirm the remaining organizations without retrying the selection.
+          organizationRemoved = true;
+          onAccessDenied?.(403);
+          identity = await request<Identity>("/me", signal);
+        }
+      }
+    }
+    return { identity, organizationRemoved };
+  }
+  async function readIdentity(signal: AbortSignal) {
+    const { identity, organizationRemoved } = await fetchIdentity(signal, organization);
     if (signal.aborted || pendingResync) return;
     if (state.identity && identityChanged(state.identity, identity)) {
-      // Explicit refresh must invalidate mounted content just like a quiet check.
-      // Keep this auth operation's generation so its finally can release busy.
+      // Invalidate mounted content before publishing the new identity.
       controller.abort();
       controller = new AbortController();
       clearIdentity();
@@ -253,24 +301,37 @@ export function useSession() {
     state.identity = identity;
     state.phase = "authenticated";
     organization = identity.must_change_password ? "" : identity.context?.org_id || "";
+    if (organizationRemoved)
+      state.message = "原组织已不可访问，已清除组织上下文。请选择仍可访问的组织。";
   }
-  async function synchronize(org = organization) {
+  async function synchronizeRound(org: string, budget: number, confirmExternal = false) {
+    if (!identityEnabled) return;
+    if (externalAuthenticationActive && !confirmExternal) {
+      clearIdentity(); csrf = ""; state.phase = "unknown";
+      state.message = "邮箱认证操作尚在进行。请等待结果后只读查询会话，不会重放操作。";
+      return;
+    }
     if (writeInFlight) {
       pendingResync = true;
       clearIdentity();
       state.phase = "unknown";
       return;
     }
+    // This real read round consumes any deferred identity check left by an interrupted write.
+    pendingResync = false;
     organization = org;
-    const operation = begin();
+    const previousPhase = state.phase;
+    const operation = begin(budget);
     clearIdentity();
     state.phase = "loading";
     try {
-      await getCsrf(operation.signal);
+      if (!csrf) await getCsrf(operation.signal);
       await readIdentity(operation.signal);
     } catch (error) {
       if (operation.id !== generation) return;
       clearIdentity();
+      if (previousPhase === "authenticated" || !(error instanceof ApiError && error.status === 401))
+        csrf = "";
       if (error instanceof ApiError && error.status === 401) {
         organization = "";
         state.phase = "anonymous";
@@ -279,6 +340,7 @@ export function useSession() {
         report(error);
       }
     } finally {
+      window.clearTimeout(operation.timer);
       if (operation.id === generation) {
         state.busy = false;
         lastChecked = Date.now();
@@ -286,24 +348,56 @@ export function useSession() {
       }
     }
   }
+  const synchronize = (org = organization) => synchronizeRound(org, 15000);
+  function setIdentityRequired(required: boolean) {
+    if (disposed || identityEnabled === required) return;
+    identityEnabled = required;
+    if (!required) {
+      quietController?.abort(); quietController = undefined;
+      generation++; controller.abort(); controller = new AbortController();
+      csrf = ""; organization = ""; lastChecked = 0; pendingQuietCheck = false;
+      clearIdentity(); state.phase = "unknown"; state.busy = false;
+      if (writeInFlight || businessWrites || externalAuthenticationActive) state.message = "原认证或业务请求结果仍待确认。已隐藏私有视图；不会撤销服务端写入或更换原请求编号。";
+    } else if (!state.busy) void synchronize();
+  }
+  function authenticationActionActive(active: boolean) {
+    externalAuthenticationActive = active;
+    if (active) { quietController?.abort(); quietController = undefined; pendingQuietCheck = false; }
+  }
+  async function confirmAuthentication(budget = 15000) {
+    csrf = ""; organization = "";
+    await synchronizeRound("", Math.min(15000, Math.max(0, budget)), true);
+    if (!disposed) broadcast();
+    return state.phase === "authenticated" || state.phase === "anonymous";
+  }
+  function authenticationUncertain() {
+    generation++; controller.abort(); quietController?.abort(); quietController = undefined;
+    csrf = ""; organization = ""; clearIdentity(); state.phase = "unknown"; state.busy = false;
+    state.message = "邮箱认证请求结果尚未确认。请只读重新查询会话，不会重放邮件确认或密码重置。";
+    if (!disposed) broadcast();
+  }
   async function quietIdentityCheck() {
-    if (disposed || quietController) return;
-    if (writeInFlight || businessWrites || state.busy) {
+    if (!identityEnabled || disposed || quietController || document.visibilityState !== "visible") return;
+    if (!state.identity || state.phase !== "authenticated") {
+      pendingQuietCheck = false;
+      return;
+    }
+    if (externalAuthenticationActive || writeInFlight || businessWrites || state.busy) {
       pendingQuietCheck = true;
       return;
     }
     pendingQuietCheck = false;
     const previous = state.identity;
-    if (!previous || state.phase !== "authenticated") {
-      await synchronize();
-      return;
-    }
     const check = new AbortController();
     quietController = check;
     const epoch = generation;
     const org = organization;
+    const timer = window.setTimeout(
+      () => check.abort(new DOMException("认证确认超时", "TimeoutError")),
+      15000,
+    );
     try {
-      const identity = await request<Identity>("/me", check.signal, undefined, org);
+      const { identity, organizationRemoved } = await fetchIdentity(check.signal, org, false);
       if (check.signal.aborted || disposed || generation !== epoch) return;
       const changed = identityChanged(previous, identity);
       if (changed) {
@@ -313,12 +407,17 @@ export function useSession() {
         clearIdentity();
         csrf = "";
         organization = identity.must_change_password ? "" : identity.context?.org_id || "";
-        state.message = "身份或组织权限已更新，已清除原内容视图。";
+        if (!state.message)
+          state.message = organizationRemoved
+            ? "原组织已不可访问，已清除组织上下文。请选择仍可访问的组织。"
+            : "身份或组织权限已更新，已清除原内容视图。";
       }
       state.identity = identity;
       state.phase = "authenticated";
     } catch (error) {
-      if (check.signal.aborted || disposed || generation !== epoch) return;
+      if (disposed || generation !== epoch ||
+        (check.signal.aborted && check.signal.reason?.name !== "TimeoutError")) return;
+      if (error instanceof ApiError && error.status === 403) onAccessDenied?.(403);
       controller.abort();
       controller = new AbortController();
       generation += 1;
@@ -329,9 +428,13 @@ export function useSession() {
         state.phase = "anonymous";
       } else {
         state.phase = "unknown";
+        const previousMessage = state.message;
         report(error);
+        if (previousMessage && previousMessage !== state.message)
+          state.message = `${previousMessage}\n${state.message}`;
       }
     } finally {
+      window.clearTimeout(timer);
       if (quietController === check) {
         quietController = undefined;
         lastChecked = Date.now();
@@ -342,12 +445,13 @@ export function useSession() {
     action: "login" | "change-password" | "logout" | "refresh",
     body: unknown = {},
   ) {
-    if (state.busy) return;
-    const operation = begin();
+    if (!identityEnabled || state.busy || externalAuthenticationActive) return;
+    const operation = begin(action === "login" ? 30000 : 15000);
     const previousPhase = state.phase;
     writeInFlight = true;
     let notifyPeers = false;
     let recoveryMessage = "";
+    let confirmed = false;
     if (action === "logout" || action === "refresh") {
       clearIdentity();
       state.phase = "loading";
@@ -355,6 +459,7 @@ export function useSession() {
     try {
       if (!csrf) await getCsrf(operation.signal);
       await request(`/auth/${action}`, operation.signal, body);
+      confirmed = true;
       if (operation.id !== generation) return;
       notifyPeers = action !== "refresh";
       if (pendingResync) return;
@@ -370,6 +475,7 @@ export function useSession() {
             : "密码已更新，所有旧会话已失效。请使用新密码登录。";
       } else {
         if (action === "login") organization = "";
+        csrf = "";
         await getCsrf(operation.signal);
         await readIdentity(operation.signal);
         if (action === "refresh")
@@ -381,16 +487,20 @@ export function useSession() {
       if (
         action === "logout" ||
         !(error instanceof ApiError) ||
-        error.status >= 500
+        error.status >= 500 ||
+        confirmed
       ) {
         notifyPeers = action !== "refresh";
         clearIdentity();
         csrf = "";
         state.phase = "unknown";
         if (action === "logout") {
-          state.message =
-            "本页已隐藏账号信息，但服务端尚未确认退出。请重新查询会话，确认后可再次退出。";
+          state.message = confirmed
+            ? "服务端已确认退出，但新的安全凭据暂未确认。请重新查询会话。"
+            : "本页已隐藏账号信息，但服务端尚未确认退出。请重新查询会话，确认后可再次退出。";
         }
+        else if (action === "change-password" && confirmed)
+          state.message = "密码已更新，所有旧会话已失效，但新的安全凭据暂未确认。请重新查询后使用新密码登录。";
       } else if (error.status === 401) {
         clearIdentity();
         organization = "";
@@ -410,13 +520,14 @@ export function useSession() {
         state.phase = action === "refresh" ? "unknown" : previousPhase;
       }
     } finally {
+      window.clearTimeout(operation.timer);
       writeInFlight = false;
       if (operation.id === generation) {
         if (pendingResync) {
           pendingResync = false;
           csrf = "";
           organization = "";
-          await synchronize();
+          await synchronizeRound("", Math.min(15000, operation.deadline - performance.now()));
           if (recoveryMessage && state.phase !== "unknown")
             state.message = recoveryMessage;
         } else {
@@ -432,11 +543,15 @@ export function useSession() {
     if (
       document.visibilityState === "visible" &&
       !disposed &&
+      state.phase === "authenticated" &&
+      !!state.identity &&
       Date.now() - lastChecked > 30000
     )
       void quietIdentityCheck();
   }
-  function onPageShow(event: PageTransitionEvent) { if (event.persisted) onWake(); }
+  function onPageShow(event: PageTransitionEvent) {
+    if (event.persisted && !disposed && identityEnabled) void synchronize();
+  }
   function onPageHide() {
     quietController?.abort(); quietController = undefined;
     generation += 1; controller.abort(); controller = new AbortController();
@@ -455,6 +570,7 @@ export function useSession() {
     }
     csrf = "";
     organization = "";
+    if (!identityEnabled) { clearIdentity(); state.phase = "unknown"; return; }
     void synchronize();
   }
   onMounted(() => {
@@ -467,7 +583,7 @@ export function useSession() {
     window.addEventListener("pagehide", onPageHide);
     identityTimer = window.setInterval(onWake, 30000);
     document.addEventListener("visibilitychange", onWake);
-    void synchronize();
+    if (identityEnabled && !state.busy) void synchronize();
   });
   onBeforeUnmount(() => {
     disposed = true;
@@ -481,5 +597,5 @@ export function useSession() {
     window.clearInterval(identityTimer);
     document.removeEventListener("visibilitychange", onWake);
   });
-  return { state, synchronize, mutate, businessRequest, globalRequest };
+  return { state, synchronize, mutate, businessRequest, globalRequest, setIdentityRequired, authenticationActionActive, confirmAuthentication, authenticationUncertain };
 }
