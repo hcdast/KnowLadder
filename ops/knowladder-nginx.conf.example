@@ -68,6 +68,13 @@ server {
         add_header Cache-Control "public, max-age=300";
         add_header X-Content-Type-Options nosniff always;
     }
+    # Public product media only; private course attachments remain behind authorized APIs.
+    location ~ ^/visuals/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)*[A-Za-z0-9_-][A-Za-z0-9_.-]*\.(?:mp4|vtt)$ {
+        try_files $uri =404;
+        types { video/mp4 mp4; text/vtt vtt; }
+        add_header Cache-Control "public, max-age=300";
+        add_header X-Content-Type-Options nosniff always;
+    }
     location /assets/ { return 404; }
     location /visuals/ { return 404; }
     location ~ (^|/)\. { return 404; }

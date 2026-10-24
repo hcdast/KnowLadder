@@ -12,8 +12,9 @@ const types = new Map([
   ['.png', 'image/png'], ['.jpg', 'image/jpeg'], ['.jpeg', 'image/jpeg'],
   ['.webp', 'image/webp'], ['.avif', 'image/avif'], ['.ico', 'image/x-icon'],
   ['.woff2', 'font/woff2'],
+  ['.mp4', 'video/mp4'], ['.vtt', 'text/vtt; charset=utf-8'],
 ]);
-const textTypes = new Set(['.html', '.js', '.css', '.svg']);
+const textTypes = new Set(['.html', '.js', '.css', '.svg', '.vtt']);
 
 // Vite's default eight-character content-hash suffix, only inside the build's assets directory.
 export function staticCacheControl(filename, assets = false) {

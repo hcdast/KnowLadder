@@ -156,3 +156,6 @@ vite.config.ts.timestamp-*
 /ops/**/*.klb
 /ops/**/*.key
 /docs/账号密码.md
+
+# Local receipts from explicitly published website media.
+/media-upload/.cache/

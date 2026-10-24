@@ -38,6 +38,8 @@ async function fixture(t) {
     'assets/plain-unversioned.js': 'export const version = "unversioned";',
     'visuals/image.webp': Buffer.from('RIFF\x14\x00\x00\x00WEBPVP8 fictional protocol bytes', 'binary'),
     'assets/font-zA12_B34.woff2': Buffer.from('wOF2 protocol bytes'),
+    'visuals/product-tour.mp4': await fs.readFile(path.resolve(__dirname, '../../web/public/visuals/product-tour.mp4')),
+    'visuals/product-tour.zh.vtt': 'WEBVTT\n\n00:00:00.000 --> 00:00:04.000\n原创界面导览\n',
     'assets/secret.key': 'must never be served',
     '.env': 'must never be served',
   };
@@ -78,6 +80,32 @@ test('static HTTP: decoded gzip matches identity for HTML/JS/CSS/SVG, negotiatio
     assert.equal(response.headers['content-encoding'], undefined);
     assert.deepEqual(response.body, files[relative]);
     assert.equal((await request(server, '/' + relative, { 'Accept-Encoding': 'gzip, identity;q=0' })).status, 406);
+  }
+});
+
+test('static HTTP: public tour has real MP4 bytes, UTF-8 captions, HEAD and missing media 404', async t => {
+  const { server, files } = await fixture(t);
+  const movie = await request(server, '/visuals/product-tour.mp4', { 'Accept-Encoding': 'gzip' });
+  assert.equal(movie.status, 200);
+  assert.equal(movie.headers['content-type'], 'video/mp4');
+  assert.equal(movie.headers['content-encoding'], undefined);
+  assert.equal(movie.headers['x-content-type-options'], 'nosniff');
+  assert.match(movie.headers['cache-control'], /max-age=300/);
+  assert.deepEqual(movie.body, files['visuals/product-tour.mp4']);
+  assert.equal(movie.body.subarray(4, 8).toString(), 'ftyp');
+  const head = await request(server, '/visuals/product-tour.mp4', {}, 'HEAD');
+  assert.equal(head.status, 200);
+  assert.equal(Number(head.headers['content-length']), movie.body.length);
+  assert.equal(head.body.length, 0);
+  const track = await request(server, '/visuals/product-tour.zh.vtt', { 'Accept-Encoding': 'gzip' });
+  assert.equal(track.status, 200);
+  assert.equal(track.headers['content-type'], 'text/vtt; charset=utf-8');
+  assert.equal(gunzipSync(track.body).toString('utf8'), files['visuals/product-tour.zh.vtt']);
+  for (const name of ['missing.mp4', 'missing.vtt']) {
+    const response = await request(server, '/visuals/' + name);
+    assert.equal(response.status, 404);
+    assert.equal(response.body.length, 0);
+    assert.equal(response.headers['cache-control'], 'no-store');
   }
 });
 
