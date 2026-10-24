@@ -1,0 +1,114 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict'),{randomUUID}=require('node:crypto');
+const {studioFixture,metadata,attachment}=require('./studio-fixture.cjs'),{status}=require('./helpers.cjs');
+const {newId,rawDatabase}=require('../dist/database/object-id');
+const action=(f,a,kind,row,payload,key)=>f.good(a,`/studio/${kind}/${row._id}/actions`,{expected_revision:row.revision,...payload},key);
+test('学习拓展：课程说明随版本独立审核，目录/比较契约与v26严格迁移',{timeout:180000},async t=>{
+ const f=await studioFixture(t);
+ assert.deepEqual(f.course.metadata,metadata);assert.deepEqual((await f.good(f.student,`/courses/${f.course._id}?mode=learner`)).metadata,metadata);
+ assert.deepEqual((await f.good(f.student,'/discovery')).items[0].metadata,metadata);
+ status(await f.req(f.author,`/courses/${f.course._id}/actions`,{action:'edit',expected_revision:f.course.revision,title:'不能直接改已发布',lessons:f.course.lessons,metadata}),409);
+ const draft=await f.good(f.author,'/courses',{code:f.course.code,title:'观察与作品第二版',subject_id:f.subject,version_no:2,lessons:f.course.lessons,metadata:{...metadata,estimated_minutes:60}});
+ const request=await f.good(f.author,`/courses/${draft._id}/actions`,{action:'request-review',expected_revision:draft.revision});
+ status(await f.req(f.author,`/courses/${draft._id}/actions`,{action:'publish',expected_revision:request.revision,note:'自己发布'}),403);
+ assert.equal((await f.good(f.student,'/discovery')).items.length,1);
+ const marker=await f.db.collection('schema_migrations').findOne({version:26});assert.equal(marker.status,'completed');
+ const info=await rawDatabase(f.db).listCollections({name:'learning_meetups'}).next();assert.equal(info.options.validationLevel,'strict');assert.equal(info.options.validator.$jsonSchema.additionalProperties,false);
+ await assert.rejects(f.db.collection('learning_meetups').insertOne({_id:newId(),unexpected:true}),e=>e.code===121);
+ const {systemBackupRegistry}=require('../dist/migrations/schema');const registry=systemBackupRegistry();assert.equal(registry.version,26);assert.ok(registry.collections.includes('learning_question_messages'));assert.ok(!registry.checksums['23']);
+ const api=await(await fetch(new URL('/api/openapi.json',f.browser.base))).json();assert.equal(api.paths['/api/v1/training/studio/{kind}'].get.responses[200].content['application/json'].schema.properties.data.properties.items.maxItems,50);
+ if(process.env.GENERATE_STUDIO_API==='true'){const {spawn}=require('node:child_process'),path=require('node:path');const c=spawn(process.execPath,['scripts/generate-api.mjs'],{cwd:path.resolve(__dirname,'../../web'),windowsHide:true,stdio:'inherit',env:{...process.env,OPENAPI_URL:new URL('/api/openapi.json',f.browser.base).href}});assert.equal(await new Promise((resolve,reject)=>{c.once('error',reject);c.once('exit',resolve)}),0);}
+});
+test('学习拓展：来源笔记本人隔离、复习历史、CAS、幂等、来源撤回与最小回执',{timeout:180000},async t=>{
+ const f=await studioFixture(t),key=randomUUID(),input={title:'事实与判断',body:'用能够核验的描述替换主观形容。',source_kind:'course',source_id:f.course._id,lesson_key:'observe',due_on:'2026-11-01'};
+ let row=await f.good(f.student,'/studio/notes',input,key);assert.deepEqual(await f.good(f.student,'/studio/notes',input,key),row);
+ status(await f.req(f.student,'/studio/notes',{...input,body:'不同内容'},key),409);
+ assert.equal((await f.good(f.student,'/studio/notes')).items[0].source.title,'观察与记录');assert.deepEqual((await f.good(f.stranger,'/studio/notes')).items,[]);
+ status(await f.req(f.stranger,`/studio/notes/${row._id}/actions`,{action:'delete',expected_revision:1}),404);
+ row=await action(f,f.student,'notes',row,{action:'review',note:'已区分观察和评价',due_on:'2026-11-04'});assert.equal(row.review_count,1);assert.equal(row.review_history.length,1);
+ status(await f.req(f.student,`/studio/notes/${row._id}/actions`,{action:'edit',expected_revision:1,title:'旧修订',body:'',due_on:null}),409);
+ status(await f.req(f.student,'/studio/notes',{...input,due_on:'2026-02-30'}),422);
+ const receipt=await f.good(f.student,'/studio/receipts/query',{key});assert.deepEqual(Object.keys(receipt).sort(),['resource_id','status']);assert.equal(receipt.resource_id,row._id);
+ await f.db.collection('class_courses').updateOne({course_id:f.course._id},{$set:{status:'ended'}});
+ assert.deepEqual((await f.good(f.student,'/studio/notes')).items,[]);status(await f.req(f.student,'/studio/notes',input,key),404);status(await f.req(f.student,'/studio/receipts/query',{key}),404);
+ await action(f,f.student,'notes',row,{action:'delete'});assert.equal((await f.db.collection('learning_source_notes').findOne({_id:row._id})).body,'');
+});
+test('学习拓展：教师答疑私有会话、追问/解决/重开、非授课拒绝、退班停止交付',{timeout:180000},async t=>{
+ const f=await studioFixture(t);let row=await f.question();const key=randomUUID();
+ assert.equal((await f.good(f.author,'/studio/questions?mode=staff')).items.length,1);assert.equal((await f.good(f.student,'/studio/catalog')).pairs[0].class_name,'培训班');
+ status(await f.req(f.stranger,`/studio/questions/${row._id}`),404);
+ const outsider=await f.actor(['teacher'],['coursework:grade']);status(await f.req(outsider,`/studio/questions/${row._id}`),404);
+ row=await action(f,f.author,'questions',row,{action:'reply',body:'请描述颜色、形状或数量，并写清观察条件。'},key);assert.equal(row.status,'answered');
+ const answered=await f.good(f.student,`/studio/questions/${row._id}`);assert.equal(answered.messages[0].role,'teacher');assert.equal(answered.messages.length,1);
+ await f.good(f.author,`/studio/questions/${row._id}/actions`,{expected_revision:1,action:'reply',body:'请描述颜色、形状或数量，并写清观察条件。'},key);assert.equal(await f.db.collection('learning_question_messages').countDocuments({question_id:row._id}),1);
+ row=await action(f,f.student,'questions',row,{action:'reply',body:'“有三个叶片”可以吗？'});assert.equal(row.status,'open');
+ row=await action(f,f.author,'questions',row,{action:'reply',body:'可以，同时注明观察的时间和对象。'});
+ row=await action(f,f.student,'questions',row,{action:'close'});status(await f.req(f.student,`/studio/questions/${row._id}/actions`,{action:'reply',expected_revision:row.revision,body:'关闭后回复'}),409);
+ row=await action(f,f.student,'questions',row,{action:'reopen'});assert.equal(row.status,'open');
+ await f.db.collection('class_members').updateOne({member_id:f.student.member},{$set:{status:'ended'}});
+ status(await f.req(f.student,`/studio/questions/${row._id}`),404);status(await f.req(f.author,`/studio/questions/${row._id}`),404);assert.deepEqual((await f.good(f.author,'/studio/questions?mode=staff')).items,[]);
+ status(await f.req(f.author,'/studio/receipts/query',{key}),404);
+});
+test('学习拓展：共学并发容量、报名重放、取消释放名额、跨活动与过期拒绝',{timeout:180000},async t=>{
+ const f=await studioFixture(t),now=new Date(),other=await f.actor(['student']);
+ await f.db.collection('class_members').insertOne({_id:newId(),org_id:f.org,class_id:f.classId,member_id:other.member,kind:'student',status:'active',valid_from:null,valid_to:null,created_at:now,updated_at:now});
+ let row=await f.meetup(1);const key=randomUUID(),url=`/studio/meetups/${row._id}/actions`,body={action:'enroll',expected_revision:row.revision};
+ const results=await Promise.all([f.req(f.student,url,body,key),f.req(other,url,body)]);assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
+ const winner=results[0].status===200?f.student:other,loser=winner===f.student?other:f.student;
+ let detail=await f.good(winner,`/studio/meetups/${row._id}`);assert.equal(detail.enrolled_count,1);assert.ok(!('members'in detail));
+ status(await f.req(loser,`/studio/meetups/${row._id}?mode=staff`),403);
+ status(await f.req(loser,url,{action:'enroll',expected_revision:detail.revision}),409);
+ if(winner===f.student){assert.deepEqual(await f.good(winner,url,body,key),results[0].data.data);assert.equal((await f.good(winner,'/studio/receipts/query',{key})).status,'confirmed');}
+ row=await action(f,winner,'meetups',detail,{action:'withdraw',enrollment_revision:detail.enrollment.revision});
+ row=await action(f,loser,'meetups',row,{action:'enroll'});assert.equal((await f.good(loser,`/studio/meetups/${row._id}`)).enrolled_count,1);
+ const foreign=await f.meetup(1),registration=(await f.good(f.author,`/studio/meetups/${row._id}?mode=staff`)).members[0];
+ status(await f.req(f.author,`/studio/meetups/${foreign._id}/actions`,{action:'attended',expected_revision:foreign.revision,enrollment_id:registration._id,enrollment_revision:registration.revision}),404);
+ await f.db.collection('learning_meetups').updateOne({_id:row._id},{$set:{enrollment_closes_at:new Date(Date.now()-1000)}});
+ status(await f.req(loser,`/studio/meetups/${row._id}/actions`,{action:'withdraw',expected_revision:row.revision,enrollment_revision:registration.revision}),409);
+ status(await f.req(f.stranger,`/studio/meetups/${row._id}`),404);
+ row=await action(f,f.author,'meetups',row,{action:'cancel'});assert.equal(row.status,'cancelled');
+ status(await f.req(winner,`/studio/meetups/${row._id}/actions`,{action:'enroll',expected_revision:row.revision}),409);
+});
+test('学习拓展：参与确认、评价回顾、结束与修订冲突',{timeout:180000},async t=>{
+ const f=await studioFixture(t);let row=await f.meetup(2);row=await action(f,f.student,'meetups',row,{action:'enroll'});
+ let detail=await f.good(f.author,`/studio/meetups/${row._id}?mode=staff`),member=detail.members[0];
+ status(await f.req(f.author,`/studio/meetups/${row._id}/actions`,{action:'attended',expected_revision:row.revision,enrollment_id:member._id,enrollment_revision:member.revision}),409);
+ await f.db.collection('learning_meetups').updateOne({_id:row._id},{$set:{starts_at:new Date(Date.now()-2000),ends_at:new Date(Date.now()-1000)}});
+ row=await action(f,f.author,'meetups',row,{action:'attended',enrollment_id:member._id,enrollment_revision:member.revision});
+ detail=await f.good(f.student,`/studio/meetups/${row._id}`);assert.equal(detail.enrollment.status,'attended');
+ row=await action(f,f.student,'meetups',row,{action:'reflect',enrollment_revision:detail.enrollment.revision,reflection:'学会描述可以核验的事实，并互相核对。'});
+ status(await f.req(f.student,`/studio/meetups/${row._id}/actions`,{action:'reflect',expected_revision:row.revision,enrollment_revision:1,reflection:'旧修订'}),409);
+ row=await action(f,f.author,'meetups',row,{action:'complete'});assert.equal(row.status,'completed');
+ assert.equal((await f.good(f.author,`/studio/meetups/${row._id}?mode=staff`)).members[0].reflection,'学会描述可以核验的事实，并互相核对。');
+ await f.db.collection('teaching_assignments').updateOne({member_id:f.author.member},{$set:{status:'ended'}});
+ status(await f.req(f.author,`/studio/meetups/${row._id}?mode=staff`),404);
+});
+test('学习拓展：目录分页过滤与游标身份绑定、不依赖公开社区',{timeout:180000},async t=>{
+ const f=await studioFixture(t);for(let n=0;n<3;n++)await f.question({title:'观察问题'+n});
+ const page=await f.good(f.student,'/studio/questions?limit=2');assert.equal(page.items.length,2);assert.ok(page.next_cursor);
+ const next=await f.good(f.student,'/studio/questions?limit=2&cursor='+page.next_cursor);assert.equal(next.items.length,1);
+ status(await f.req(f.stranger,'/studio/questions?limit=2&cursor='+page.next_cursor),422);status(await f.req(f.student,'/studio/meetups?limit=2&cursor='+page.next_cursor),422);
+ status(await f.req(f.student,'/studio/questions?limit=2&q=a&cursor='+page.next_cursor),422);status(await f.req(f.student,'/studio/questions?limit=51'),422);
+ assert.equal((await f.good(f.student,'/studio/questions?q='+encodeURIComponent('[1].*'))).items.length,0);
+ status(await f.req(f.student,'/studio/toString'),404);status(await f.req(f.student,'/studio/notes?mode=staff'),422);
+});
+test('学习拓展：作品实践复用草稿提交与多维量规反馈',{timeout:180000},async t=>{
+ const f=await studioFixture(t,{KL_COURSEWORK_FILES_ENABLED:'true'});let task=await f.good(f.author,'/tasks',{class_id:f.classId,subject_id:f.subject,title:'观察作品',target_type:'coursework',target_id:null,due_at:new Date(Date.now()+3600000).toISOString(),body:'目标：区分事实。步骤：观察并核验。交付：作品与回顾。',rubric:[{key:'process',title:'过程',weight:40},{key:'outcome',title:'作品',weight:40},{key:'reflection',title:'反思',weight:20}]});
+ task=await f.good(f.author,`/tasks/${task._id}/actions`,{action:'publish',expected_revision:task.revision});
+ const head=await f.good(f.student,`/tasks/${task._id}/coursework`,{action:'save',expected_revision:0,body:'观察一株植物，记录叶片数。'});
+ const file=attachment(f,head);await f.db.collection('file_resources').insertOne(file);
+ assert.ok(head._id);const submitted=await f.good(f.student,`/tasks/${task._id}/coursework`,{action:'submit',expected_revision:head.revision,body:'有3片叶片，计数后请同伴复核。反思：应记录时间。',file_ids:[file._id]});
+ assert.equal((await f.good(f.author,`/coursework-files/${file._id}`)).id,file._id);
+ const feedback=await f.good(f.author,`/tasks/${task._id}/feedback`,{head_revision:submitted.revision,submission_id:submitted.current_submission_id,comments:'证据清晰，补充观察条件。',scores:[{key:'process',score:80},{key:'outcome',score:90},{key:'reflection',score:70}],publish:true});
+ assert.equal(feedback.score,82);assert.equal(feedback.status,'published');assert.equal((await f.good(f.student,`/tasks/${task._id}/coursework`)).feedback.length,1);
+ const latest=await f.good(f.student,`/tasks/${task._id}/coursework`),withdrawn=await f.good(f.student,`/tasks/${task._id}/coursework`,{action:'withdraw',expected_revision:latest.head.revision,body:'修改后的观察过程'});
+ assert.equal(withdrawn.current_submission_id,null);assert.equal((await f.good(f.author,`/tasks/${task._id}/submissions`)).items.length,0);
+ status(await f.req(f.author,`/coursework-files/${file._id}`),404);assert.equal((await f.good(f.student,`/coursework-files/${file._id}`)).id,file._id);
+ assert.equal((await f.good(f.student,`/tasks/${task._id}/coursework`)).submissions.length,1);
+ status(await f.req(f.author,`/tasks/${task._id}/feedback`,{head_revision:withdrawn.revision,submission_id:submitted.current_submission_id,comments:'已撤回不能批阅',scores:[{key:'process',score:80},{key:'outcome',score:90},{key:'reflection',score:70}],publish:true}),409);
+ const again=await f.good(f.student,`/tasks/${task._id}/coursework`,{action:'submit',expected_revision:withdrawn.revision,body:'补充了观察时间和同伴核验。'});assert.equal(again.submission_no,2);
+});
+test('学习拓展：开关关闭拒绝请求，不自动启用真实服务',{timeout:180000},async t=>{
+ const {setup}=require('./training-isolated-helpers.cjs'),f=await setup(t);
+ status(await f.req(f.student,'/studio/catalog'),503);status(await f.req(f.student,'/studio/questions'),503);
+});

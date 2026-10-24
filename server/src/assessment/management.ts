@@ -301,13 +301,18 @@ export class AssessmentManagement {
       const level = difficulty(page.q.difficulty); if (level) filter.difficulty = level;
       if (page.after) filter._id = {$gt:page.after};
       const candidates = await this.database.db.collection<QuestionVersion>('question_versions').find(filter, {session:ctx.session}).sort({_id:1}).limit(201).toArray();
-      const items:{id:string;question_id:string;subject_id:string;title:string;question_type:string;difficulty:string;max_score:string}[] = [];
+      const items:{id:string;question_id:string;subject_id:string;subject_name?:string;title:string;question_type:string;difficulty:string;max_score:string}[] = [];
+      const subjectNames = new Map<string, string | undefined>();
       let after:string|null = null;
       for (const candidate of candidates.slice(0, 200)) {
         after = candidate._id;
         try {
           const q = await this.sources.question(ctx, candidate._id, true);
-          items.push({id:q.question_version_id, question_id:q.question_id, subject_id:q.subject_id, title:q.title, question_type:q.question_type, difficulty:q.difficulty, max_score:scoreText(scoreCents(q.scoring_rule.max_score))});
+          if (!subjectNames.has(q.subject_id)) {
+            const subject = await this.database.db.collection<Document & {_id:string}>('subjects').findOne({_id:q.subject_id}, {session:ctx.session, projection:{name:1}});
+            subjectNames.set(q.subject_id, typeof subject?.name === 'string' ? subject.name : undefined);
+          }
+          items.push({id:q.question_version_id, question_id:q.question_id, subject_id:q.subject_id, subject_name:subjectNames.get(q.subject_id), title:q.title, question_type:q.question_type, difficulty:q.difficulty, max_score:scoreText(scoreCents(q.scoring_rule.max_score))});
         } catch (error) {
           if (!(error instanceof HttpException)) throw error;
           const response = error.getResponse();

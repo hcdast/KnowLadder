@@ -646,7 +646,7 @@ test(
 );
 
 test(
-  "培训：v11 备份登记、空库恢复约束与隐私分类",
+  "培训：原v11集合的当前备份登记、空库恢复约束与隐私分类",
   { timeout: 180000 },
   async (t) => {
     const f = await setup(t);
@@ -659,7 +659,10 @@ test(
     const { rawDatabase } = require("../dist/database/object-id");
     const { ObjectId } = require("mongodb");
     const registry = systemBackupRegistry();
-    assert.equal(registry.version, 11);
+    const latest = await f.db.collection("schema_migrations").find({ status: "completed" }).sort({ version: -1 }).limit(1).next();
+    assert.equal(registry.version, latest.version);
+    const trainingMarker = await f.db.collection("schema_migrations").findOne({ version: 11, status: "completed" });
+    assert.equal(registry.checksums["11"], trainingMarker.checksum);
     for (const name of [
       "courses",
       "class_courses",
@@ -1320,7 +1323,7 @@ test(
     });
     const { systemBackupRegistry } = require("../dist/migrations/schema");
     const { TRAINING_CHECKSUM } = require("../dist/training/schema");
-    assert.equal(systemBackupRegistry().version, 12);
+    assert.equal(systemBackupRegistry().version, 22); // Current authentication baseline; the v12 marker/checksum is checked below.
     assert.equal(
       (await f.db.collection("schema_migrations").findOne({ version: 11 }))
         .checksum,
@@ -1540,8 +1543,8 @@ for(const keep of [false,true])test('作业附件隐私：真实私有字节'+(k
  const plan=await privacy.inspectPrivacyRequest(f.db,id);assert.equal(plan.categories.coursework_file_bytes,1);assert.equal(plan.assessment_held,keep);
  await privacy.approvePrivacyRequest(f.client,f.db,{requestId:id,expectedRevision:plan.revision,planHash:plan.plan_hash,retentionBasis:keep?'local_hold_and_provenance':'local_minimal_provenance',actor:'privacy-bytes',reason:'approved disposable erasure'});
  let packageFile,packageKey,backupApi;
- if(!keep){backupApi=require('../../ops/system-backup.cjs');packageFile=path.join(path.dirname(storage),'coursework-old.klb');packageKey=require('node:crypto').randomBytes(32);const state=await control.getOperationalState(f.db);const maintenance=await control.enterMaintenance(f.client,f.db,{expectedRevision:state.revision,actor:'privacy-bytes',reason:'old snapshot before erasure'});await backupApi.backup({client:f.client,db:f.db,file:packageFile,key:packageKey,root:storage,maintenanceToken:maintenance.token});await control.leaveMaintenance(f.client,f.db,{token:maintenance.token,actor:'privacy-bytes',reason:'resume approved erasure'});}
- if(!keep){const unsafe=path.join(storage,'ready',file.storage_key);await fs.unlink(unsafe);await fs.mkdir(unsafe);await assert.rejects(privacy.executePrivacyRequest(f.client,f.db,{requestId:id,actor:'privacy-bytes',reason:'interruption negative case'}),/PRIVACY_FILE_PATH_UNSAFE/);assert.equal((await f.db.collection('users').findOne({_id:user})).privacy_state,'erasing');assert.equal((await f.db.collection('privacy_deletion_requests').findOne({_id:id})).status,'failed');assert.ok(await f.db.collection('coursework_heads').findOne({_id:head._id}));await fs.rmdir(unsafe);await fs.writeFile(unsafe,bytes,{mode:0o600});await f.db.collection('file_resources').updateOne({_id:file._id},{$set:{deletion_lease_until:new Date(0)}});}
+ if(!keep){backupApi=require('../../ops/system-backup.cjs');packageFile=path.join(await courseworkPrivateChild(env,'archives'),'coursework-old.klb');packageKey=require('node:crypto').randomBytes(32);const state=await control.getOperationalState(f.db);const maintenance=await control.enterMaintenance(f.client,f.db,{expectedRevision:state.revision,actor:'privacy-bytes',reason:'old snapshot before erasure'});await backupApi.backup({client:f.client,db:f.db,file:packageFile,key:packageKey,root:storage,maintenanceToken:maintenance.token});await control.leaveMaintenance(f.client,f.db,{token:maintenance.token,actor:'privacy-bytes',reason:'resume approved erasure'});}
+ if(!keep){const unsafe=path.join(storage,'ready',file.storage_key);await fs.unlink(unsafe);await fs.mkdir(unsafe);await assert.rejects(privacy.executePrivacyRequest(f.client,f.db,{requestId:id,actor:'privacy-bytes',reason:'interruption negative case'}),e=>['PRIVACY_FILE_PATH_UNSAFE','STORAGE_OBJECT_UNSAFE'].includes(e.message));assert.equal((await f.db.collection('users').findOne({_id:user})).privacy_state,'erasing');assert.equal((await f.db.collection('privacy_deletion_requests').findOne({_id:id})).status,'failed');assert.ok(await f.db.collection('coursework_heads').findOne({_id:head._id}));await fs.rmdir(unsafe);await fs.writeFile(unsafe,bytes,{mode:0o600});await f.db.collection('file_resources').updateOne({_id:file._id},{$set:{deletion_lease_until:new Date(0)}});}
  const result=await privacy.executePrivacyRequest(f.client,f.db,{requestId:id,actor:'privacy-bytes',reason:'disposable erasure'});assert.equal(result.status,'completed_with_retention');
  assert.equal((await f.db.collection('users').findOne({_id:user})).privacy_state,'erased');
  const row=await f.db.collection('file_resources').findOne({_id:file._id});
@@ -1571,7 +1574,7 @@ test('作业附件真实扫描：登记原key、上传丢响应、实际clean交
 
 test('AI v13：逐能力、金额并发预留、取消释放、未知保守占用与币种锁定（传输夹具）',{timeout:180000},async t=>{
  const f=await setup(t,{KL_AI_POLICY_ENABLED:'true',KL_AI_ENDPOINT:'https://provider.invalid/chat',KL_AI_MODEL:'transport-test',KL_AI_API_KEY:'transport-test-value'}),c=await course(f);
- assert.equal(require('../dist/migrations/schema').systemBackupRegistry().version,13);assert.equal((await f.db.collection('schema_migrations').findOne({version:13})).status,'completed');
+ assert.equal(require('../dist/migrations/schema').systemBackupRegistry().version,22);assert.equal((await f.db.collection('schema_migrations').findOne({version:13})).status,'completed');
  const config={enabled:true,daily_limit:10,expected_revision:0,enabled_kinds:['prepare'],currency:'CNY',daily_budget_micro:600000,max_request_micro:300000};await f.good(f.author,'/ai/config',config);
  status(await f.req(f.student,'/ai/jobs',{kind:'assist',context_id:c._id,prompt:'原创问题'}),503);
  const create=(prompt)=>f.req(f.author,'/ai/jobs',{kind:'prepare',context_id:c._id,prompt});

@@ -116,7 +116,7 @@ const requestSchemas: Record<string, SchemaObject> = {
   "tasks/{id}/coursework": object(
     {
       expected_revision: { type: "integer", minimum: 0 },
-      action: { type: "string", enum: ["save", "submit"] },
+      action: { type: "string", enum: ["save", "submit", "withdraw"] },
       body,
       file_ids: { type: "array", items: id, maxItems: 5, uniqueItems: true },
     },
@@ -274,6 +274,12 @@ const report = object({
   published_version_id: { ...id, nullable: true },
 });
 export function trainingOpenApi(document: OpenAPIObject) {
+  const metadata = object({ objectives: { type: "string", maxLength: 2000 }, audience: { type: "string", maxLength: 1000 },
+    prerequisites: { type: "string", maxLength: 2000 }, difficulty: { type: "string", enum: ["introductory", "intermediate", "advanced"] },
+    estimated_minutes: { type: "integer", minimum: 1, maximum: 100000 }, instructor: text, language: { type: "string", maxLength: 80 } });
+  requestSchemas.courses!.properties!.metadata = metadata;
+  requestSchemas.courses!.required = ["code", "title", "subject_id", "version_no", "lessons"];
+  requestSchemas["courses/{id}/actions"]!.properties!.metadata = metadata;
   const envelope = (data: SchemaObject) =>
     object({ data, request_id: { type: "string", format: "uuid" } });
   const error = object({
@@ -422,6 +428,47 @@ export function trainingOpenApi(document: OpenAPIObject) {
           },
         };
       let result: SchemaObject = { type: "object", additionalProperties: true };
+      if (method === "get" && key === "discovery") {
+        op.parameters = [...(op.parameters ?? []).filter((p: any) => p.in !== "query"),
+          ...Object.entries({
+            q: { type: "string", maxLength: 100 }, subject_id: id,
+            format: { type: "string", enum: ["text", "pdf", "video", "audio"] },
+            sort: { type: "string", enum: ["newest", "oldest"], default: "newest" },
+            limit: { type: "integer", minimum: 1, maximum: 50, default: 20 },
+            cursor: { type: "string", maxLength: 2000 },
+          }).map(([name, schema]) => ({ name, in: "query" as const, required: false, schema: schema as SchemaObject })),
+        ];
+        result = object({
+        items: { type: "array", maxItems: 50, items: object({
+          id, title: text, status: { type: "string", enum: ["published"] },
+          revision, subject_id: id, subject_name: { type: "string", nullable: true },
+          version_no: revision, lesson_count: { type: "integer", minimum: 1 },
+          formats: { type: "array", uniqueItems: true, items: { type: "string", enum: ["text", "pdf", "video", "audio"] } },
+          required_lesson_count: { type: "integer", minimum: 0 },
+          lesson_titles: { type: "array", maxItems: 5, items: text },
+          updated_at: { type: "string", format: "date-time" },
+          metadata: { ...metadata, nullable: true },
+        }, ["id", "title", "status", "revision", "subject_id", "subject_name", "version_no", "lesson_count", "formats", "required_lesson_count", "lesson_titles", "updated_at"]) },
+        limit: { type: "integer", minimum: 1, maximum: 50 },
+        next_cursor: { type: "string", nullable: true },
+      });
+      }
+      if (method === "get" && key === "discovery/paths") {
+        op.parameters = [...(op.parameters ?? []).filter((p: any) => p.in !== "query"),
+          ...Object.entries({ q: { type: "string", maxLength: 100 }, sort: { type: "string", enum: ["newest", "oldest"] },
+            limit: { type: "integer", minimum: 1, maximum: 50, default: 20 }, cursor: { type: "string", maxLength: 2000 } })
+            .map(([name, schema]) => ({ name, in: "query" as const, required: false, schema: schema as SchemaObject }))];
+        result = object({ items: { type: "array", maxItems: 50, items: object({ id, title: text, path_revision: revision,
+          course_count: { type: "integer", minimum: 1, maximum: 30 }, task_count: { type: "integer", minimum: 0, maximum: 30 },
+          assigned_at: { type: "string", format: "date-time" } }) }, limit: { type: "integer", minimum: 1, maximum: 50 },
+          next_cursor: { type: "string", nullable: true } });
+      }
+      if (method === "get" && key === "discovery/paths/{id}") result = object({ id, title: text, path_revision: revision,
+        assigned_at: { type: "string", format: "date-time" }, task_count: { type: "integer", minimum: 0, maximum: 30 },
+        attendance_bp: { type: "integer", minimum: 8000, maximum: 10000 }, grade_min: { type: "integer", minimum: 0, maximum: 100 },
+        courses: { type: "array", minItems: 1, maxItems: 30, items: object({ id, title: text, version_no: revision,
+          lesson_count: { type: "integer", minimum: 1, maximum: 100 }, required_lesson_count: { type: "integer", minimum: 0, maximum: 100 },
+          confirmed_required_count: { type: "integer", minimum: 0, maximum: 100 } }) } });
       if(path.endsWith("/knowledge/search"))result=object({status:{type:"string",enum:["grounded","insufficient-evidence"]},
         citations:{type:"array",maxItems:5,items:{$ref:"#/components/schemas/KnowledgeEvidence"}},fingerprint:{type:"string",pattern:"^[a-f0-9]{64}$"}});
       if(path.endsWith("/knowledge/rebuild"))result=object({status:{type:"string",enum:["pending"]},generation:revision});

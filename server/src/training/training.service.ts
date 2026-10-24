@@ -1,3 +1,5 @@
+import { growthEnabled } from "./growth-schema";
+import { growthNotify } from "./growth-events";
 
 import {managedApiEnabled,assertManagedInvocation} from './managed-invocation';
 import {AssignmentRecoveryRunner} from './assignment-recovery-runner';
@@ -16,6 +18,9 @@ import { licensed, type BaseVersion } from "../content/contracts";
 import { newId } from "../database/object-id";
 import { ApiRequest, fail } from "../errors";
 import * as v from "./validation";
+import { discoveryCursor, discoveryQuery, learnerLinks } from "./discovery";
+import { fenceCourseSource, readCourseMetadata, saveCourseMetadata } from "./course-metadata";
+import { studioEnabled } from "./studio-schema";
 type Row = Document & { _id: string; org_id: string; revision: number };
 @Injectable()
 export class TrainingService {
@@ -250,13 +255,10 @@ export class TrainingService {
       return course;
     }
     if (course.status !== "published") fail(404, "NOT_FOUND", "课程不可访问");
-    const links = await this.col("class_courses")
-      .find(
-        { org_id: ctx.orgId, course_id: key, status: "active" },
-        { session: ctx.session },
-      )
-      .limit(200)
-      .toArray();
+    const links = await this.col("class_courses").aggregate([
+      { $match: { org_id: ctx.orgId, course_id: key, status: "active" } },
+      ...learnerLinks(ctx.orgId, ctx.memberId, await this.access.now(ctx)),
+    ], { session: ctx.session, maxTimeMS: 3000 }).toArray();
     for (const link of links) {
       try {
         await this.classAccess(
@@ -267,7 +269,7 @@ export class TrainingService {
           write,
         );
         await this.resources(ctx, course.lessons, write);
-        if(write && process.env.KL_KNOWLEDGE_ENABLED === "true"){
+        if(write && (process.env.KL_KNOWLEDGE_ENABLED === "true" || studioEnabled())){
           const fenced=await this.col("class_courses").updateOne(
             {_id:link._id,org_id:ctx.orgId,status:"active",revision:link.revision},
             {$inc:{revision:1}},{session:ctx.session});
@@ -397,12 +399,12 @@ export class TrainingService {
         )
         .limit(200)
         .toArray();
-      return { classes, subjects, assignments: quizIds, quizzes, surveys_enabled: process.env.KL_TRAINING_SURVEYS_ENABLED === "true", knowledge_enabled: process.env.KL_KNOWLEDGE_ENABLED === 'true', phase2_enabled: process.env.KL_TRAINING_PHASE2_ENABLED === 'true' };
+      return { classes, subjects, assignments: quizIds, quizzes, studio_enabled: studioEnabled(), growth_enabled: growthEnabled(), surveys_enabled: process.env.KL_TRAINING_SURVEYS_ENABLED === "true", knowledge_enabled: process.env.KL_KNOWLEDGE_ENABLED === 'true', phase2_enabled: process.env.KL_TRAINING_PHASE2_ENABLED === 'true' };
     });
   }
-  async listCourses(req: ApiRequest) {
+  async listCourses(req: ApiRequest, learner = false) {
     return this.run(req, false, async (ctx) => {
-      const teacher = ctx.capabilities.some((x) =>
+      const teacher = !learner && ctx.capabilities.some((x) =>
         [
           "training:schedule-manage",
         "training:path-edit",
@@ -426,9 +428,19 @@ export class TrainingService {
         .limit(200)
         .toArray();
       const out = [];
+      const subjectNames = new Map<string, string | null>();
       for (const r of rows) {
         try {
           await this.courseAccess(ctx, r._id, teacher);
+          // Discovery always uses the learner path, including for mixed-role accounts.
+          // Resolve names only after the complete class, licence and media checks.
+          if (learner && !subjectNames.has(r.subject_id)) {
+            const subject = await this.col("subjects").findOne(
+              { _id: r.subject_id },
+              { session: ctx.session, projection: { name: 1 } },
+            );
+            subjectNames.set(r.subject_id, typeof subject?.name === "string" ? subject.name : null);
+          }
           out.push({
             id: r._id,
             title: r.title,
@@ -437,12 +449,67 @@ export class TrainingService {
             subject_id: r.subject_id,
             version_no: r.version_no,
             lesson_count: r.lessons.length,
+            ...(learner ? {
+              subject_name: subjectNames.get(r.subject_id) ?? null,
+              formats: [...new Set<string>(r.lessons.map((lesson: any) => lesson.kind))],
+            } : {}),
           });
         } catch (e) {
           if ((e as any).status !== 404) throw e;
         }
       }
       return { items: out, limit: 200 };
+    });
+  }
+  async discovery(req: ApiRequest, raw: unknown) {
+    const q = discoveryQuery(raw);
+    return this.run(req, false, async ctx => {
+      this.require(ctx, "learning:self");
+      const page = discoveryCursor(this.access.assessment.auth.config.rateLimitKey,
+        [ctx.orgId, ctx.userId, ctx.memberId, q.limit, q.term, q.subject, q.format, q.sort], q.cursor);
+      const match: Document = { org_id: ctx.orgId, status: "published" };
+      if (page.after) match._id = { [q.sort === "newest" ? "$lt" : "$gt"]: page.after };
+      if (q.subject) match.subject_id = q.subject;
+      if (q.format) match["lessons.kind"] = q.format;
+      const literal = { $regex: q.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      const candidates = await this.col("courses").aggregate([
+        { $match: match }, { $sort: { _id: q.sort === "newest" ? -1 : 1 } },
+        ...(q.term ? [
+          { $lookup: { from: "subjects", localField: "subject_id", foreignField: "_id", as: "_discovery_subjects" } },
+          { $match: { $or: [{ title: literal }, { "_discovery_subjects.name": literal }] } },
+        ] : []),
+        { $lookup: { from: "class_courses", let: { course: "$_id" }, pipeline: [
+          { $match: { $expr: { $eq: ["$course_id", "$$course"] } } },
+          ...learnerLinks(ctx.orgId, ctx.memberId, await this.access.now(ctx)),
+        ], as: "_learner_links" } },
+        { $match: { "_learner_links.0": { $exists: true } } },
+        { $project: { _id: 1 } }, { $limit: 201 },
+      ], { session: ctx.session, maxTimeMS: 3000 }).toArray();
+      const items = [], names = new Map<string, string | null>();
+      let scanned = 0;
+      const deadline = performance.now() + 5000;
+      for (const candidate of candidates.slice(0, 200)) {
+        if (scanned && performance.now() > deadline) break;
+        ++scanned;
+        try {
+          const row = await this.courseAccess(ctx, candidate._id, false);
+          if (!names.has(row.subject_id)) {
+            const subject = await this.col("subjects").findOne({ _id: row.subject_id }, { session: ctx.session, projection: { name: 1 } });
+            names.set(row.subject_id, typeof subject?.name === "string" ? subject.name : null);
+          }
+          items.push({ id: row._id, title: row.title, status: "published" as const,
+            revision: row.revision, subject_id: row.subject_id, subject_name: names.get(row.subject_id) ?? null,
+            version_no: row.version_no, lesson_count: row.lessons.length,
+            required_lesson_count: row.lessons.filter((l: any) => l.required).length,
+            lesson_titles: row.lessons.slice(0, 5).map((l: any) => l.title),
+            formats: [...new Set<string>(row.lessons.map((l: any) => l.kind))], updated_at: row.updated_at,
+            ...(studioEnabled() ? { metadata: await readCourseMetadata(this, ctx, row._id) } : {}),
+          });
+        } catch (error) { if ((error as any).status !== 404) throw error; }
+        if (items.length === q.limit) break;
+      }
+      return { items, limit: q.limit,
+        next_cursor: scanned < candidates.length ? page.next(candidates[scanned - 1]!._id) : null };
     });
   }
   async course(req: ApiRequest, key: string, learner=false) {
@@ -465,6 +532,7 @@ export class TrainingService {
       const c = await this.courseAccess(ctx, key, teacher);
       return {
         ...c,
+        ...(studioEnabled() ? { metadata: await readCourseMetadata(this, ctx, c._id) } : {}),
         progress: teacher
           ? []
           : await this.col("course_progress")
@@ -675,6 +743,7 @@ export class TrainingService {
       "subject_id",
       "version_no",
       "lessons",
+      "metadata",
     ]);
     const payload = {
       code: v.text(o.code, 100),
@@ -692,7 +761,7 @@ export class TrainingService {
         req,
         "course.create",
         payload.subject_id,
-        payload,
+        { ...payload, ...(o.metadata === undefined ? {} : { metadata: o.metadata }) },
         async () => {
           const r = {
             ...(await this.base(ctx)),
@@ -704,8 +773,9 @@ export class TrainingService {
             review_note: "",
           };
           await this.col("courses").insertOne(r, { session: ctx.session });
+          await saveCourseMetadata(this, ctx, r._id, o.metadata);
           await this.audit(ctx, "course", r, "course.create");
-          return r;
+          return { ...r, ...(studioEnabled() ? { metadata: await readCourseMetadata(this, ctx, r._id) } : {}) };
         },
       );
     });
@@ -717,6 +787,7 @@ export class TrainingService {
       "title",
       "lessons",
       "note",
+      "metadata",
     ]);
     const action = v.text(o.action, 30);
     if (
@@ -764,10 +835,13 @@ export class TrainingService {
             fail(409, "INVALID_STATE", "仅已发布课程可退役");
           set = { status: "retired", review_note: v.text(o.note, 4000) };
         }
+        if (o.metadata !== undefined && action !== "edit") fail(422, "INVALID_INPUT", "课程说明仅随草稿编辑保存");
+        if (action === "edit") await saveCourseMetadata(this, ctx, key, o.metadata);
         if (set.lessons) await this.resources(ctx, set.lessons, true);
+        await fenceCourseSource(this, ctx, key);
         const r = await this.cas(ctx, "courses", c, o.expected_revision, set);
         await this.audit(ctx, "course", r, "course." + action);
-        return r;
+        return { ...r, ...(studioEnabled() ? { metadata: await readCourseMetadata(this, ctx, r._id) } : {}) };
       });
     });
   }
@@ -1248,9 +1322,10 @@ export class TrainingService {
         ))
     )
       fail(422, "INVALID_FILES", "附件编号须唯一且最多5个");
-    if (!["save", "submit"].includes(o.action))
+    if (!["save", "submit", "withdraw"].includes(o.action))
       fail(422, "INVALID_ACTION", "作业操作无效");
-    const body = v.text(o.body, 16000, o.action === "save");
+    if (o.action === "withdraw" && !studioEnabled()) fail(503, "STUDIO_DISABLED", "作品撤回尚未启用");
+    const body = v.text(o.body, 16000, o.action !== "submit");
     const expected = v.integer(o.expected_revision, 0);
     return this.run(req, true, async (ctx) => {
       this.require(ctx, "learning:self");
@@ -1270,6 +1345,14 @@ export class TrainingService {
         });
         if ((head?.revision ?? 0) !== expected)
           fail(409, "REVISION_CONFLICT", "作业已被其他窗口修改");
+        if (o.action === "withdraw") {
+          if (!head?.current_submission_id) fail(409, "INVALID_STATE", "没有可撤回的正式作品");
+          await this.fenceTaskFacts(ctx, task);
+          const withdrawn = await this.cas(ctx, "coursework_heads", head, expected,
+            { draft: body, current_submission_id: null, current_feedback_id: null }, task.due_at);
+          await this.audit(ctx, "coursework", withdrawn, "coursework.withdraw");
+          return withdrawn;
+        }
         if (!head) {
           head = {
             ...(await this.base(ctx)),
@@ -1520,7 +1603,7 @@ export class TrainingService {
             row,
             o.publish ? "feedback.publish" : "feedback.draft",
           );
-          if(o.publish)await this.phase2TaskNotification(ctx,task,'教师反馈已发布',[sub.member_id]);
+          if(o.publish){await this.phase2TaskNotification(ctx,task,'教师反馈已发布',[sub.member_id]);await growthNotify(this,ctx,'feedback',row._id,row.revision,[sub.member_id]);}
           return row;
         },
       );

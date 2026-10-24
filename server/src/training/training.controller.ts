@@ -66,6 +66,15 @@ export class TrainingController {
   @Get("courses") courses(@Req() r: ApiRequest) {
     return this.result(r, this.service.listCourses(r));
   }
+  @Get("discovery") discovery(@Req() r: ApiRequest, @Query() q: unknown) {
+    return this.result(r, this.service.discovery(r, q));
+  }
+  @Get("discovery/paths") discoverPaths(@Req() r: ApiRequest, @Query() q: unknown) {
+    return this.result(r, this.phase2.discoverPaths(r, q));
+  }
+  @Get("discovery/paths/:id") discoverPath(@Req() r: ApiRequest, @Param("id") id: string) {
+    return this.result(r, this.phase2.discoverPath(r, id));
+  }
   @Get("courses/:id") course(@Req() r: ApiRequest, @Param("id") id: string, @Query("mode") mode?:string) {
     if(mode!==undefined && mode!=="learner")fail(422,"INVALID_INPUT","课程视图模式无效");
     return this.result(r, this.service.course(r, id, mode === "learner"));

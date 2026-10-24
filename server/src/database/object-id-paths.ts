@@ -1,7 +1,17 @@
+import { GROWTH_PATHS } from "../training/growth-schema";
+import { STUDIO_PATHS } from "../training/studio-schema";
+import { PLANNING_PATHS } from "../lifelong/planning-schema";
+import { STUDY_PATHS } from "../lifelong/study-schema";
 import { TRAINING_PATHS } from "../training/paths";
+import { LIFELONG_PATHS } from "../lifelong/schema";
 // Reviewed v10 persistence paths. UUID tokens and arbitrary text are intentionally absent.
 export const OBJECT_ID_PATHS: Record<string, readonly string[]> = {
+  ...STUDIO_PATHS,
+  ...GROWTH_PATHS,
   ...TRAINING_PATHS,
+  ...LIFELONG_PATHS,
+  ...STUDY_PATHS,
+  ...PLANNING_PATHS,
   auth_email_identities: ["_id", "user_id"],
   auth_email_challenges: ["_id", "user_id", "invitation_id"],
   auth_admissions: ["_id", "user_id"],

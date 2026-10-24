@@ -92,7 +92,12 @@ export class LearningService {
     return { row, view };
   }
   async mistake(req: ApiRequest, key: string): Promise<MistakeResponse> {
-    return this.access.run(req, false, async ctx => {
+    return this.access.run(req, false, ctx => this.mistakeInContext(ctx, key));
+  }
+  async mistakeInContext(ctx: AssessmentContext, key: string): Promise<MistakeResponse> {
+      this.access.assessment.require(ctx, 'learning:self');
+      if (ctx.studentConflict || ['content:edit', 'content:review', 'assessment:manage', 'assessment:review'].some(cap => ctx.capabilities.includes(cap)))
+        fail(403, 'FORBIDDEN', '兼任内容或评估管理者不能访问学生学情');
       const { row, view } = await this.currentMistake(ctx, key);
       const submission = await this.c<Submission>('submissions').findOne({ _id: row.submission_id, org_id: ctx.orgId, user_id: ctx.userId, member_id: ctx.memberId }, { session: ctx.session });
       if (!submission) fail(409, 'PROJECTION_CHANGED', '错题已变化');
@@ -104,7 +109,6 @@ export class LearningService {
       const answer = await this.c<Answer>('answers').findOne({ org_id: ctx.orgId, session_id: submission.session_id, session_item_id: item._id }, { session: ctx.session });
       await deliverLearningFeedback(this.database.db, ctx, view, [], []);
       return { ...meta(view), id: row._id, question_id: row.question_id, mistake_status: row.status, submission_id: row.submission_id, grading_revision: evidence.run.revision, question: itemDto(item, answer?.answer ?? null), student_answer: answer?.answer ?? null, standard_answer: basis.answer, explanation: basis.explanation, score: scoreText(scoreCents(result.score)), verdict: result.verdict, practice_version_policy: 'current_published' as const };
-    });
   }
   async practice(req: ApiRequest, key: string, raw: unknown) {
     object(raw, []); id(key);

@@ -14,6 +14,7 @@ import { scoreCents } from "../assessment/scoring";
 import type { Submission } from "../assessment/contracts";
 import { PHASE2_CAPABILITIES } from "./phase2-schema";
 import * as v from "./validation";
+import { discoveryCursor, discoveryQuery } from "./discovery";
 type Row = any;
 const digest = (x: unknown) =>
   createHash("sha256")
@@ -257,6 +258,69 @@ export class TrainingPhase2Service {
         }
       }
       return { items, truncated: rows.length > 200 };
+    });
+  }
+  private async learnerPath(ctx: Context, id: string) {
+    this.t.require(ctx, "learning:self");
+    const assignment = await this.t.row(ctx, "training_path_assignments", id);
+    if (assignment.user_id !== ctx.userId || assignment.member_id !== ctx.memberId)
+      fail(404, "NOT_FOUND", "路径指派不可访问");
+    const path = await this.t.row(ctx, "training_paths", assignment.path_id);
+    if (path.status !== "published" || path.class_id !== assignment.class_id || path.subject_id !== assignment.subject_id)
+      fail(404, "NOT_FOUND", "路径当前不可访问");
+    // Always use learner access, including accounts with other scoped capabilities.
+    await this.t.classAccess(ctx, path.class_id, path.subject_id, false);
+    const rules = JSON.parse(assignment.rules_json);
+    return { assignment, rules, courseIds: this.idList(rules.course_ids, 1), taskIds: this.idList(rules.task_ids) };
+  }
+  async discoverPaths(req: ApiRequest, raw: unknown) {
+    const input = v.object(raw, ["q", "sort", "limit", "cursor"]), q = discoveryQuery(input);
+    return this.run(req, false, async ctx => {
+      this.t.require(ctx, "learning:self");
+      const page = discoveryCursor(this.t.access.assessment.auth.config.rateLimitKey,
+        ["learner-paths-v1", ctx.orgId, ctx.userId, ctx.memberId, q.term, q.sort, q.limit], q.cursor);
+      const candidates = await this.t.col("training_path_assignments").aggregate([
+        { $match: { org_id: ctx.orgId, user_id: ctx.userId, member_id: ctx.memberId,
+          ...(page.after ? { _id: { [q.sort === "newest" ? "$lt" : "$gt"]: page.after } } : {}) } },
+        { $sort: { _id: q.sort === "newest" ? -1 : 1 } },
+        { $lookup: { from: "training_paths", localField: "path_id", foreignField: "_id",
+          pipeline: [{ $match: { org_id: ctx.orgId, status: "published",
+            ...(q.term ? { title: { $regex: q.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } } : {}) } }], as: "_path" } },
+        { $match: { "_path.0": { $exists: true } } }, { $project: { _id: 1 } }, { $limit: 201 },
+      ], { session: ctx.session, maxTimeMS: 3000 }).toArray();
+      const items = []; let scanned = 0; const deadline = performance.now() + 5000;
+      for (const row of candidates.slice(0, 200)) {
+        if (scanned && performance.now() > deadline) break;
+        ++scanned;
+        try {
+          const { assignment, rules, courseIds, taskIds } = await this.learnerPath(ctx, row._id);
+          items.push({ id: assignment._id, title: rules.title, path_revision: rules.path_revision,
+            course_count: courseIds.length, task_count: taskIds.length, assigned_at: assignment.created_at });
+        } catch (error) { if ((error as any).status !== 404) throw error; }
+        if (items.length === q.limit) break;
+      }
+      return { items, limit: q.limit, next_cursor: scanned < candidates.length ? page.next(candidates[scanned - 1]!._id) : null };
+    });
+  }
+  async discoverPath(req: ApiRequest, id: string) {
+    return this.run(req, false, async ctx => {
+      const { assignment, rules, courseIds, taskIds } = await this.learnerPath(ctx, id);
+      const courses = [];
+      for (const courseId of courseIds) {
+        const c = await this.t.courseAccess(ctx, courseId, false);
+        if (c.subject_id !== assignment.subject_id || !await this.t.col("class_courses").findOne({
+          org_id: ctx.orgId, class_id: assignment.class_id, course_id: courseId, status: "active",
+        }, { session: ctx.session })) fail(404, "NOT_FOUND", "路径来源当前不可访问");
+        const required = c.lessons.filter((l: Row) => l.required).map((l: Row) => l.key);
+        const progress = await this.t.col("course_progress").find({ org_id: ctx.orgId, user_id: ctx.userId,
+          member_id: ctx.memberId, course_id: courseId, lesson_key: { $in: required }, completed_at: { $ne: null },
+        }, { session: ctx.session }).limit(100).toArray();
+        courses.push({ id: c._id, title: c.title, version_no: c.version_no, lesson_count: c.lessons.length,
+          required_lesson_count: required.length, confirmed_required_count: new Set(progress.map(p => p.lesson_key)).size });
+      }
+      return { id: assignment._id, title: rules.title, path_revision: rules.path_revision,
+        assigned_at: assignment.created_at, courses, task_count: taskIds.length,
+        attendance_bp: rules.attendance_bp, grade_min: rules.grade_min };
     });
   }
   async createLocation(req: ApiRequest, input: unknown) {

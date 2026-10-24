@@ -1,5 +1,14 @@
+import { GROWTH_SCHEMAS, GROWTH_CHECKSUM, GROWTH_COLLECTIONS, growthEnabled } from "../training/growth-schema";
+export { GROWTH_CHECKSUM };
+import { STUDIO_SCHEMAS, STUDIO_CHECKSUM, STUDIO_COLLECTIONS, studioEnabled } from "../training/studio-schema";
+export { STUDIO_CHECKSUM };
+import { PLANNING_SCHEMAS, PLANNING_CHECKSUM, PLANNING_COLLECTIONS } from "../lifelong/planning-schema";
 import { AUTH_EMAIL_SCHEMAS, AUTH_EMAIL_CHECKSUM, AUTH_EMAIL_COLLECTIONS, AUTH_EMAIL_EXCLUDED } from "../auth-email/schema";
 import { migrateAuthEmail } from "./auth-email-v22";
+import { migrateLifelong } from "./lifelong-v23";
+import { LIFELONG_SCHEMAS, LIFELONG_CHECKSUM, LIFELONG_COLLECTIONS, lifelongEnabled } from "../lifelong/schema";
+import { STUDY_SCHEMAS, STUDY_CHECKSUM, STUDY_COLLECTIONS } from "../lifelong/study-schema";
+export { LIFELONG_CHECKSUM, STUDY_CHECKSUM, PLANNING_CHECKSUM };
 import { loadEmailConfig } from "../auth-email/config";
 import { probeTopology } from "../database/topology";
 export { AUTH_EMAIL_CHECKSUM };
@@ -433,16 +442,37 @@ function legacySystemBackupRegistry() {
  if(!recoveryEnabled())return base;
  return {...base,version:21,collections:[...base.collections,...RECOVERY_COLLECTIONS],excluded:[...base.excluded,...RECOVERY_COLLECTIONS],checksums:{...base.checksums,'21':RECOVERY_CHECKSUM}};
 }
-export function systemBackupRegistry() {
+function emailSystemBackupRegistry() {
  const base = legacySystemBackupRegistry();
  return { ...base, version: 22, collections: [...base.collections, ...AUTH_EMAIL_COLLECTIONS],
    excluded: [...base.excluded, ...AUTH_EMAIL_EXCLUDED], checksums: { ...base.checksums, "22": AUTH_EMAIL_CHECKSUM } };
 }
+function personalSystemBackupRegistry() {
+ const base = emailSystemBackupRegistry();
+ return lifelongEnabled() ? { ...base, version: 23, collections: [...base.collections, ...LIFELONG_COLLECTIONS],
+   checksums: { ...base.checksums, "23": LIFELONG_CHECKSUM } } : base;
+}
+function studySystemBackupRegistry() {
+ const base = personalSystemBackupRegistry();
+ return lifelongEnabled() ? { ...base, version: 24, collections: [...base.collections, ...STUDY_COLLECTIONS], checksums: {...base.checksums, "24": STUDY_CHECKSUM} } : base;
+}
+function planningSystemBackupRegistry() {
+ const base = studySystemBackupRegistry();
+ return lifelongEnabled() ? { ...base, version: 25, collections: [...base.collections, ...PLANNING_COLLECTIONS], checksums: {...base.checksums, "25": PLANNING_CHECKSUM} } : base;
+}
+function studioSystemBackupRegistry() {
+ const base = planningSystemBackupRegistry();
+ return studioEnabled() ? { ...base, version: 26, collections: [...base.collections, ...STUDIO_COLLECTIONS], checksums: {...base.checksums, "26": STUDIO_CHECKSUM} } : base;
+}
+export function systemBackupRegistry() {
+ const base = studioSystemBackupRegistry();
+ return growthEnabled() ? {...base, version:27, collections:[...base.collections,...GROWTH_COLLECTIONS], checksums:{...base.checksums,"27":GROWTH_CHECKSUM}} : base;
+}
 /** Exact pre-email registry for this supported feature combination, never a wildcard. */
 export function supportedSystemBackupRegistries() {
- return [legacySystemBackupRegistry(), systemBackupRegistry()] as const;
+ return [legacySystemBackupRegistry(), emailSystemBackupRegistry(), personalSystemBackupRegistry(), studySystemBackupRegistry(), planningSystemBackupRegistry(), studioSystemBackupRegistry(), systemBackupRegistry()] as const;
 }
-function effectiveRuntimeSchemas(){const base=process.env.KL_TRAINING_ENABLED==='true'?effectiveTrainingSchemas():OBJECT_ID_SCHEMAS;return {...base,...(recoveryEnabled()?STANDALONE_RECOVERY_SCHEMAS:{}),...AUTH_EMAIL_SCHEMAS};}
+function effectiveRuntimeSchemas(){const base=process.env.KL_TRAINING_ENABLED==='true'?effectiveTrainingSchemas():OBJECT_ID_SCHEMAS;return {...base,...(recoveryEnabled()?STANDALONE_RECOVERY_SCHEMAS:{}),...AUTH_EMAIL_SCHEMAS,...(lifelongEnabled()?{...LIFELONG_SCHEMAS,...STUDY_SCHEMAS,...PLANNING_SCHEMAS}:{}),...(studioEnabled()?STUDIO_SCHEMAS:{}),...(growthEnabled()?GROWTH_SCHEMAS:{})};}
 
 /** Empty restore targets only. No markers, epochs, role catalog or state seeds. */
 export async function initializeRestoreSchema(db: Db): Promise<void> {
@@ -1047,6 +1077,20 @@ export async function migrate(uri:string):Promise<void>{
   if (!await emailClient.db().collection("schema_migrations").findOne({version:10,status:"completed",checksum:OBJECT_ID_CHECKSUM}))
    await initializeObjectId(uri, OBJECT_ID_SCHEMAS, OBJECT_ID_CHECKSUM, ROLE_CAPABILITIES);
   await migrateAuthEmail(emailClient.db(), OBJECT_ID_CHECKSUM);
+  if (studioEnabled()) {
+    if (process.env.KL_TRAINING_ENABLED !== "true") throw Error("Learning studio requires training");
+    if ((await probeTopology(emailClient.db())).mode !== "replicaSet") throw Error("STUDIO_TRANSACTION_REQUIRED");
+    await migrateLifelong(emailClient.db(), OBJECT_ID_CHECKSUM, {version:26,checksum:STUDIO_CHECKSUM,schemas:STUDIO_SCHEMAS});
+  }
+  if (growthEnabled()) {
+    if (!studioEnabled()) throw Error("Learning growth requires studio");
+    await migrateLifelong(emailClient.db(), OBJECT_ID_CHECKSUM, {version:27,checksum:GROWTH_CHECKSUM,schemas:GROWTH_SCHEMAS});
+  }
+  if (lifelongEnabled()) {
+ await migrateLifelong(emailClient.db(), OBJECT_ID_CHECKSUM);
+ await migrateLifelong(emailClient.db(), OBJECT_ID_CHECKSUM, {version: 24, checksum: STUDY_CHECKSUM, schemas: STUDY_SCHEMAS});
+ await migrateLifelong(emailClient.db(), OBJECT_ID_CHECKSUM, {version: 25, checksum: PLANNING_CHECKSUM, schemas: PLANNING_SCHEMAS});
+ }
  } finally { await emailClient.close(); }
  if(!recoveryEnabled())return migrateCore(uri);
  assertRecoveryConfiguration();const coordinator=new MongoClient(uri);await coordinator.connect();
@@ -1175,6 +1219,21 @@ export async function assertSchema(
     throw Error("AUTH_TRANSACTION_REQUIRED");
   const requirements: Array<[number, string, string]> = [];
   requirements.push([22, AUTH_EMAIL_CHECKSUM, "Auth email v22 migration incomplete"]);
+  if (studioEnabled()) {
+    if (process.env.KL_TRAINING_ENABLED !== "true") throw Error("Learning studio requires training");
+    if ((await probeTopology(db)).mode !== "replicaSet") throw Error("STUDIO_TRANSACTION_REQUIRED");
+    requirements.push([26, STUDIO_CHECKSUM, "Learning studio v26 migration incomplete"]);
+  }
+  if (growthEnabled()) {
+    if (!studioEnabled()) throw Error("Learning growth requires studio");
+    requirements.push([27, GROWTH_CHECKSUM, "Learning growth v27 migration incomplete"]);
+  }
+  if (lifelongEnabled()) {
+    if ((await probeTopology(db)).mode !== "replicaSet") throw Error("LIFELONG_TRANSACTION_REQUIRED");
+    requirements.push([23, LIFELONG_CHECKSUM, "Lifelong v23 migration incomplete"]);
+    requirements.push([24, STUDY_CHECKSUM, "Personal study v24 migration incomplete"]);
+    requirements.push([25, PLANNING_CHECKSUM, "Personal planning v25 migration incomplete"]);
+  }
   const add = (
     enabled: boolean,
     version: number,

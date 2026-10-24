@@ -81,10 +81,11 @@ export class CourseworkFilesService {
     if (write && (await this.training.access.now(ctx)) >= task.due_at)
       fail(409, "DEADLINE_PASSED", "作业已截止");
     if (!mine) {
+      if (!head.current_submission_id) fail(404, "NOT_FOUND", "当前没有可交付的正式作品");
       const bound = await this.training
         .col("coursework_submissions")
         .findOne(
-          { head_id: head._id, file_ids: file._id },
+          { _id: head.current_submission_id, head_id: head._id, file_ids: file._id },
           { session: ctx.session },
         );
       if (!bound) fail(404, "NOT_FOUND", "未提交的个人附件不可访问");

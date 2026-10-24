@@ -1,4 +1,10 @@
+import { growthOpenApi } from "./training/growth-openapi";
+import { LearningGrowthController } from "./training/growth.controller";
+import { LearningGrowthService } from "./training/growth.service";
 import {workbenchOpenApi} from "./training/workbench-openapi";
+import { LearningStudioController } from "./training/studio.controller";
+import { LearningStudioService } from "./training/studio.service";
+import { studioOpenApi } from "./training/studio-openapi";
 import {WorkbenchService} from "./training/workbench.service";
 import {WorkbenchController} from "./training/workbench.controller";
 import {surveyOpenApi} from "./training/survey-openapi";
@@ -22,6 +28,9 @@ import { TrainingService } from './training/training.service';
 import { TrainingAiService } from './training/ai.service';
 import { TrainingController } from './training/training.controller';
 import "reflect-metadata";
+import { LifelongController } from "./lifelong/controller";
+import { LifelongService } from "./lifelong/service";
+import { lifelongOpenApi } from "./lifelong/openapi";
 import { Module, ValidationPipe, HttpException } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { MongooseModule } from "@nestjs/mongoose";
@@ -96,8 +105,8 @@ export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(r
         retryAttempts: 0,
       }),
     ],
-    controllers: [AuthEmailController, AuthInvitationsController, WorkbenchController, SurveyController, ImportController, KnowledgeController, TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
-    providers: [AuthEmailService, AuthInvitationsService, MailDeliveryService, WorkbenchService, SurveyService, ImportService, KnowledgeService, KnowledgeSourceService, TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
+    controllers: [LearningGrowthController, LearningStudioController, LifelongController, AuthEmailController, AuthInvitationsController, WorkbenchController, SurveyController, ImportController, KnowledgeController, TrainingPhase2PublicController,SiteController, TrainingController, ApiController, ContentController, FilesController, AssessmentController, AssessmentFilesController, LearningController, RecommendationsController, ReadingController, PrivacyController, TeachingController, AdministrationController, PlatformBusinessController],
+    providers: [LearningGrowthService, LearningStudioService, LifelongService, AuthEmailService, AuthInvitationsService, MailDeliveryService, WorkbenchService, SurveyService, ImportService, KnowledgeService, KnowledgeSourceService, TrainingPhase2Service,TrainingReportService, CourseworkFilesService, SiteService, TrainingService, TrainingAiService, Database, AuthService, ContentAccess, ContentService, FilesService, AssessmentAccess, AssessmentService, LearningAccess, LearningService, RecommendationsService, ReadingService, PrivacyService, TeachingAccess, TeachingService, AdministrationService, PlatformBusinessAccess, PlatformReportService],
   })
   class AppModule {}
   const app = await NestFactory.create(AppModule, {
@@ -175,10 +184,13 @@ export async function createApp(options:{shutdownHooks?:boolean;managedGuard?:(r
       assessmentOpenApi(document);
       learningOpenApi(document);
       privacyOpenApi(document);
+      lifelongOpenApi(document);
       teachingOpenApi(document);
       extendAdministrationOpenApi(document);
       extendPlatformBusinessOpenApi(document);
       trainingOpenApi(document);
+      studioOpenApi(document);
+      growthOpenApi(document);
   phase2OpenApi(document);
       SwaggerModule.setup("api/docs", app, document, {
         jsonDocumentUrl: "api/openapi.json",

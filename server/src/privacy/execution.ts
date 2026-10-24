@@ -313,6 +313,34 @@ function steps(user: string, emailHashes: string[] = []): Step[] {
       { $unset: "privacy_parent" },
     ] },
     { name: "auth_invitations", pipeline: emailScope(user) },
+    { name: "learning_work_questions", pipeline: [
+      ...join("learning_questions", "question_id", [{ $match: { $or: [{ user_id: user }, { answered_by: user }] } }]).slice(0, 1),
+      { $match: { $or: [{ user_id: user }, { "privacy_parent.0": { $exists: true } }] } }, { $unset: "privacy_parent" },
+    ] },
+    { name: "learning_portfolio_shares", pipeline: [{ $match: { $or: [{ user_id: user }, { recipient_user_id: user }] } }] },
+    { name: "learning_growth_notifications", pipeline: direct("user_id", user) },
+    { name: "learning_growth_preferences", pipeline: direct("user_id", user) },
+    { name: "learning_studio_events", pipeline: [
+      ...join("organization_members", "subject_member_id", direct("user_id", user)).slice(0, 1),
+      { $match: { $or: [{ user_id: user }, { "privacy_parent.0": { $exists: true } }] } }, { $unset: "privacy_parent" },
+    ] },
+    // Children precede their parents so resumed erasure can still resolve provenance.
+    { name: "learning_question_messages", pipeline: [
+      ...join("learning_questions", "question_id", [{ $match: { $or: [{ user_id: user }, { answered_by: user }] } }]).slice(0, 1),
+      { $match: { $or: [{ user_id: user }, { "privacy_parent.0": { $exists: true } }] } }, { $unset: "privacy_parent" },
+    ] },
+    { name: "learning_questions", pipeline: [{ $match: { $or: [{ user_id: user }, { answered_by: user }] } }] },
+    { name: "learning_meetup_members", pipeline: [
+      ...join("learning_meetups", "meetup_id", direct("created_by", user)).slice(0, 1),
+      { $match: { $or: [{ user_id: user }, { recorded_by: user }, { "privacy_parent.0": { $exists: true } }] } }, { $unset: "privacy_parent" },
+    ] },
+    { name: "learning_meetups", pipeline: direct("created_by", user) },
+    { name: "learning_source_notes", pipeline: direct("user_id", user) },
+    // Always classify personal collections, including while the feature is closed.
+    ...["lifelong_goals", "lifelong_activities", "lifelong_receipts", "lifelong_study_items", "lifelong_agenda", "lifelong_week_reviews", "lifelong_review_events"].map(name => ({ name, pipeline: direct("user_id", user) })),
+    { name: "lifelong_supports", pipeline: [{ $match: { $or: [{ user_id: user }, { supporter_user_id: user }] } }] },
+    { name: "lifelong_feedback", pipeline: [{ $match: { $or: [{ user_id: user }, { actor_user_id: user }] } }] },
+    { name: "lifelong_assurances", pipeline: [{ $match: { $or: [{ user_id: user }, { guardian_user_id: user }, { proposer_user_id: user }, { reviewer_user_id: user }] } }] },
     { name: "auth_admissions", pipeline: direct("user_id", user) },
     { name: "auth_email_identities", pipeline: direct("user_id", user) },
   ];

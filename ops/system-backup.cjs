@@ -222,6 +222,42 @@ async function restore({ client, db, file, key, root }) {
         ensure(!emailMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
         await db.collection('schema_migrations').insertOne({ _id: newId(), version: 22, checksum: schema.AUTH_EMAIL_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
       } else ensure(emailMarker?.status === 'completed' && emailMarker.checksum === schema.AUTH_EMAIL_CHECKSUM && emailMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      if (Object.hasOwn(schema.systemBackupRegistry().checksums, '23')) {
+        const personalMarker = await db.collection('schema_migrations').findOne({ version: 23 });
+        if (manifest.registry.version < 23) {
+          ensure(!personalMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
+          // These collections were created empty on the quarantined target, never synthesized from organization records.
+          await db.collection('schema_migrations').insertOne({ _id: newId(), version: 23, checksum: schema.LIFELONG_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+        } else ensure(personalMarker?.status === 'completed' && personalMarker.checksum === schema.LIFELONG_CHECKSUM && personalMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      }
+      if (Object.hasOwn(schema.systemBackupRegistry().checksums, '24')) {
+        const studyMarker = await db.collection('schema_migrations').findOne({ version: 24 });
+        if (manifest.registry.version < 24) {
+          ensure(!studyMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
+          await db.collection('schema_migrations').insertOne({ _id: newId(), version: 24, checksum: schema.STUDY_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+        } else ensure(studyMarker?.status === 'completed' && studyMarker.checksum === schema.STUDY_CHECKSUM && studyMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      }
+      if (Object.hasOwn(schema.systemBackupRegistry().checksums, '25')) {
+        const planningMarker = await db.collection('schema_migrations').findOne({ version: 25 });
+        if (manifest.registry.version < 25) {
+          ensure(!planningMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
+          await db.collection('schema_migrations').insertOne({ _id: newId(), version: 25, checksum: schema.PLANNING_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+        } else ensure(planningMarker?.status === 'completed' && planningMarker.checksum === schema.PLANNING_CHECKSUM && planningMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      }
+      if (Object.hasOwn(schema.systemBackupRegistry().checksums, '26')) {
+        const studioMarker = await db.collection('schema_migrations').findOne({ version: 26 });
+        if (!Object.hasOwn(manifest.registry.checksums, '26')) {
+          ensure(!studioMarker, 'BACKUP_REGISTRY_UNSUPPORTED');
+          await db.collection('schema_migrations').insertOne({ _id: newId(), version: 26, checksum: schema.STUDIO_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+        } else ensure(studioMarker?.status === 'completed' && studioMarker.checksum === schema.STUDIO_CHECKSUM && studioMarker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      }
+      if (Object.hasOwn(schema.systemBackupRegistry().checksums, '27')) {
+        const marker = await db.collection('schema_migrations').findOne({ version: 27 });
+        if (!Object.hasOwn(manifest.registry.checksums, '27')) {
+          ensure(!marker, 'BACKUP_REGISTRY_UNSUPPORTED');
+          await db.collection('schema_migrations').insertOne({ _id: newId(), version: 27, checksum: schema.GROWTH_CHECKSUM, status: 'completed', lease_token: null, lease_until: null, created_at: now, started_at: now, completed_at: now, failed_at: null });
+        } else ensure(marker?.status === 'completed' && marker.checksum === schema.GROWTH_CHECKSUM && marker.completed_at instanceof Date, 'BACKUP_REGISTRY_UNSUPPORTED');
+      }
       // Apply external holds/erasures before any reconciliation or physical deletion.
       const latest = await ledgerApi.readSafetyLedger(manifest.environment_id, safety.sequence); await ledgerApi.applySafetyLedger(db, latest);
       await db.collection('backup_restore_runs').updateOne({ _id: restoreId }, { $set: { ledger_sequence: latest.sequence, updated_at: new Date() } });
