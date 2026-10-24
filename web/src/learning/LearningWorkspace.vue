@@ -25,6 +25,12 @@ const objectUrls = new Set<string>(), downloadTimers = new Set<number>(), unavai
 const unknown = computed(() => !!pending.value || storageBlocked.value || childUnknown.value);
 const locked = computed(() => busy.value || catalogueBusy.value || writeBusy.value || unknown.value || cooldown.value > 0 || denied.value);
 const subjects = computed(() => [...new Set([...quizzes.value.map(q => q.subject_id), ...(options.value ? [options.value.subject_id] : []), ...(subject.value ? [subject.value] : [])])]);
+function subjectLabel(id: string) {
+  if (id === options.value?.subject_id && options.value.subject_name) return options.value.subject_name;
+  if (id === options.value?.subject_id) return `教材「${books.value.find(book => book.id === edition.value)?.title || '当前教材'}」的学科`;
+  const quiz = quizzes.value.find(row => row.subject_id === id);
+  return quiz ? `考试「${quiz.title}」的学科` : '已知学科';
+}
 const current = computed(() => mode.value === 'recommendations' ? recommendations.value : mode.value === 'mistakes' ? mistakes.value : period.value === 'mastery' ? mastery.value : reports.value);
 const ready = computed(() => current.value && readyStatus(current.value.status));
 const rows = computed(() => period.value === 'mastery' ? mastery.value?.items || [] : reports.value?.mastery || []);
@@ -181,7 +187,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
 
 <template>
   <section class="panel content-workspace stack learning-surface" aria-labelledby="learning-title">
-    <header class="page-heading"><p class="eyebrow"><BrandIcon name="chart-no-axes-combined" />我的学习</p><h2 id="learning-title">以真实证据，决定下一步</h2><p class="muted">掌握度基于近90天的合格首次记录作答；至少5道独立题目才提供诊断。重复练习可更新错题状态，不会刷高首次证据。</p></header>
+    <header class="page-heading"><p class="eyebrow"><BrandIcon name="chart-no-axes-combined" />我的学习</p><h2 id="learning-title">学情与报告</h2><p class="muted">查看学习表现、回顾错题，找到下一步练习方向。</p><details><summary>掌握度如何计算</summary><p>基于近90天的合格首次作答，至少5道独立题目才提供诊断。重复练习可更新错题状态，不会刷高首次证据。</p></details></header>
     <p v-if="!allowed" class="notice" role="alert">当前身份不具备独立学生学情权限，兼任内容或评估管理者不能访问此工作台。</p>
     <template v-else>
       <nav class="content-toolbar" aria-label="学情导航"><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'mastery'" @click="navigate('mastery')">学情与报告</button><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'mistakes'" @click="navigate('mistakes')">错题</button><button class="button secondary" :disabled="writeBusy || busy || denied" :aria-pressed="mode === 'recommendations'" @click="navigate('recommendations')">下一步推荐</button></nav>
@@ -191,7 +197,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); readController.ab
       <p v-if="denied" class="notice">当前资源或身份已不可访问，敏感内容已清除。请重新确认身份与组织后进入。</p>
       <AssessmentSession v-if="selectedSession" :key="selectedSession" :session-id="selectedSession" :identity="identity" :request="request" @dirty="childDirty = $event" @unknown="childUnknown = $event" />
       <template v-else-if="!denied">
-        <div class="content-columns"><div class="field"><label for="learning-edition">教材版本（推荐必选）</label><select id="learning-edition" v-model="edition" :disabled="locked" @change="chooseEdition"><option value="">不限定教材 / 考试学科</option><option v-for="book in books" :key="book.id" :value="book.id">{{ book.title }} · {{ book.edition_code }}</option></select><button v-if="bookCursor" class="text-button" :disabled="locked" @click="catalogue('books')">加载更多真实教材</button></div><div class="field"><label for="learning-subject">学科</label><select id="learning-subject" v-model="subject" :disabled="locked || mode === 'recommendations'" @change="chooseSubject"><option value="">选择教材或考试学科</option><option v-for="id in subjects" :key="id" :value="id">{{ id === options?.subject_id ? '所选教材学科' : '学科' }} · {{ id }}</option></select><p class="field-help">学科来自真实教材与可见考试；没有教材的考试学科也可查阅学情。接口未提供名称时保留真实编号。</p><button v-if="quizCursor" class="text-button" :disabled="locked" @click="catalogue('quizzes')">加载更多考试学科</button></div></div>
+        <div class="content-columns"><div class="field"><label for="learning-edition">教材版本（推荐必选）</label><select id="learning-edition" v-model="edition" :disabled="locked" @change="chooseEdition"><option value="">不限定教材 / 考试学科</option><option v-for="book in books" :key="book.id" :value="book.id">{{ book.title }} · {{ book.edition_code }}</option></select><button v-if="bookCursor" class="text-button" :disabled="locked" @click="catalogue('books')">加载更多真实教材</button></div><div class="field"><label for="learning-subject">学科</label><select id="learning-subject" v-model="subject" :disabled="locked || mode === 'recommendations'" @change="chooseSubject"><option value="">选择教材或考试学科</option><option v-for="id in subjects" :key="id" :value="id">{{ subjectLabel(id) }}</option></select><p class="field-help">从教材或可见考试选择学科，历史编号可在下方高级定位中查询。</p><button v-if="quizCursor" class="text-button" :disabled="locked" @click="catalogue('quizzes')">加载更多考试学科</button></div></div>
         <details v-if="mode !== 'recommendations'"><summary>按已知学科编号读取（含历史考试）</summary><form class="stack" @submit.prevent="subject = subjectInput; chooseSubject()"><label for="learning-subject-id">真实学科编号</label><input id="learning-subject-id" v-model="subjectInput" :disabled="locked" required pattern="[0-9a-f]{24}" /><p class="field-help">历史会话接口不返回学科编号；请使用已知真实编号，系统不推测考试归属。</p><button class="button secondary" :disabled="locked">读取学科</button></form></details>
         <button class="text-button" :disabled="locked" @click="catalogue()">重新读取教材与考试目录</button>
         <nav v-if="mode === 'mastery'" class="content-toolbar" aria-label="报告窗口"><button v-for="tab in (['mastery', '7d', '30d'] as const)" :key="tab" class="button secondary" :disabled="locked" :aria-pressed="period === tab" @click="choosePeriod(tab, $event)">{{ tab === 'mastery' ? '90天掌握度' : tab === '7d' ? '最近7天报告' : '最近30天报告' }}</button></nav>

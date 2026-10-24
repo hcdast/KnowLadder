@@ -1,0 +1,5 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>个人空间响应式验收</title>
+<style>body{margin:16px;font:16px system-ui;background:#eef4f8;color:#18334d}button{min-height:44px;margin:0 8px 16px 0}iframe{display:block;height:1000px;border:1px solid #9aafc0;background:white}#frame-host{overflow:auto}</style></head>
+<body><h1>个人空间响应式验收</h1><p>使用真实应用的 CSS 布局视口；身份由隔离试点提供，不替代物理设备或读屏验收。</p><nav aria-label="布局视口"><button data-width="320">320px</button><button data-width="390">390px</button><button data-width="1280">1280px</button></nav><p id="size" role="status">当前布局视口：320px</p><div id="frame-host"><iframe title="个人空间布局视口" src="/personal" width="320"></iframe></div>
+<script type="module">const frame=document.querySelector('iframe');for(const button of document.querySelectorAll('[data-width]'))button.addEventListener('click',()=>{frame.width=button.dataset.width;document.querySelector('#size').textContent=`当前布局视口：${button.dataset.width}px`;});</script></body></html>

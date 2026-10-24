@@ -12,11 +12,14 @@ import { RouterLink, useRoute, useRouter } from "vue-router";
 import { ApiError, useSession } from "./session";
 import CertificateVerification from "./training/CertificateVerification.vue";
 import PublicSite from "./site/PublicSite.vue";
+import LoginForm from "./auth/LoginForm.vue";
+import LoginDialog from "./auth/LoginDialog.vue";
+import AccountMenu from "./components/AccountMenu.vue";
 import BrandJourney from "./components/BrandJourney.vue";
 import BrandIcon from "./components/BrandIcon.vue";
 import WorkspaceLoadState from "./components/WorkspaceLoadState.vue";
 import type { ConsoleContext } from "./administration/types";
-import { availableWorkspaces, canUseStudentLearning, createEntryCoordinator, readPreference, targetAllowed, writePreference, type TargetOutcome, type WorkspacePath } from "./auth/entry";
+import { availableWorkspaces, canUseStudentLearning, createEntryCoordinator, parseReturnTo, preferredTaskWorkspace, readPreference, targetAllowed, writePreference, type TargetOutcome, type WorkspacePath } from "./auth/entry";
 import { createEmailClient, createEmailFlow, hasEmailTokenFragment, type ActivationResult, type EmailCapabilities } from "./auth/email";
 const workspaceLoadOptions = {
   loadingComponent: WorkspaceLoadState,
@@ -59,6 +62,10 @@ const TrainingWorkspace = defineAsyncComponent({
 const PrivacyWorkspace = defineAsyncComponent({
   ...workspaceLoadOptions,
   loader: () => import("./privacy/PrivacyWorkspace.vue"),
+});
+const PersonalWorkspace = defineAsyncComponent({
+  ...workspaceLoadOptions,
+  loader: () => import("./personal/PersonalWorkspace.vue"),
 });
 const BusinessSafetyPage = defineAsyncComponent({
   ...workspaceLoadOptions,
@@ -108,7 +115,7 @@ async function confirmEmailSession(budget: number, expectedUserId?: string | nul
 async function switchEmailAccount() {
   const previousPhase = state.phase;
   if (emailWriteActive.value || state.busy || previousPhase !== "authenticated" || !await confirmContentLeave(true)) return false;
-  clearAssessmentRecovery(); await mutate("logout");
+  await mutate("logout");
   return state.phase === "anonymous";
 }
 async function emailLogin() {
@@ -141,7 +148,6 @@ const consoleAvailable = ref(false),
 const consoleStatus = ref<"idle" | "loading" | "ready" | "error">("idle");
 const consoleContext = ref<ConsoleContext | null>(null);
 const consoleProbeMessage = ref("");
-const accountMenu = ref<HTMLDetailsElement>();
 const signingIn = ref(false);
 const consoleWriteActive = ref(false);
 const consoleWorkspace = ref<{ beforeLeave: () => Promise<boolean> }>();
@@ -151,6 +157,7 @@ let consoleController = new AbortController();
 async function checkConsole() {
   const identity = state.identity;
   if (
+    route.meta.category === "public" ||
     state.phase !== "authenticated" ||
     !identity?.context ||
     identity.must_change_password
@@ -265,6 +272,7 @@ const readingTarget = ref<{ editionId: string; chapterId: string }>();
 const publicPage = computed(() =>
   [
     "/",
+    "/explore",
     "/features",
     "/ai-teaching",
     "/solutions",
@@ -274,8 +282,43 @@ const publicPage = computed(() =>
     "/verify-certificate",
   ].includes(route.path),
 );
+
+const loginBackground = ref<{ path: string; fullPath: string }>();
+const smallLogin = ref(window.matchMedia("(max-width: 600px)").matches);
+let loginTrigger: HTMLElement | null = null;
+const modalLogin = computed(() => route.path === "/login" && !!loginBackground.value && !smallLogin.value && state.phase !== "authenticated");
+function resizeLogin() { smallLogin.value = window.matchMedia("(max-width: 600px)").matches; }
+onMounted(() => window.addEventListener("resize", resizeLogin));
+onBeforeUnmount(() => window.removeEventListener("resize", resizeLogin));
+async function openSiteLogin(requestedTarget?: string) {
+  const target = parseReturnTo(requestedTarget);
+  if (state.phase === "authenticated") { await router.push(target || "/home"); return; }
+  loginTrigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  loginBackground.value = { path: route.path, fullPath: route.fullPath };
+  const failure = await router.push({ path: "/login", query: target ? { returnTo: target } : {} });
+  if (failure) loginBackground.value = undefined;
+}
+async function closeSiteLogin() {
+  const background = loginBackground.value;
+  if (!background) return;
+  await router.replace(background.fullPath);
+}
+watch(() => route.path, async (path, previous) => {
+  if (previous === "/login" && path !== "/login") {
+    const trigger = loginTrigger;
+    loginBackground.value = undefined;
+    loginTrigger = null;
+    if (["/", "/explore", "/features", "/ai-teaching", "/solutions", "/help", "/about", "/contact"].includes(path)) {
+      await nextTick();
+      if (trigger?.isConnected) trigger.focus();
+    }
+  }
+});
+
 const trainingDirty = ref(false),
   trainingUnknown = ref(false);
+const personalDirty = ref(false), personalUnknown = ref(false);
+const personalWorkspace = ref<{ beforeLeave: () => Promise<boolean> }>();
 const canTraining = computed(() => availableEntries.value.includes("/training"));
 const workspace = computed(() =>
   route.path.startsWith("/console")
@@ -288,6 +331,7 @@ const workspace = computed(() =>
         | "learning"
         | "teaching"
         | "privacy"
+        | "personal"
         | "training"
         | "login"),
 );
@@ -349,6 +393,7 @@ async function selectWorkspace(
     | "learning"
     | "teaching"
     | "privacy"
+    | "personal"
     | "training"
     | "console",
 ) {
@@ -373,7 +418,7 @@ const defaultWorkspace = computed(() => {
   if (!identity?.context) return "";
   const preference = readPreference(identity.user.id);
   return preference?.orgId === identity.context.org_id && preference.workspace && availableEntries.value.includes(preference.workspace)
-    ? preference.workspace : availableEntries.value[0] || "";
+    ? preference.workspace : preferredTaskWorkspace(identity, consoleContext.value) || "";
 });
 let entryNavigation = false;
 let organizationSwitch = false;
@@ -400,8 +445,9 @@ watch(
     }
     if (state.phase !== "authenticated" || state.busy || passwordPage.value || targetOutcome.value) return;
     const entryRoute = route.path === "/home" || route.path === "/login" || pendingAccountLanding.value ||
-      (!identity.organizations.length && !["/account", "/privacy"].includes(route.path));
-    if (!identity.context && identity.organizations.length) {
+      (!identity.organizations.length && !["/account", "/privacy", "/personal"].includes(route.path));
+    if (route.path === "/personal") { entry.explicitNavigation(); pendingAccountLanding.value = false; organizationSwitch = false; return; }
+    if (!identity.context && identity.organizations.length && !entry.globalTarget) {
       if (entryRoute) return;
       if (!pendingAccountLanding.value) entry.capture(route.fullPath);
       return;
@@ -438,12 +484,6 @@ watch(
   },
   { flush: "pre", immediate: true },
 );
-watch(
-  () => route.fullPath,
-  () => {
-    if (accountMenu.value) accountMenu.value.open = false;
-  },
-);
 async function openReading(target: { editionId: string; chapterId: string }) {
   if (workspace.value === "content") {
     if (!(await confirmContentLeave())) return;
@@ -455,6 +495,7 @@ async function confirmContentLeave(preserveEmailIntent = false) {
   navigationBusy.value = true;
   const epoch = state.formEpoch;
   try {
+    if ((personalDirty.value || personalUnknown.value) && (!personalWorkspace.value || !await personalWorkspace.value.beforeLeave())) return false;
     if (authPages.value && !await authPages.value.beforeLeave(preserveEmailIntent)) return false;
     if (accountEmailSecurity.value && !await accountEmailSecurity.value.beforeLeave()) return false;
     if (
@@ -578,13 +619,11 @@ function clearAssessmentRecovery(
 }
 async function logout() {
   if (await confirmContentLeave()) {
-    clearAssessmentRecovery();
     await mutate("logout");
+    if (state.phase === "anonymous" && ["confirmed", "connection-unavailable"].includes(state.logoutResult))
+      await router.replace("/");
   }
 }
-const loginName = ref("");
-const showPassword = ref(false);
-const password = ref("");
 const currentPassword = ref("");
 const newPassword = ref("");
 const confirmation = ref("");
@@ -609,7 +648,8 @@ const title = computed(() =>
   publicPage.value
     ? (
         {
-          "/": "AI 教学培训平台",
+          "/": "全龄终身学习平台",
+          "/explore": "探索终身学习",
           "/features": "产品功能",
           "/ai-teaching": "AI 教学",
           "/solutions": "解决方案",
@@ -621,9 +661,9 @@ const title = computed(() =>
     : signingIn.value
       ? "登录知阶"
       : state.phase === "loading"
-      ? "正在确认你的身份"
+      ? state.authAction === "logout" ? "正在退出登录" : "正在确认你的身份"
       : state.phase === "unknown"
-        ? "会话状态待确认"
+        ? state.logoutResult === "unconfirmed" ? "退出结果待确认" : "暂时无法登录"
         : state.phase === "anonymous"
           ? "登录知阶"
           : passwordPage.value
@@ -632,18 +672,20 @@ const title = computed(() =>
               : "修改密码"
             : workspace.value === "account"
               ? "账号与安全"
+              : workspace.value === "personal"
+                ? "个人学习空间"
               : workspace.value === "privacy"
                 ? "隐私与数据"
                 : workspace.value === "training"
-                  ? "课程与培训"
+                  ? canLearn.value ? "我的学习" : "课程与培训"
                   : workspace.value === "teaching"
                     ? "教学工作台"
                     : workspace.value === "learning"
-                      ? "学习首页"
+                        ? "学情与报告"
                       : workspace.value === "content"
                         ? "教材与内容"
                         : workspace.value === "assessment"
-                          ? "练习与考试"
+                          ? canLearn.value ? "练习与考试" : "考试管理与审核"
                           : "进入工作台",
 );
 const consolePageTitles: Record<string, string> = {
@@ -682,7 +724,6 @@ const organizationName = computed(
 );
 
 function clearPasswords() {
-  password.value = "";
   currentPassword.value = "";
   newPassword.value = "";
   confirmation.value = "";
@@ -703,6 +744,8 @@ watch(
     learningUnknown.value = false;
     readingPending.value = false;
     privacyUnknown.value = false;
+    personalDirty.value = false;
+    personalUnknown.value = false;
     trainingDirty.value = false;
     trainingUnknown.value = false;
   },
@@ -753,17 +796,16 @@ watch(title, async () => {
   await nextTick();
   heading.value?.focus();
 });
-async function login() {
+async function login(credentials: { login_name: string; password: string }) {
   if (signingIn.value || state.busy) return;
   localError.value = "";
   signingIn.value = true;
-  const pending = mutate("login", { login_name: loginName.value, password: password.value });
-  password.value = "";
+  const pending = mutate("login", credentials);
   try {
     await pending;
     if (state.phase === "authenticated" && emailIntentPath.value) await resumeEmailIntent();
   }
-  finally { signingIn.value = false; showPassword.value = false; }
+  finally { signingIn.value = false; }
 }
 async function changePassword() {
   localError.value = "";
@@ -825,7 +867,8 @@ function closePassword() {
 async function retry() {
   if (!(await confirmContentLeave())) return;
   localError.value = "";
-  void synchronize();
+  if (publicPage.value) void confirmAuthentication();
+  else void synchronize();
 }
 </script>
 
@@ -856,7 +899,14 @@ async function retry() {
   <nav v-if="consoleShell && availableEntries.length > 1" class="content-toolbar" aria-label="工作区切换"><RouterLink v-for="path in availableEntries" :key="path" class="button secondary" :to="path" :aria-current="route.path === path ? 'page' : undefined">{{ workspaceLabels[path] }}</RouterLink></nav>
   <aside v-if="consoleShell && consoleProbeMessage" class="notice" role="status">{{ consoleProbeMessage }} <button class="button secondary" :disabled="state.busy || consoleWriteActive" @click="checkConsole">重新检查管理职责</button></aside>
   <CertificateVerification v-if="route.path === '/verify-certificate'" />
-  <PublicSite v-else-if="publicPage" />
+  <template v-else-if="publicPage || modalLogin">
+    <PublicSite :page-path="modalLogin ? loginBackground?.path : undefined" :user-name="state.phase === 'authenticated' ? state.identity?.user.display_name : undefined" :busy="state.busy" :logout-result="state.logoutResult" @login="openSiteLogin" @logout="logout" @retry="retry" />
+    <LoginDialog v-if="modalLogin" @close="closeSiteLogin">
+      <LoginForm :phase="state.phase" :busy="state.busy" :submitting="signingIn" :message="message" :fields="state.fields" :capabilities="emailCapabilities" :logout-result="state.logoutResult" @submit="login" @retry="retry">
+        <template v-if="emailIntentPath" #return-flow><button type="button" class="text-button" :disabled="state.busy" @click="resumeEmailIntent">返回当前邮件流程</button></template>
+      </LoginForm>
+    </LoginDialog>
+  </template>
   <main v-else-if="emailPage && !passwordPage" id="main-content" class="layout">
     <AuthPages ref="authPages" :client="emailClient" :flow="emailFlow" :phase="state.phase" :user-id="state.identity?.user.id"
       :locked="state.busy || navigationBusy" :before-auth-switch="switchEmailAccount" :session-changed="confirmEmailSession"
@@ -924,29 +974,10 @@ async function retry() {
             </option>
           </select>
         </label>
-        <details
-          ref="accountMenu"
-          class="workspace-account-menu"
-          @keydown.esc="accountMenu && (accountMenu.open = false)"
-        >
-          <summary
-            :aria-label="state.identity.user.display_name + '的账号菜单'"
-          >
-            <span class="workspace-avatar" aria-hidden="true">{{
-              Array.from(state.identity.user.display_name)[0]
-            }}</span
-            ><span>{{ state.identity.user.display_name }}</span>
-          </summary>
-          <div class="workspace-account-links">
-            <RouterLink to="/account">账号与安全</RouterLink
-            ><button :disabled="state.busy || navigationBusy" @click="logout">
-              退出登录
-            </button>
-          </div>
-        </details>
+        <AccountMenu :name="state.identity.user.display_name" :busy="state.busy || navigationBusy" @logout="logout" />
       </div>
-      <span v-else class="header-note"
-        ><BrandIcon name="shield-check" /> 账号与安全</span
+      <RouterLink v-else to="/" class="header-note"
+        >返回网站首页 ↗</RouterLink
       >
     </header>
     <main
@@ -966,6 +997,7 @@ async function retry() {
         class="content-workspace content-toolbar workspace-navigation"
         aria-label="工作台导航"
       >
+        <button class="button secondary" :disabled="navigationBusy" :aria-pressed="workspace === 'personal'" @click="selectWorkspace('personal')">个人学习空间</button>
         <button
           v-if="
             workspace === 'account' ||
@@ -980,13 +1012,14 @@ async function retry() {
         >
           返回工作台
         </button>
+        <button v-if="canLearn" class="button secondary" :disabled="navigationBusy" :aria-pressed="workspace === 'training'" @click="selectWorkspace('training')">我的学习</button>
         <button
           v-if="canReadContent || canSafety || canLearn"
           class="button secondary"
           :aria-pressed="workspace === 'content'"
           @click="selectWorkspace('content')"
         >
-          教材与内容工作台
+          {{ canLearn ? '我的教材' : '教材与内容' }}
         </button>
         <button
           v-if="canAssessment"
@@ -994,7 +1027,7 @@ async function retry() {
           :aria-pressed="workspace === 'assessment'"
           @click="selectWorkspace('assessment')"
         >
-          练习、考试与结果
+          {{ canLearn ? '练习与考试' : '考试管理与审核' }}
         </button>
         <button
           v-if="canLearn"
@@ -1003,10 +1036,10 @@ async function retry() {
           :aria-pressed="workspace === 'learning'"
           @click="selectWorkspace('learning')"
         >
-          学习首页
+          学情与报告
         </button>
         <button
-          v-if="canTraining"
+          v-if="canTraining && !canLearn"
           class="button secondary"
           :disabled="navigationBusy"
           :aria-pressed="workspace === 'training'"
@@ -1173,7 +1206,7 @@ async function retry() {
           </p>
         </div>
         <div
-          v-if="message && state.phase !== 'unknown'"
+          v-if="message && state.phase === 'authenticated'"
           ref="errorSummary"
           class="notice"
           role="status"
@@ -1190,69 +1223,9 @@ async function retry() {
             }}（秒数或服务器指定时间），请稍后再试。
           </p>
         </div>
-        <div
-          v-if="state.phase === 'loading' && !signingIn"
-          class="status-block"
-          role="status"
-        >
-          <span class="loading-mark" aria-hidden="true"></span>
-          <p>正在安全连接，请稍候…</p>
-        </div>
-        <div v-else-if="state.phase === 'unknown'" class="stack">
-          <button class="button" :disabled="state.busy" @click="retry">
-            重新查询会话
-          </button>
-        </div>
-        <form
-          v-else-if="state.phase === 'anonymous' || signingIn"
-          class="stack"
-          @submit.prevent="login"
-        >
-          <div class="field">
-            <label for="login-name">{{ emailCapabilities?.email_password_login ? "用户名或已验证邮箱" : "用户名" }}</label>
-            <input
-              id="login-name"
-              v-model="loginName"
-              name="username"
-              autocomplete="username"
-              autocapitalize="none"
-              :spellcheck="false"
-              required
-              :disabled="state.busy"
-              :aria-invalid="!!state.fields.login_name"
-              aria-describedby="login-help"
-            />
-            <p id="login-help" class="field-help">
-              {{ emailCapabilities?.email_password_login ? "使用原用户名、本人已验证邮箱或激活时交付的备用用户名；不是显示姓名。" : "使用管理员提供的用户名；邮箱登录能力尚未确认。" }}
-            </p>
-          </div>
-          <div class="field">
-            <label for="login-password">密码</label>
-            <input
-              id="login-password"
-              v-model="password"
-              name="password"
-              :type="showPassword ? 'text' : 'password'"
-              autocomplete="current-password"
-              required
-              :disabled="state.busy"
-              :aria-invalid="!!state.fields.password"
-            />
-            <button type="button" class="text-button" :aria-pressed="showPassword" :disabled="state.busy" @click="showPassword = !showPassword">{{ showPassword ? "隐藏密码" : "显示密码" }}</button>
-          </div>
-          <button
-            class="button login-submit"
-            type="submit"
-            :disabled="state.busy"
-          >
-            {{ state.busy ? "正在登录…" : "登录" }}
-            <span v-if="signingIn" class="loading-mark" aria-hidden="true"></span><BrandIcon v-else name="arrow-right" />
-          </button>
-          <div class="login-help"><BrandIcon name="shield-check" /><p class="field-help">已有机构账号仍可使用原用户名。敏感治理与审核账号恢复仍须独立审批，邮箱不能绕过审批。</p></div>
-          <p v-if="emailCapabilityError" class="notice" role="status">{{ emailCapabilityError }} <button type="button" class="text-button" :disabled="state.busy" @click="checkEmailCapabilities">重新查询邮件能力</button></p>
-          <div class="actions"><RouterLink v-if="emailCapabilities?.email_actions" to="/forgot-password">通过验证邮箱找回密码</RouterLink><RouterLink v-if="emailCapabilities?.public_registration && emailCapabilities.email_actions" to="/register">成年个人注册</RouterLink><button v-if="emailIntentPath" type="button" class="text-button" :disabled="state.busy" @click="resumeEmailIntent">返回当前邮件流程</button></div>
-          <details class="account-diagnostics"><summary>机构受控恢复与邮件不可用说明</summary><p>受保护机构账号请通过已知管理员联系方式核验身份后发起独立审批恢复；不要向管理员提供旧密码。</p><p v-if="!emailCapabilities?.email_actions">邮件申请目前未开放或能力尚未确认，不会提交找回邮件。无机构个人账号需等待邮件服务恢复；已有已验证邮箱与备用用户名仍可密码登录。</p><RouterLink to="/help">查看使用帮助</RouterLink></details>
-        </form>
+        <LoginForm v-if="state.phase !== 'authenticated' || signingIn" :phase="state.phase" :busy="state.busy" :submitting="signingIn" :message="message" :fields="state.fields" :capabilities="emailCapabilities" :logout-result="state.logoutResult" @submit="login" @retry="retry">
+          <template v-if="emailIntentPath" #return-flow><button type="button" class="text-button" :disabled="state.busy" @click="resumeEmailIntent">返回当前邮件流程</button></template>
+        </LoginForm>
         <template v-else-if="state.identity">
           <form
             v-if="passwordPage"
@@ -1325,9 +1298,8 @@ async function retry() {
               <h2>{{ state.identity.user.display_name }}</h2>
             </div>
             <p class="muted">在这里管理登录安全与个人数据。</p>
-            <p v-if="emailAccount?.admission?.state === 'adult_self_declared'" class="notice">个人准入记录：成年自助声明（不是年龄或监护证明） · {{ emailAccount.admission.source === 'invite_activate' ? '机构邀请激活' : '个人注册' }} · 条款 {{ emailAccount.admission.terms_version }} / 隐私告知 {{ emailAccount.admission.privacy_notice_version }}<span v-if="emailAccount.admission.accepted_at"> · 接受时间 {{ new Date(emailAccount.admission.accepted_at).toLocaleString() }}</span></p>
-            <p v-else-if="emailAccount?.admission?.state === 'not_recorded'" class="field-help">此账号没有新的自助准入声明记录；不会据此推断年龄、监护关系或机构准入来源。</p>
-            <p v-if="!state.identity.organizations.length" class="notice">你尚未加入组织，目前可管理本人账号安全与隐私。请联系机构；收到真实邮件邀请后打开链接并明确接受。本页不会创建虚假的加入申请。</p>
+            <details v-if="emailAccount?.admission" class="account-diagnostics"><summary>账号准入记录</summary><p v-if="emailAccount.admission.state === 'adult_self_declared'" class="field-help">成年自助声明（不是年龄或监护证明） · {{ emailAccount.admission.source === 'invite_activate' ? '机构邀请激活' : '个人注册' }} · 条款 {{ emailAccount.admission.terms_version }} / 隐私告知 {{ emailAccount.admission.privacy_notice_version }}<span v-if="emailAccount.admission.accepted_at"> · 接受时间 {{ new Date(emailAccount.admission.accepted_at).toLocaleString() }}</span></p><p v-else class="field-help">没有新的自助准入声明记录，不据此推断年龄、监护关系或机构准入来源。</p></details>
+            <p v-if="!state.identity.organizations.length" class="notice">你尚未加入组织。可进入个人学习空间记录目标与活动，或管理账号安全与隐私；机构课程仍需明确邀请与授权。<RouterLink to="/personal">进入个人学习空间</RouterLink></p>
             <section class="settings-section">
               <div>
                 <h2>登录安全</h2>
@@ -1497,6 +1469,13 @@ async function retry() {
         @dirty="trainingDirty = $event"
         @unknown="trainingUnknown = $event"
           @reading="openReading"
+      />
+      <PersonalWorkspace
+        ref="personalWorkspace"
+        v-if="workspace === 'personal' && state.phase === 'authenticated' && state.identity && !passwordPage"
+        :key="`${state.identity.user.id}:${state.formEpoch}`"
+        :identity="state.identity" :request="globalRequest"
+        @dirty="personalDirty = $event" @unknown="personalUnknown = $event"
       />
       <PrivacyWorkspace
         v-if="

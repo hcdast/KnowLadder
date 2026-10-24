@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import TrainingBatchAssign from "./TrainingBatchAssign.vue";
 import TrainingWorkbench from "./TrainingWorkbench.vue";
+import LearningDiscovery from "./LearningDiscovery.vue";
+import LearningPaths from "./LearningPaths.vue";
+import GrowthWorkspace from "./GrowthWorkspace.vue";
+import LearningStudio from "./LearningStudio.vue";
+import CourseMetadata from "./CourseMetadata.vue";
 import TrainingSurveys from "./TrainingSurveys.vue";
 import TrainingKnowledge from "./TrainingKnowledge.vue";
 import { parseQuestionCandidate, type Candidate } from "./question-candidate";
@@ -37,11 +42,13 @@ const request: BusinessRequest = async <T,>(path: string, options = {}) => {
   }
 };
 function selectTrainingTab(next: string) {
+  if (next === "discover" && !canLearner.value) next = "courses";
   if ((reportDirty.value || batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value) && next !== tab.value) {
     message.value = "请先保存当前表单，再切换功能。";
     return;
   }
   tab.value = next;
+  if (next === "ai" && !readLoaded.value.ai) void loadAi();
 }
 async function openKnowledgeCourse(target:{id:string;lessonKey:string}){
   selectTrainingTab("courses");
@@ -53,7 +60,9 @@ const reportEpoch = ref(0),
   reportDirty = ref(false),
   batchDirty = ref(false), surveyDirty = ref(false), batchUnknown = ref(false), surveyUnknown = ref(false),
   reportReceipt = ref<Row | null>(null),
-  phase2Receipt = ref<Row | null>(null), knowledgeReceipt = ref<Row | null>(null);
+  phase2Receipt = ref<Row | null>(null), knowledgeReceipt = ref<Row | null>(null), studioReceipt = ref<Row | null>(null), growthReceipt = ref<Row | null>(null);
+const growthTarget=ref<{kind:string;id:string}>();
+const studioTarget=ref<{kind:string;id:string}>();
 const editableLessons = ref<Row[]>([]);
 const canLearner = computed(() => canUseStudentLearning(props.identity));
 const canAssist = computed(() => canLearner.value && has("ai:assist"));
@@ -80,17 +89,19 @@ const canTasks = computed(() =>
 );
 const caps = computed(() => props.identity.context?.capabilities || []),
   has = (cap: string) => caps.value.includes(cap);
+const discoveryRevoked = ref(false);
 const route = useRoute();
 const tab = ref(
-    ["courses", "tasks", "ai", "site", "reports", "phase2", "knowledge"].includes(
+    ["workbench", "discover", "courses", "tasks", "ai", "site", "reports", "phase2", "knowledge", "studio", "growth"].includes(
       String(route.query.tab),
-    )
+    ) && (String(route.query.tab) !== "discover" || canLearner.value)
       ? String(route.query.tab)
-      : "courses",
+      : canLearner.value ? "workbench" : "courses",
   ),
   courses = ref<Row[]>([]),
   tasks = ref<Row[]>([]),
   course = ref<Row | null>(null),
+  courseLearnerView = ref(false),
   work = ref<Row | null>(null),
   submissions = ref<Row[]>([]),
   ai = ref<Row | null>(null),
@@ -100,6 +111,23 @@ const tab = ref(
   busy = ref(false),
   message = ref(""),
   dirty = ref(false);
+type ReadModule = "catalog" | "courses" | "tasks" | "ai";
+const readBusy = ref<Record<ReadModule, boolean>>({ catalog: false, courses: false, tasks: false, ai: false });
+const readLoaded = ref<Record<ReadModule, boolean>>({ catalog: false, courses: false, tasks: false, ai: false });
+const readErrors = ref<Record<ReadModule, string>>({ catalog: "", courses: "", tasks: "", ai: "" });
+const actionBusy = computed(() => busy.value || tab.value === "ai" && readBusy.value.ai);
+const visibleCourses = computed(() => has("course:review") && !has("course:edit") && reviewOnly.value ? courses.value.filter(row => row.status === "review") : courses.value);
+const reviewOnly = ref(true), createCourseOpen = ref(false);
+const metadata = ref({ objectives: '', audience: '', prerequisites: '', difficulty: 'introductory', estimated_minutes: 30, instructor: '', language: '中文' });
+const clonedLessons = ref<Row[] | null>(null);
+async function openNewCourse() { clonedLessons.value = null; createCourseOpen.value = true; await nextTick(); document.getElementById('new-course-title')?.focus(); }
+async function newCourseVersion() {
+  if (!course.value) return;
+  code.value = course.value.code; title.value = course.value.title; subject.value = course.value.subject_id; version.value = course.value.version_no + 1;
+  clonedLessons.value = course.value.lessons.map((l: Row) => ({ ...l }));
+  metadata.value = { objectives: '', audience: '', prerequisites: '', difficulty: 'introductory', estimated_minutes: 30, instructor: '', language: '中文', ...(course.value.metadata || {}) };
+  createCourseOpen.value = true; changed(); await nextTick(); document.getElementById('new-course-title')?.focus();
+}
 const mediaUrls = ref<Record<string, string>>({});
 const mediaPlayers: Record<string, HTMLMediaElement | null> = {};
 let authorizationTimer = 0;
@@ -134,6 +162,8 @@ const catalog = ref<{
   assignments: Row[];
   quizzes: Row[];
   phase2_enabled?: boolean;
+  studio_enabled?: boolean;
+  growth_enabled?: boolean;
   knowledge_enabled?: boolean; surveys_enabled?: boolean;
 }>({ classes: [], subjects: [], assignments: [], quizzes: [] });
 const feedbackComments = ref<Record<string, string>>({});
@@ -299,7 +329,11 @@ async function hash(body: unknown) {
   ).join("");
 }
 function clearSensitiveViews() {
+  discoveryRevoked.value = true;
+  readLoaded.value = { catalog: false, courses: false, tasks: false, ai: false };
   knowledgeReceipt.value = null;
+  studioReceipt.value = null;
+  growthReceipt.value = null; growthTarget.value=undefined;studioTarget.value=undefined;
   reportEpoch.value++;
   reportDirty.value = false; batchDirty.value=false; surveyDirty.value=false;
   reportReceipt.value = null;
@@ -320,6 +354,8 @@ function clearSensitiveViews() {
   siteDrafts.value = [];
   leads.value = [];
   editableLessons.value = [];
+  clonedLessons.value = null;
+  metadata.value = { objectives: '', audience: '', prerequisites: '', difficulty: 'introductory', estimated_minutes: 30, instructor: '', language: '中文' };
   catalog.value = { classes: [], subjects: [], assignments: [], quizzes: [] };
   draft.value = "";
   comments.value = "";
@@ -368,13 +404,15 @@ async function queryReceipt() {
   busy.value = true;
   try {
     const data = await request<{ status: string; result?: Row }>(
-      pending.value.path.startsWith("/training/phase2/") ? "/training/phase2/receipts/query" : "/training/receipts/query",
+      pending.value.path.startsWith("/training/growth/") ? "/training/growth/receipts/query" : pending.value.path.startsWith("/training/studio/") ? "/training/studio/receipts/query" : pending.value.path.startsWith("/training/phase2/") ? "/training/phase2/receipts/query" : "/training/receipts/query",
       { method: "POST", body: { key: pending.value.key } },
     );
     if (data.status === "confirmed") {
       if (pending.value.path.startsWith("/training/reports") && data.result)
         reportReceipt.value = data.result;
       if (pending.value.path.startsWith('/training/phase2/') && data.result) phase2Receipt.value = data.result;
+      if (pending.value.path.startsWith('/training/studio/')) {studioReceipt.value = { ...data };growthReceipt.value={...data};}
+      if(pending.value.path.startsWith('/training/growth/'))growthReceipt.value={...data};
       if ((pending.value.path.startsWith("/training/knowledge/") || pending.value.path.startsWith("/training/ai/jobs")) && data.result) knowledgeReceipt.value = data.result;
       pending.value = null;
       recoveryReloadConfirm.value = false;
@@ -432,16 +470,22 @@ async function recoverJob(job: Row) {
 }
 async function load() {
   if (busy.value) return;
-  busy.value = true;
-  message.value = "";
-  try {
-    catalog.value = await request("/training/catalog");
-    if (canCourses.value)
-      courses.value = (
-        await request<{ items: Row[] }>("/training/courses")
-      ).items;
-    if (canTasks.value)
-      tasks.value = (await request<{ items: Row[] }>("/training/tasks")).items;
+  await Promise.all([
+    readModule("catalog", async () => { catalog.value = await request("/training/catalog"); }),
+    ...(canCourses.value ? [readModule("courses", async () => { courses.value = (await request<{ items: Row[] }>("/training/courses")).items; })] : []),
+    ...(canTasks.value ? [readModule("tasks", async () => { tasks.value = (await request<{ items: Row[] }>("/training/tasks")).items; })] : []),
+    ...(tab.value === "ai" ? [loadAi()] : []),
+  ]);
+}
+async function readModule(name: ReadModule, read: () => Promise<void>) {
+  if (readBusy.value[name] || lifetime.signal.aborted) return;
+  readBusy.value[name] = true; readErrors.value[name] = "";
+  try { await read(); if (!lifetime.signal.aborted) readLoaded.value[name] = true; }
+  catch (cause) { if (!lifetime.signal.aborted && !(cause instanceof DOMException && cause.name === "AbortError")) readErrors.value[name] = cause instanceof Error ? cause.message : "读取失败，请重试。"; }
+  finally { readBusy.value[name] = false; }
+}
+async function loadAi() {
+  await readModule("ai", async () => {
     ai.value = await request("/training/ai/status");
     if (ai.value?.profile && !dirty.value) {
       dailyLimit.value = ai.value.profile.ai_daily_limit;
@@ -459,15 +503,11 @@ async function load() {
       aiJobs.value = (
         await request<{ items: Row[] }>("/training/ai/jobs")
       ).items;
-  } catch (e) {
-    message.value = e instanceof Error ? e.message : "连接失败";
-  } finally {
-    busy.value = false;
-  }
+  });
 }
 async function write(path: string, body: unknown, done?: () => Promise<void>) {
   if (batchDirty.value || surveyDirty.value || batchUnknown.value || surveyUnknown.value) { message.value = "请先完成当前批次/反馈表单或核对原编号，再操作其他写入。"; return; }
-  if (busy.value || storageBlocked.value || fileUnknown.value) return;
+  if (actionBusy.value || storageBlocked.value || fileUnknown.value) return;
   const fingerprint = await hash(body);
   if (busy.value || lifetime.signal.aborted) return;
   if (
@@ -531,7 +571,7 @@ function clearMedia() {
 watch(
   () => route.query.tab,
   (value) => {
-    if (["courses", "tasks", "ai", "site", "reports", "phase2", "knowledge"].includes(String(value)))
+    if (["workbench", "discover", "courses", "tasks", "ai", "site", "reports", "phase2", "knowledge", "studio", "growth"].includes(String(value)))
       selectTrainingTab(String(value));
   },
 );
@@ -542,6 +582,7 @@ async function openCourse(id: string, learner=false) {
   try {
     clearMedia();
     course.value = null;
+    courseLearnerView.value = learner;
     course.value = await request("/training/courses/" + id + (learner?"?mode=learner":""));
     courseEdit.value = false;
     dirty.value = false;
@@ -552,13 +593,21 @@ async function openCourse(id: string, learner=false) {
     busy.value = false;
   }
 }
+function openDiscoveryCourse(id: string) {
+  selectTrainingTab("courses");
+  if (tab.value === "courses") void openCourse(id, true);
+}
+async function openGrowthWork(id:string){selectTrainingTab('tasks');if(tab.value!=='tasks')return;work.value=null;submissions.value=[];if(canLearner.value)await openWork({_id:id});else await grading({_id:id});}
+function openGrowthMeetup(id:string){selectTrainingTab('studio');if(tab.value==='studio')studioTarget.value={kind:'meetups',id};}
+function openGrowthSource(target:{kind:string;id:string}){if(target.kind==='work'){void openGrowthWork(target.id);return;}if(target.kind==='meetup'){openGrowthMeetup(target.id);return;}growthTarget.value=target;selectTrainingTab('growth');}
 async function createCourse() {
   const result = await write("/training/courses", {
     code: code.value,
     title: title.value,
     subject_id: subject.value,
     version_no: version.value,
-    lessons: [
+    ...(catalog.value.studio_enabled ? { metadata: metadata.value } : {}),
+    lessons: clonedLessons.value || [
       {
         key: "lesson-1",
         title: lessonTitle.value,
@@ -572,6 +621,8 @@ async function createCourse() {
   });
   if (result) {
     course.value = result;
+    createCourseOpen.value = false;
+    clonedLessons.value = null;
     courses.value = (
       await request<{ items: Row[] }>("/training/courses")
     ).items;
@@ -583,6 +634,7 @@ async function courseAction(action: string) {
   if (["publish", "reject", "retire"].includes(action))
     body.note = comments.value;
   if (action === "edit") {
+    if (catalog.value.studio_enabled) body.metadata = metadata.value;
     body.title = title.value;
     body.lessons = editableLessons.value.map((l) => ({
       ...l,
@@ -604,6 +656,7 @@ async function courseAction(action: string) {
 }
 function editCourse() {
   if (!course.value) return;
+  metadata.value = { objectives: '', audience: '', prerequisites: '', difficulty: 'introductory', estimated_minutes: 30, instructor: '', language: '中文', ...(course.value.metadata || {}) };
   title.value = course.value.title;
   lessonTitle.value = course.value.lessons[0].title;
   lessonBody.value = course.value.lessons[0].body;
@@ -627,7 +680,7 @@ async function downloadLesson(l: Row) {
   if (!course.value) return;
   busy.value = true;
   try {
-    await request("/training/courses/" + course.value._id);
+    await request(courseReadPath());
     const blob = await request<Blob>("/files/" + l.file_id + "/content", {
       responseType: "blob",
     });
@@ -658,15 +711,18 @@ async function savePlayback(key: string) {
       complete: false,
     },
     async () => {
-      course.value = await request("/training/courses/" + course.value!._id);
+      course.value = await request(courseReadPath());
     },
   );
+}
+function courseReadPath() {
+  return "/training/courses/" + course.value!._id + (courseLearnerView.value ? "?mode=learner" : "");
 }
 async function recheck() {
   if (busy.value) return;
   try {
     if (course.value)
-      course.value = await request("/training/courses/" + course.value._id);
+      course.value = await request(courseReadPath());
     if (work.value) {
       work.value = await request(
         "/training/tasks/" + work.value.task._id + "/coursework",
@@ -691,7 +747,7 @@ async function complete(key: string) {
     "/training/courses/" + course.value._id + "/progress",
     { lesson_key: key, position: 0, complete: true },
     async () => {
-      course.value = await request("/training/courses/" + course.value!._id);
+      course.value = await request(courseReadPath());
     },
   );
 }
@@ -993,14 +1049,18 @@ onBeforeUnmount(() => {
   <section class="training-workspace panel" :aria-busy="busy">
     <div class="training-top">
       <div>
-        <p class="eyebrow">TRAINING / 培训工作区</p>
-        <h2>课程、实践与反馈</h2>
+        <p v-if="!canLearner" class="eyebrow">TRAINING / 培训工作区</p>
+        <h2>{{ canLearner ? '学习与任务' : has('course:review') && !has('course:edit') ? '课程审核' : '课程、实践与反馈' }}</h2>
       </div>
       <button class="button secondary" :disabled="busy" @click="load">
         刷新工作区
       </button>
     </div>
-    <nav class="training-tabs" aria-label="培训功能">
+    <nav class="training-tabs" aria-label="学习与教学功能">
+      <button v-if="catalog.growth_enabled && (canLearner || has('coursework:grade') || has('task:manage'))" :aria-pressed="tab === 'growth'" @click="growthTarget=undefined;selectTrainingTab('growth')">成长档案与学习通知</button>
+      <button v-if="catalog.studio_enabled && (canLearner || has('task:manage') || has('coursework:grade'))" :aria-pressed="tab === 'studio'" @click="selectTrainingTab('studio')">实践、答疑与共学</button>
+      <button v-if="canLearner" :aria-pressed="tab === 'workbench'" @click="selectTrainingTab('workbench')">我的学习</button>
+      <button v-if="canLearner" :aria-pressed="tab === 'discover'" @click="selectTrainingTab('discover')">发现资源</button>
       <button
         v-for="t in [
           ['courses', '课程学习'],
@@ -1011,7 +1071,7 @@ onBeforeUnmount(() => {
         :aria-pressed="tab === t[0]"
         @click="selectTrainingTab(t[0]!)"
       >
-        {{ t[1] }}</button
+        {{ t[0] === 'courses' && !canLearner ? has('course:review') && !has('course:edit') ? '课程审核' : '课程管理' : t[1] }}</button
       ><button
         v-if="has('site:edit') || has('site:review') || has('site:lead-read')"
         :aria-pressed="tab === 'site'"
@@ -1038,7 +1098,10 @@ onBeforeUnmount(() => {
         报告发布
       </button>
     </nav>
+    <GrowthWorkspace v-if="tab==='growth' && catalog.growth_enabled" :key="'growth'+reportEpoch" :request="request" :write="write" :caps="caps" :recovered="growthReceipt" :initial-target="growthTarget" :initial-page="growthTarget?'notifications':undefined" :context-key="identity.user.id+':'+identity.context?.org_id" :blocked="busy || storageBlocked || fileUnknown || batchDirty || surveyDirty" @dirty="reportDirty=$event" @work="openGrowthWork" @course="openDiscoveryCourse" @meetup="openGrowthMeetup" />
+    <LearningStudio v-if="tab === 'studio' && catalog.studio_enabled" :key="'studio'+reportEpoch" :request="request" :write="write" :caps="caps" :recovered="studioReceipt" :initial-target="studioTarget" :context-key="identity.user.id+':'+identity.context?.org_id" :blocked="busy || storageBlocked || fileUnknown || batchDirty || surveyDirty" @dirty="reportDirty=$event" @work="openGrowthWork" @tasks="selectTrainingTab('tasks');load()" @course="openDiscoveryCourse" @reading="emit('reading', $event)" />
     <p v-if="message" role="status" class="notice">{{ message }}</p>
+    <div v-if="readErrors.catalog" class="notice" role="status">授课目录：{{ readErrors.catalog }} <button class="text-button" :disabled="readBusy.catalog" @click="load">重试目录</button></div>
     <p v-if="pending" class="notice">
       请求结果待确认 ·
       {{
@@ -1078,12 +1141,15 @@ onBeforeUnmount(() => {
         取消重新载入
       </button>
     </section>
-    <button v-if="canLearner" class="button secondary" @click="selectTrainingTab('workbench')">我的学习工作台</button>
-    <TrainingWorkbench v-if="tab==='workbench' && canLearner" :key="reportEpoch" :request="request" @course="selectTrainingTab('courses');openCourse($event,true)" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
+    <div v-if="tab === 'workbench' && canLearner" class="actions"><button class="button" @click="selectTrainingTab('courses')">继续课程学习</button><button class="button secondary" @click="selectTrainingTab('tasks')">查看任务与作业</button></div>
+    <TrainingWorkbench v-if="tab==='workbench' && canLearner" :key="reportEpoch" :request="request" :embedded="true" @course="selectTrainingTab('courses');openCourse($event,true)" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
+    <LearningDiscovery v-if="tab === 'discover' && canLearner && !discoveryRevoked" :request="request" :context-key="identity.user.id + ':' + identity.context?.org_id" @course="openDiscoveryCourse" />
+    <LearningPaths v-if="tab === 'discover' && canLearner && !discoveryRevoked && catalog.phase2_enabled" :request="request" :context-key="identity.user.id + ':' + identity.context?.org_id" @course="openDiscoveryCourse" @tasks="selectTrainingTab('tasks')" @phase2="selectTrainingTab('phase2')" />
+    <p v-if="tab === 'discover' && discoveryRevoked" role="alert">当前学习权限已变化，请重新确认身份后查看资源。</p>
     <button v-if="catalog.knowledge_enabled && (canLearner || has('ai:generate') || has('content:edit') || has('content:review') || has('ai:manage'))" class="button secondary" :aria-pressed="tab === 'knowledge'" @click="selectTrainingTab('knowledge')">知识检索与答疑</button>
     <TrainingKnowledge v-if="tab === 'knowledge' && catalog.knowledge_enabled" :key="reportEpoch" :request="request" :write="write" :caps="caps" :blocked="busy || storageBlocked || fileUnknown" :recovered="knowledgeReceipt" @reading="emit('reading', $event)" @course="openKnowledgeCourse" />
     <button v-if="catalog.phase2_enabled && (caps.some(x=>x.startsWith('training:')) || canLearner)" class="button secondary" @click="selectTrainingTab('phase2')">课表、结业与通知</button>
-    <TrainingPhase2 v-if="tab === 'phase2' && catalog.phase2_enabled" :key="reportEpoch" :user-id="identity.user.id" :receipt="phase2Receipt" :request="request" :write="write" :caps="caps" :catalog="catalog" :blocked="busy || storageBlocked || fileUnknown" @dirty="reportDirty = $event" />
+    <TrainingPhase2 v-if="tab === 'phase2' && catalog.phase2_enabled" :key="reportEpoch" :user-id="identity.user.id" :receipt="phase2Receipt" :request="request" :write="write" :caps="caps" :catalog="catalog" :growth-enabled="catalog.growth_enabled" :context-key="identity.user.id+':'+identity.context?.org_id" :growth-receipt="growthReceipt" @growth-source="openGrowthSource" :blocked="busy || storageBlocked || fileUnknown" @dirty="reportDirty = $event" />
     <TrainingReports
       v-if="tab === 'reports'"
       :key="reportEpoch"
@@ -1099,12 +1165,14 @@ onBeforeUnmount(() => {
     <template v-if="tab === 'courses'"
       ><div class="training-grid">
         <aside>
-          <h3>可访问的课程</h3>
-          <p v-if="!courses.length" class="muted">
-            暂无课程，发布并分配到班级后会出现在这里。
-          </p>
+          <h3>{{ has('course:review') && !has('course:edit') ? '待审核课程' : canLearner ? '我的课程' : '课程列表' }}</h3>
+          <button v-if="has('course:edit')" class="button" :disabled="busy || readBusy.catalog" @click="openNewCourse">新建课程</button>
+          <label v-if="has('course:review') && !has('course:edit')"><input v-model="reviewOnly" type="checkbox" />只看待审核</label>
+          <p v-if="readBusy.courses" role="status">正在读取课程…</p>
+          <p v-else-if="readErrors.courses" role="status">{{ readErrors.courses }} <button class="text-button" @click="load">重新读取课程</button></p>
+          <p v-else-if="readLoaded.courses && !visibleCourses.length" class="muted">{{ has('course:review') && !has('course:edit') && reviewOnly ? '暂无待审核课程，可取消勾选查看其他课程。' : canLearner ? '暂无已分配课程，请联系教师确认学习安排。' : '暂无课程，可以创建草稿。' }}</p>
           <button
-            v-for="c in courses"
+            v-for="c in visibleCourses"
             :key="c.id"
             class="course-card"
             :aria-pressed="course?._id === c.id"
@@ -1124,6 +1192,8 @@ onBeforeUnmount(() => {
             {{ labels[course.status] || course.status }}
           </p>
           <h3>{{ course.title }}</h3>
+          <CourseMetadata v-if="course.metadata" :model-value="course.metadata" readonly />
+          <button v-if="has('course:edit') && ['published','retired'].includes(course.status)" class="button secondary" :disabled="busy" @click="newCourseVersion">基于此版本创建草稿</button>
           <div
             class="actions"
             v-if="has('course:edit') || has('course:review')"
@@ -1179,8 +1249,10 @@ onBeforeUnmount(() => {
                 maxlength="200"
                 @input="changed"
             /></label>
+            <CourseMetadata v-if="catalog.studio_enabled" v-model="metadata" :disabled="busy" @update:model-value="changed" />
             <fieldset v-for="(l, index) in editableLessons" :key="l.key">
               <legend>课节 {{ index + 1 }}</legend>
+              <details><summary>预览本课节</summary><h4>{{ l.title || '尚未填写标题' }}</h4><p style="white-space:pre-wrap;overflow-wrap:anywhere">{{ l.body || '尚未填写正文' }}</p><p v-if="l.kind !== 'text'">媒体需保存后通过授权读取预览。</p></details>
               <label
                 >课节标题<input
                   v-model="l.title"
@@ -1339,9 +1411,11 @@ onBeforeUnmount(() => {
           <p>学习已分配的资料，完成实践任务，并查看教师反馈。</p>
         </div>
       </div>
-      <details v-if="has('course:edit')" class="training-create">
+      <details v-if="has('course:edit')" :open="createCourseOpen" class="training-create" @toggle="createCourseOpen = ($event.target as HTMLDetailsElement).open">
         <summary>创建新课程草稿</summary>
         <form class="training-form" @submit.prevent="createCourse">
+          <CourseMetadata v-if="catalog.studio_enabled" v-model="metadata" :disabled="busy" @update:model-value="changed" />
+          <p v-if="clonedLessons">已复制 {{ clonedLessons.length }} 个课节。新草稿建立后可逐课编辑，并重新提交独立审核。</p>
           <label
             >课程代码<input
               v-model="code"
@@ -1350,7 +1424,7 @@ onBeforeUnmount(() => {
               @input="changed" /></label
           ><label
             >课程标题<input
-              v-model="title"
+              id="new-course-title" v-model="title"
               required
               maxlength="200"
               @input="changed" /></label
@@ -1368,20 +1442,20 @@ onBeforeUnmount(() => {
               required
               min="1"
               @input="changed" /></label
-          ><label
+          ><label v-if="!clonedLessons"
             >第一课节标题<input
               v-model="lessonTitle"
               required
               maxlength="200"
               @input="changed" /></label
-          ><label
+          ><label v-if="!clonedLessons"
             >课节类型<select v-model="lessonKind">
               <option value="text">文本</option>
               <option value="pdf">已扫描 PDF</option>
               <option value="video">已扫描 MP4 视频</option>
               <option value="audio">已扫描 MP3 音频</option>
             </select></label
-          ><template v-if="lessonKind !== 'text'"
+          ><template v-if="!clonedLessons && lessonKind !== 'text'"
             ><label
               >私有文件编号<input
                 v-model="fileId"
@@ -1392,7 +1466,7 @@ onBeforeUnmount(() => {
                 v-model="ownerId"
                 required
                 pattern="[a-f0-9]{24}" /></label></template
-          ><label
+          ><label v-if="!clonedLessons"
             >课节正文<textarea
               v-model="lessonBody"
               required
@@ -1405,7 +1479,7 @@ onBeforeUnmount(() => {
       </details></template
     >
     <template v-if="tab === 'tasks'"
-      ><div class="task-list">
+      ><p v-if="readBusy.tasks" role="status">正在读取任务…</p><p v-else-if="readErrors.tasks" role="status">{{ readErrors.tasks }} <button class="text-button" @click="load">重新读取任务</button></p><p v-else-if="readLoaded.tasks && !tasks.length" class="muted">暂无当前可访问任务。</p><div class="task-list">
         <article v-for="t in tasks" :key="t._id" class="task-card">
           <div>
             <span class="eyebrow">{{
@@ -1559,6 +1633,8 @@ onBeforeUnmount(() => {
           先保存作业草稿，再上传附件。
         </p>
         <p>已提交 {{ work.head?.submission_no || 0 }} 次</p>
+        <p v-if="work.head?.submission_no && !work.head.current_submission_id" role="status">当前作品已撤回，教师队列与附件停止交付；本人历史保留，可在截止前重新提交。</p>
+        <details v-if="catalog.studio_enabled && work.head?.current_submission_id"><summary>撤回当前作品</summary><p>撤回后移出教师批阅队列，当前反馈不再展示。本人历史与必要审计保留。</p><button type="button" class="button secondary" :disabled="busy || workExpired" @click="saveWork('withdraw')">确认撤回作品</button></details>
         <article v-for="f in work.feedback" :key="f._id" class="lesson">
           <h4>教师反馈 · {{ f.score }} 分</h4>
           <p>{{ f.comments }}</p>
@@ -1686,10 +1762,10 @@ onBeforeUnmount(() => {
       </details></template
     >
     <template v-if="tab === 'ai'"
-      ><div class="ai-banner">
+      ><p v-if="readBusy.ai || !readLoaded.ai && !readErrors.ai" role="status">正在读取 AI 配置与任务…</p><p v-else-if="readErrors.ai" role="alert">{{ readErrors.ai }} <button class="text-button" :disabled="readBusy.ai" @click="loadAi">重新读取 AI</button></p><div class="ai-banner">
         <h3>有来源的教学建议</h3>
         <p>AI 输出供人工检查；不自动发布内容、作业评分或考试答案。</p>
-        <p>
+        <p v-if="readLoaded.ai && !readBusy.ai && !readErrors.ai">
           {{
             ai?.configured && ai?.enabled
               ? "已配置并启用"
@@ -1697,7 +1773,7 @@ onBeforeUnmount(() => {
           }}
         </p>
       </div>
-      <form class="training-form" @submit.prevent="generate">
+      <form class="training-form" @submit.prevent="generate"><fieldset class="content-fields" :disabled="actionBusy || !readLoaded.ai || !!readErrors.ai">
         <label
           >使用场景<select v-model="aiKind">
             <option v-if="canAssist" value="assist">课程学习助教</option>
@@ -1727,7 +1803,7 @@ onBeforeUnmount(() => {
         ><button
           class="button"
           :disabled="
-            busy ||
+            actionBusy ||
             !ai?.enabled ||
             !ai?.configured ||
             (ai?.policy_enabled && !ai?.enabled_kinds?.includes(aiKind))
@@ -1735,13 +1811,13 @@ onBeforeUnmount(() => {
         >
           创建生成任务
         </button>
-      </form>
+      </fieldset></form>
       <div class="actions">
         <button
           v-for="j in aiJobs"
           :key="j.id"
           class="button secondary"
-          :disabled="busy"
+          :disabled="actionBusy"
           @click="selectAi(j.id)"
         >
           {{ j.kind }} · {{ labels[j.status] || j.status }} ·
@@ -1755,7 +1831,7 @@ onBeforeUnmount(() => {
           <button
             v-if="aiJob.status === 'queued'"
             class="button"
-            :disabled="busy"
+            :disabled="actionBusy"
             @click="dispatch"
           >
             开始生成</button
@@ -1763,7 +1839,7 @@ onBeforeUnmount(() => {
           ><button
             v-if="['queued', 'running'].includes(aiJob.status)"
             class="button secondary"
-            :disabled="busy"
+            :disabled="actionBusy"
             @click="cancelAi"
           >
             取消任务
@@ -1814,7 +1890,7 @@ onBeforeUnmount(() => {
               rows="6"
               @input="changed"
             /></label
-          ><button class="button" :disabled="busy">采纳为草稿课节</button>
+          ><button class="button" :disabled="actionBusy">采纳为草稿课节</button>
           <p class="field-help">
             结构化候选可载入题库草稿表单；普通建议文本需人工编辑。进入正式题库仍须核对并独立审核。
           </p>
@@ -1830,7 +1906,7 @@ onBeforeUnmount(() => {
         >
           <h4>人工核对后保存为真实题库草稿</h4>
           <template v-if="structuredCandidate">
-            <button type="button" class="button secondary" :disabled="busy" @click="confirmCandidateLoad = true">载入结构化候选</button>
+            <button type="button" class="button secondary" :disabled="actionBusy" @click="confirmCandidateLoad = true">载入结构化候选</button>
             <div v-if="confirmCandidateLoad" class="notice">
               <p>载入会替换当前题干、选项、参考答案和解析。请核对后再保存。</p>
               <button type="button" class="button" @click="loadCandidate">确认载入</button>
@@ -1878,7 +1954,7 @@ onBeforeUnmount(() => {
               rows="4"
               @input="changed"
             /></label
-          ><button class="button" :disabled="busy">保存为题库草稿</button>
+          ><button class="button" :disabled="actionBusy">保存为题库草稿</button>
           <p class="field-help">
             草稿不会自动发布。请在内容工作区补全来源授权、知识点、评分规则和难度依据，再按独立审核流程发布。
           </p>
@@ -1890,7 +1966,7 @@ onBeforeUnmount(() => {
         <button
           v-if="aiJob.status === 'running' && has('ai:manage')"
           class="button secondary"
-          :disabled="busy"
+          :disabled="actionBusy"
           @click="
             write('/training/ai/jobs/' + aiJob.id + '/recover', {
               expected_revision: aiJob.revision,
@@ -1926,12 +2002,12 @@ onBeforeUnmount(() => {
         <button
           type="button"
           class="button secondary"
-          :disabled="busy"
+          :disabled="actionBusy"
           @click="refreshRecovery"
         >
           刷新恢复队列
         </button>
-        <p v-if="!recoveryJobs.length">当前没有待处理的 AI 任务。</p>
+        <p v-if="readLoaded.ai && !readBusy.ai && !readErrors.ai && !recoveryJobs.length">当前没有待处理的 AI 任务。</p>
         <p v-if="recoveryTruncated" class="notice">
           仅显示最早的100项，处理后刷新查看后续任务。
         </p>
@@ -1946,7 +2022,7 @@ onBeforeUnmount(() => {
           <button
             type="button"
             class="button secondary"
-            :disabled="busy || !job.recoverable"
+            :disabled="actionBusy || !job.recoverable"
             @click="recoverJob(job)"
           >
             {{
@@ -2007,11 +2083,11 @@ onBeforeUnmount(() => {
           模型和凭据通过服务端环境配置管理，不在浏览器中保存。
         </p>
         <div class="actions">
-          <button class="button" :disabled="busy">启用</button
+          <button class="button" :disabled="actionBusy">启用</button
           ><button
             type="button"
             class="button secondary"
-            :disabled="busy"
+            :disabled="actionBusy"
             @click="configureAi(false)"
           >
             停用

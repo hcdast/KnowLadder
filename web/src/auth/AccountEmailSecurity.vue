@@ -61,14 +61,15 @@ onBeforeUnmount(() => { alive = false; generation++; controller.abort(); window.
 </script>
 <template>
   <section class="email-security" :aria-busy="busy">
-    <h2>邮箱与账号恢复</h2><p>备用用户名：<strong>{{ loginName }}</strong>。已验证邮箱或此用户名均可用于密码登录，发信停用不会停用密码登录。</p>
+    <h2>邮箱与账号恢复</h2><p>登录用户名：<strong>{{ loginName }}</strong></p>
     <p>当前邮箱：{{ emailState === 'verified' ? maskedEmail : emailState === 'needs_reverify' ? `${maskedEmail || '恢复邮箱'}（需要重新验证，不能用于找回）` : '尚未绑定' }}</p>
     <div v-if="error" ref="summary" class="notice danger" role="alert" tabindex="-1">{{ error }}<small v-if="requestId">请求编号：{{ requestId }}</small></div><p v-if="message" role="status" class="notice">{{ message }}</p>
     <div v-if="configError || !capabilities"><p>{{ configError || '正在确认邮件服务能力…' }}</p><button type="button" :disabled="busy || locked" @click="loadCapabilities">重新查询邮件能力</button></div>
-    <p v-else-if="!capabilities.email_actions" class="notice">新邮箱验证邮件申请目前不可用；仍可用当前密码明确解绑已有邮箱。保留现有用户名 / 已验证邮箱登录。受保护机构账号恢复仍需独立审批；无机构个人账号需等待邮件恢复。</p>
+    <p v-else-if="!capabilities.email_actions" class="field-help">暂未开放绑定或更换邮箱，现有登录方式仍可使用。</p>
+    <details><summary>登录与账号恢复说明</summary><p>已验证邮箱或用户名均可用于密码登录。邮件申请关闭不会停用现有密码登录；未绑定邮箱不能通过邮件找回。受保护机构账号恢复仍需独立审批。</p></details>
     <p v-if="retryUntil > clock" role="status">请等待 {{ Math.ceil((retryUntil - clock) / 1000) }} 秒后再次申请。</p>
     <div v-if="unknown" class="notice"><p>请先核对邮箱状态。此查询不会重放原操作。</p><button type="button" :disabled="busy || locked" @click="recoverSession">只读查询本人状态</button></div>
-    <form @submit.prevent="submit(false)"><fieldset :disabled="blocked || !capabilities?.email_actions"><label>新邮箱<input v-model="email" type="email" maxlength="254" autocomplete="email" required /></label><label>当前密码<input v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" maxlength="128" required /></label><button type="button" :aria-pressed="showPassword" @click="showPassword = !showPassword">{{ showPassword ? '隐藏密码' : '显示密码' }}</button><button type="submit">{{ busy ? '正在受理…' : emailState === 'unbound' ? '申请绑定邮箱' : '申请换绑并验证新邮箱' }}</button></fieldset></form>
+    <form v-if="capabilities?.email_actions" @submit.prevent="submit(false)"><fieldset :disabled="blocked"><label>新邮箱<input v-model="email" type="email" maxlength="254" autocomplete="email" required /></label><label>当前密码<input v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" maxlength="128" required /></label><button type="button" :aria-pressed="showPassword" @click="showPassword = !showPassword">{{ showPassword ? '隐藏密码' : '显示密码' }}</button><button type="submit">{{ busy ? '正在受理…' : emailState === 'unbound' ? '申请绑定邮箱' : '申请换绑并验证新邮箱' }}</button></fieldset></form>
     <form v-if="emailState !== 'unbound'" @submit.prevent="submit(true)"><fieldset :disabled="blocked"><label>解绑确认 · 当前密码<input v-model="password" :type="showPassword ? 'text' : 'password'" autocomplete="current-password" maxlength="128" required /></label><button type="submit" class="danger">解除当前恢复邮箱</button></fieldset></form>
   </section>
 </template>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, nextTick } from "vue";
 import type { BusinessRequest } from "../session";
 type Row = Record<string, any>;
-const props = defineProps<{ request: BusinessRequest }>();
+const props = defineProps<{ request: BusinessRequest; embedded?: boolean }>();
 const emit = defineEmits<{ course: [string]; tasks: []; phase2: [] }>();
 const data = ref<Row | null>(null),
   message = ref(""),
@@ -19,6 +19,8 @@ const labels: Record<string, string> = {
   notifications: "站内通知",
   surveys: "待反馈课程",
 };
+const visibleModules = computed(() => (Object.entries(data.value?.modules || {}) as [string, Row][]).filter(([, module]) => module.status !== "disabled"));
+const disabledModules = computed(() => Object.entries(data.value?.modules || {}).filter(([, module]: [string, any]) => module.status === "disabled").map(([name]) => labels[name] || name));
 const time = (s: string) =>
   new Date(s).toLocaleString("zh-CN", { timeZoneName: "short" });
 async function load() {
@@ -66,11 +68,12 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="workbench">
-    <h3>我的学习工作台</h3>
+    <h3 v-if="!embedded">我的学习</h3>
+    <p v-if="!embedded">继续课程，查看待完成任务，安排下一步学习。</p>
     <p ref="status" tabindex="-1" role="status" aria-live="polite">
       {{ message }}
     </p>
-    <form @submit.prevent="refresh">
+    <details class="workbench-range"><summary>调整课表日期范围</summary><form @submit.prevent="refresh">
       <label
         >课表起始日期（UTC）<input v-model="from" type="date" required /></label
       ><label
@@ -79,12 +82,9 @@ onBeforeUnmount(() => {
           type="date"
           required /></label
       ><button :disabled="busy">刷新本人数据</button>
-    </form>
-    <p>
-      课次时间按浏览器本地时区显示。任务是已发布的学习安排；作业/考试完成请进入来源核查。
-    </p>
+    </form><p>日期范围按 UTC 查询，课次按本地时区显示。</p></details>
     <div v-if="data" class="modules">
-      <section v-for="(module, name) in data.modules" :key="name">
+      <section v-for="[name, module] in visibleModules" :key="name">
         <h4>{{ labels[name as string] }}</h4>
         <p v-if="module.status === 'disabled'">该模块尚未开放。</p>
         <p v-else-if="module.status === 'unavailable'">
@@ -127,6 +127,7 @@ onBeforeUnmount(() => {
         >
       </section>
     </div>
+    <details v-if="disabledModules.length"><summary>更多功能</summary><p>当前尚未开放：{{ disabledModules.join('、') }}。</p></details>
   </section>
 </template>
 <style scoped>

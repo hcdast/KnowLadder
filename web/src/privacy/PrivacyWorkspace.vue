@@ -26,6 +26,8 @@ const statusLabels: Record<RequestView["status"], string> = {
   completed_with_retention: "处理完成，部分证据保留",
 };
 const categoryLabels: Record<string, string> = {
+  lifelong_goals: "个人终身学习目标", lifelong_activities: "个人活动与学习回顾", lifelong_supports: "家人与伙伴支持关系",
+  lifelong_feedback: "学习支持反馈", lifelong_assurances: "机构监护关系核验", lifelong_receipts: "个人学习请求恢复凭据",
   recommendations: "个人学习推荐", behavior_events: "个人行为记录", reading_progress: "阅读进度",
   learning_projection_inputs: "学情计算输入", mastery_evidence: "掌握度证据", mastery_snapshots: "掌握度快照",
   mistake_entries: "个人错题", report_snapshots: "学习报告快照", learning_projection_retirements: "学情旧版本记录",

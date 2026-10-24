@@ -33,6 +33,9 @@ const classHeading = ref<HTMLElement>();
 const quizHeading = ref<HTMLElement>();
 const roster = ref<TeachingRoster>();
 const subjectId = ref("");
+const teachingCatalog = ref<{ subjects: { id: string; name: string }[]; assignments: { class_id: string; subject_id: string }[] }>({ subjects: [], assignments: [] });
+const subjectsBusy = ref(false), subjectsError = ref("");
+const classSubjects = computed(() => teachingCatalog.value.subjects.filter(subject => teachingCatalog.value.assignments.some(assignment => assignment.class_id === selectedClass.value?.id && assignment.subject_id === subject.id)));
 const classReport = ref<TeachingClassSubjectReport>();
 const studentId = ref("");
 const studentName = ref("");
@@ -47,6 +50,10 @@ const quizRelease = ref("");
 const quizDuration = ref(600);
 const quizAttempts = ref(1);
 const quizItems = ref("");
+const quizMinutes = computed({ get: () => quizDuration.value / 60, set: value => { quizDuration.value = value * 60; } });
+const quizCandidates = ref<{ id: string; title: string; subject_id: string }[]>([]);
+const candidateBusy = ref(false), candidateError = ref("");
+const selectedQuestionIds = computed({ get: () => quizItems.value.split(/[\s,，]+/).filter(Boolean), set: ids => { quizItems.value = ids.join(" "); } });
 const createdQuiz = ref<QuizDraftSummary>();
 
 const busy = ref(false);
@@ -68,7 +75,7 @@ const storageKey = `teaching-quiz-recovery:${props.identity.user.id}:${props.ide
 const unknown = computed(() => !!pending.value || storageBlocked.value);
 const locked = computed(
   () =>
-    busy.value ||
+    busy.value || candidateBusy.value ||
     writeBusy.value ||
     unknown.value ||
     cooldown.value > 0 ||
@@ -122,6 +129,8 @@ function fail(cause: unknown) {
 }
 
 function clearDetail() {
+  teachingCatalog.value = { subjects: [], assignments: [] };
+  quizCandidates.value = [];
   roster.value = undefined;
   classReport.value = undefined;
   studentReport.value = undefined;
@@ -174,6 +183,7 @@ async function openClass(row: TeachingClass) {
   if (locked.value && !!pending.value) return;
   if (dirty.value && !window.confirm("出卷表单尚未提交，确定离开？")) return;
   selectedClass.value = row;
+  subjectId.value = "";
   clearDetail();
   createdQuiz.value = undefined;
   quizSubject.value = subjectId.value;
@@ -182,7 +192,19 @@ async function openClass(row: TeachingClass) {
   if (alive && selectedClass.value?.id === row.id && view.value === "roster") {
     classHeading.value?.focus();
   }
-  await loadRoster();
+  await Promise.all([loadRoster(), loadSubjects(row.id)]);
+}
+
+async function loadSubjects(classId: string) {
+  subjectsBusy.value = true; subjectsError.value = "";
+  try {
+    const value = await props.request<typeof teachingCatalog.value>("/training/catalog", { signal: life.signal });
+    if (!alive || denied.value || selectedClass.value?.id !== classId) return;
+    teachingCatalog.value = value;
+    if (classSubjects.value.length === 1) subjectId.value = classSubjects.value[0]!.id;
+  } catch (cause) {
+    if (alive && selectedClass.value?.id === classId) { subjectsError.value = "授课学科暂未读取，请重试。"; if (cause instanceof ApiError && [401, 403, 404].includes(cause.status)) fail(cause); }
+  } finally { if (alive && selectedClass.value?.id === classId) subjectsBusy.value = false; }
 }
 
 async function loadRoster() {
@@ -327,9 +349,30 @@ async function startQuizFromClass() {
   quizItems.value = "";
   view.value = "quiz";
   notice.value =
-    "将以 source_class_ids 创建草稿；服务端按当前名册展开受众。发布后名册变更不影响已发布受众。完整选题可到评估管理台继续编辑。";
+    "参加人员按当前班级名册确定。先创建草稿，再由独立审核人员发布考试。";
+  void loadQuizCandidates();
   await nextTick();
   if (alive && !denied.value && view.value === "quiz" && selectedClass.value?.id === classId && document.activeElement === document.body) quizHeading.value?.focus();
+}
+
+async function loadQuizCandidates() {
+  if (!canManage || denied.value || candidateBusy.value || !quizSubject.value) return;
+  const classId = selectedClass.value?.id, subject = quizSubject.value;
+  candidateBusy.value = true; candidateError.value = ""; quizCandidates.value = [];
+  try {
+    const page = await props.request<{ items: typeof quizCandidates.value }>(`/admin/assessment-questions?subject_id=${encodeURIComponent(subject)}&limit=50`, { signal: life.signal });
+    if (alive && !denied.value && classId === selectedClass.value?.id && subject === quizSubject.value) quizCandidates.value = page.items;
+  } catch (cause) { if (alive && !denied.value && classId === selectedClass.value?.id && subject === quizSubject.value) { candidateError.value = cause instanceof Error ? cause.message : "题目读取失败。"; fail(cause); } }
+  finally { candidateBusy.value = false; }
+}
+function changeQuizSubject() {
+  quizItems.value = "";
+  if (candidateBusy.value) return;
+  void loadQuizCandidates();
+}
+function cancelClassQuiz() {
+  if (locked.value || dirty.value && !window.confirm("放弃当前未提交的考试草稿？")) return;
+  quizTitle.value = ""; quizSubject.value = ""; quizItems.value = ""; quizCandidates.value = []; view.value = "roster";
 }
 
 function toIso(local: string) {
@@ -342,7 +385,7 @@ async function createQuizDraft() {
   if (
     !canManage ||
     !clazz ||
-    writeBusy.value ||
+    writeBusy.value || candidateBusy.value ||
     pending.value ||
     storageBlocked.value ||
     denied.value
@@ -361,6 +404,7 @@ async function createQuizDraft() {
     error.value = "请填写考试标题。";
     return;
   }
+  if (!Number.isInteger(quizDuration.value) || quizDuration.value < 60 || quizDuration.value > 7200) { error.value = "考试时长须为1至120分钟，精确到秒。"; return; }
   if (!itemIds.length || itemIds.some((id) => !/^[0-9a-f]{24}$/.test(id))) {
     error.value =
       "至少提供 1 个合法题目版本编号（24位）（可稍后在评估管理台增删）。";
@@ -515,8 +559,7 @@ onBeforeUnmount(() => {
       </p>
       <h2 id="teaching-title">班级、名册与学科报告</h2>
       <p class="muted">
-        可见性只认本人有效授课关系。报告需 teaching:report；从班出卷需
-        assessment:manage，并以 source_class_ids 与显式受众互斥展开。
+        查看自己的授课班、学生名册与学习报告，按授权安排考试。
       </p>
     </header>
 
@@ -621,9 +664,7 @@ onBeforeUnmount(() => {
             <li v-for="row in classes" :key="row.id">
               <div>
                 <p>{{ row.name }} · {{ row.year_label }}</p>
-                <p class="field-help">
-                  班级 {{ row.id }} · 修订 {{ row.revision }}
-                </p>
+                <details><summary>版本与定位信息</summary><p class="field-help">班级 {{ row.id }} · 修订 {{ row.revision }}</p></details>
               </div>
               <button
                 class="button secondary"
@@ -642,23 +683,15 @@ onBeforeUnmount(() => {
           aria-label="当前班级"
         >
           <h3 ref="classHeading" tabindex="-1">{{ selectedClass.name }} · {{ selectedClass.year_label }}</h3>
-          <p class="field-help">班级编号 {{ selectedClass.id }}</p>
+          <details><summary>班级定位信息</summary><p class="field-help">班级编号 {{ selectedClass.id }}</p></details>
 
           <div class="field">
-            <label for="teaching-subject"
-              >授课学科编号（24位）（报告与出卷必填）</label
-            >
-            <input
-              id="teaching-subject"
-              v-model="subjectId"
-              :disabled="locked"
-              pattern="[0-9a-f]{24}"
-              placeholder="与 teaching_assignments.subject_id 一致"
-            />
-            <p class="field-help">
-              列表接口不回传学科；请填写本人对该班的有效授课学科编号。无权限或学科不匹配时服务器返回统一
-              404。
-            </p>
+            <label for="teaching-subject">授课学科</label>
+            <select id="teaching-subject" v-model="subjectId" :disabled="locked || subjectsBusy"><option value="">{{ subjectsBusy ? '正在读取授课学科…' : '选择本班授课学科' }}</option><option v-for="item in classSubjects" :key="item.id" :value="item.id">{{ item.name }}</option></select>
+            <p v-if="subjectsError" role="status">{{ subjectsError }}</p>
+            <button v-if="subjectsError" class="text-button" :disabled="subjectsBusy || locked" @click="loadSubjects(selectedClass.id)">重新读取学科</button>
+            <p v-else-if="!subjectsBusy && !classSubjects.length" class="field-help">暂无可用授课学科，请联系组织管理员确认授课关系。</p>
+            <details><summary>按已知学科编号定位</summary><input v-model="subjectId" aria-label="授课学科编号" :disabled="locked || subjectsBusy" pattern="[0-9a-f]{24}" /><p class="field-help">仅用于已知授课编号；报告和出卷仍由服务端核验本班授课权限。</p></details>
           </div>
 
           <template v-if="view === 'roster'">
@@ -702,7 +735,7 @@ onBeforeUnmount(() => {
               <li v-for="row in roster.items" :key="row.member_id">
                 <div>
                   <p>{{ row.display_name }}</p>
-                  <p class="field-help">成员 {{ row.member_id }}</p>
+                  <details><summary>成员定位信息</summary><p class="field-help">{{ row.member_id }}</p></details>
                 </div>
                 <button
                   v-if="canReport"
@@ -735,7 +768,7 @@ onBeforeUnmount(() => {
               <button
                 class="button secondary"
                 :disabled="locked"
-                @click="view = 'roster'"
+                @click="cancelClassQuiz"
               >
                 返回名册
               </button>
@@ -836,7 +869,7 @@ onBeforeUnmount(() => {
               <button
                 class="button secondary"
                 :disabled="locked"
-                @click="view = 'roster'"
+                @click="cancelClassQuiz"
               >
                 返回名册
               </button>
@@ -939,8 +972,7 @@ onBeforeUnmount(() => {
           <template v-else-if="view === 'quiz' && canManage">
             <h4 ref="quizHeading" tabindex="-1">从班级创建考试草稿</h4>
             <p class="field-help">
-              使用 source_class_ids=[当前班]，与 audience_member_ids
-              互斥。创建后请到评估工作台补题或交独立审核发布。
+              参加人员来自当前班级名册。选题后创建草稿，交由独立审核人员发布。
             </p>
             <form class="stack" @submit.prevent="createQuizDraft">
               <fieldset
@@ -957,17 +989,13 @@ onBeforeUnmount(() => {
                   />
                 </div>
                 <div class="field">
-                  <label for="quiz-from-class-subject">学科编号（24位）</label>
-                  <input
-                    id="quiz-from-class-subject"
-                    v-model="quizSubject"
-                    required
-                    pattern="[0-9a-f]{24}"
-                  />
+                  <label for="quiz-from-class-subject">授课学科</label>
+                  <select id="quiz-from-class-subject" v-model="quizSubject" required :disabled="candidateBusy" @change="changeQuizSubject"><option disabled value="">选择学科</option><option v-for="subject in classSubjects" :key="subject.id" :value="subject.id">{{ subject.name }}</option></select>
+                  <details><summary>按已知学科编号定位</summary><label for="quiz-subject-id">学科编号</label><input id="quiz-subject-id" v-model="quizSubject" pattern="[0-9a-f]{24}" :disabled="candidateBusy" @change="changeQuizSubject" /></details>
                 </div>
                 <div class="content-columns">
                   <div class="field">
-                    <label for="quiz-from-class-opens">开放时间</label>
+                    <label for="quiz-from-class-opens">开放时间（本地时区）</label>
                     <input
                       id="quiz-from-class-opens"
                       v-model="quizOpens"
@@ -976,7 +1004,7 @@ onBeforeUnmount(() => {
                     />
                   </div>
                   <div class="field">
-                    <label for="quiz-from-class-closes">关闭时间</label>
+                    <label for="quiz-from-class-closes">关闭时间（本地时区）</label>
                     <input
                       id="quiz-from-class-closes"
                       v-model="quizCloses"
@@ -985,7 +1013,7 @@ onBeforeUnmount(() => {
                     />
                   </div>
                   <div class="field">
-                    <label for="quiz-from-class-release">成绩发布时间</label>
+                    <label for="quiz-from-class-release">成绩发布时间（本地时区）</label>
                     <input
                       id="quiz-from-class-release"
                       v-model="quizRelease"
@@ -994,13 +1022,14 @@ onBeforeUnmount(() => {
                     />
                   </div>
                   <div class="field">
-                    <label for="quiz-from-class-duration">时长（秒）</label>
+                    <label for="quiz-from-class-duration">时长（分钟）</label>
                     <input
                       id="quiz-from-class-duration"
-                      v-model.number="quizDuration"
+                      v-model.number="quizMinutes"
                       type="number"
-                      min="60"
-                      max="7200"
+                      min="1"
+                      max="120"
+                      step="any"
                       required
                     />
                   </div>
@@ -1017,24 +1046,14 @@ onBeforeUnmount(() => {
                   </div>
                 </div>
                 <div class="field">
-                  <label for="quiz-from-class-items"
-                    >题目版本编号（24位）（空格或逗号分隔，至少 1 个）</label
-                  >
-                  <textarea
-                    id="quiz-from-class-items"
-                    v-model="quizItems"
-                    rows="3"
-                    required
-                  />
-                  <p class="field-help">
-                    可先填 1
-                    题创建草稿，再到「练习、考试与结果」管理台用候选题完善题单。受众由服务端按班级展开，勿同时传
-                    audience_member_ids。
-                  </p>
+                  <h5>选择题目 · 已选 {{ selectedQuestionIds.length }} 题</h5>
+                  <p v-if="candidateBusy" role="status">正在读取可用题目…</p><p v-if="candidateError" role="alert">{{ candidateError }}</p>
+                  <p v-if="!candidateBusy && !candidateError && !quizCandidates.length">选择学科后读取可用题目；暂无题目时可到考试管理完善题库。</p>
+                  <label v-for="question in quizCandidates" :key="question.id" class="check-label"><input v-model="selectedQuestionIds" type="checkbox" :value="question.id" :disabled="!selectedQuestionIds.includes(question.id) && selectedQuestionIds.length >= 50" />{{ question.title }}</label>
+                  <button type="button" class="button secondary" :disabled="candidateBusy || !quizSubject" @click="loadQuizCandidates">重新读取题目（最多50题）</button>
+                  <details><summary>按已知题目版本编号选题</summary><label for="quiz-from-class-items">题目版本编号（空格或逗号分隔）</label><textarea id="quiz-from-class-items" v-model="quizItems" rows="3" /></details>
                 </div>
-                <p class="field-help">
-                  source_class_ids：{{ selectedClass.id }}
-                </p>
+                <details><summary>班级定位信息</summary><p>{{ selectedClass.id }}</p></details>
               </fieldset>
               <div class="actions">
                 <button
@@ -1042,7 +1061,7 @@ onBeforeUnmount(() => {
                   type="submit"
                   :disabled="locked || !!createdQuiz"
                 >
-                  创建草稿（source_class_ids）
+                  创建考试草稿
                 </button>
                 <button
                   type="button"
@@ -1056,9 +1075,9 @@ onBeforeUnmount(() => {
                   type="button"
                   class="button secondary"
                   :disabled="locked"
-                  @click="view = 'roster'"
+                  @click="cancelClassQuiz"
                 >
-                  返回名册
+                  取消并返回名册
                 </button>
               </div>
             </form>

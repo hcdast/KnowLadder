@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
+import AccountMenu from "../components/AccountMenu.vue";
 import type { Identity } from "../session";
 import type { ConsoleContext, ConsoleMenu } from "./types";
 import { consoleBusinessModules } from "./presentation";
@@ -8,8 +9,8 @@ import "./console.css";
 const props = defineProps<{ identity: Identity; context?: ConsoleContext; busy?: boolean }>();
 const emit = defineEmits<{ organization: [event: Event]; password: []; logout: [] }>();
 const route = useRoute();
-const collapsed = ref(false), mobile = ref(false), drawer = ref(false), userMenu = ref(false);
-const sidebar = ref<HTMLElement>(), toggle = ref<HTMLButtonElement>(), accountButton = ref<HTMLButtonElement>();
+const collapsed = ref(false), mobile = ref(false), drawer = ref(false);
+const sidebar = ref<HTMLElement>(), toggle = ref<HTMLButtonElement>();
 const currentPage = computed(() => String(route.meta.consolePage || route.params.page || "overview"));
 const modules = computed(() => props.context ? consoleBusinessModules(props.context) : []);
 const links: { page: ConsoleMenu; label: string; icon: string; group: string }[] = [
@@ -24,7 +25,7 @@ const businessLabels = { content: "教材题库", assessment: "考试管理", re
 function resize() { mobile.value = window.matchMedia("(max-width: 1023px)").matches; if (!mobile.value) closeDrawer(); }
 async function openNavigation() {
   if (!mobile.value) { collapsed.value = !collapsed.value; return; }
-  userMenu.value = false; drawer.value = true; await nextTick(); sidebar.value?.querySelector<HTMLElement>("button, a")?.focus();
+  drawer.value = true; await nextTick(); sidebar.value?.querySelector<HTMLElement>("button, a")?.focus();
 }
 function closeDrawer() { const wasOpen = drawer.value; drawer.value = false; if (wasOpen) void nextTick(() => toggle.value?.focus()); }
 function trapNavigation(event: KeyboardEvent) {
@@ -36,8 +37,7 @@ function trapNavigation(event: KeyboardEvent) {
   if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
   else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
 }
-function closeUserMenu() { userMenu.value = false; accountButton.value?.focus(); }
-watch(() => route.fullPath, () => { closeDrawer(); userMenu.value = false; });
+watch(() => route.fullPath, closeDrawer);
 onMounted(() => { resize(); window.addEventListener("resize", resize); });
 onBeforeUnmount(() => window.removeEventListener("resize", resize));
 </script>
@@ -48,10 +48,7 @@ onBeforeUnmount(() => window.removeEventListener("resize", resize));
       <RouterLink class="admin-brand" to="/console/overview">知阶<span>管理后台</span></RouterLink>
       <div class="admin-header-tools">
         <label class="admin-organization"><span>管理组织</span><select aria-label="当前管理组织" :value="identity.context?.org_id || ''" :disabled="busy" @change="emit('organization', $event)"><option v-if="!identity.context" value="" disabled>请选择组织</option><option v-for="organization in identity.organizations" :key="organization.id" :value="organization.id">{{ organization.name }}</option></select></label>
-        <div class="admin-user" @keydown.esc.prevent="closeUserMenu">
-          <button ref="accountButton" class="admin-user-button" :aria-label="`${identity.user.display_name}的账号菜单`" :aria-expanded="userMenu" aria-controls="admin-user-menu" @click="userMenu = !userMenu"><span class="admin-avatar" aria-hidden="true">{{ identity.user.display_name.slice(0, 1) }}</span><span class="admin-user-name">{{ identity.user.display_name }}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></button>
-          <div v-if="userMenu" id="admin-user-menu" class="admin-user-menu"><RouterLink to="/account">账号与安全</RouterLink><button :disabled="busy" @click="userMenu = false; emit('password')">修改密码</button><button :disabled="busy" @click="userMenu = false; emit('logout')">退出登录</button></div>
-        </div>
+        <AccountMenu :name="identity.user.display_name" :busy="busy" allow-password @password="emit('password')" @logout="emit('logout')" />
       </div>
     </header>
     <div v-if="drawer" class="admin-drawer-backdrop" aria-hidden="true" @click="closeDrawer" />

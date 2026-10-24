@@ -7,7 +7,7 @@ export interface Preference { orgId: string; workspace?: WorkspacePath }
 export interface TargetOutcome { status: 403 | 404; reason: "permission" | "not-found"; userId?: string }
 const workspacePaths: WorkspacePath[] = ["/teaching", "/learning", "/training", "/content", "/assessment", "/console/overview"];
 const id = /^[a-f0-9]{24}$/i;
-const tabs: Record<string, true> = { courses: true, tasks: true, ai: true, site: true, reports: true, phase2: true, knowledge: true };
+const tabs: Record<string, true> = { workbench: true, discover: true, courses: true, tasks: true, ai: true, site: true, reports: true, phase2: true, knowledge: true };
 
 /** Only existing private routes and their consumer-owned query fields can be restored. */
 export function parseReturnTo(value: unknown): string | undefined {
@@ -17,7 +17,7 @@ export function parseReturnTo(value: unknown): string | undefined {
   const query = new URLSearchParams(split < 0 ? "" : value.slice(split + 1));
   if (path.includes("%") || path.includes(":") || path.includes("@")) return;
   if (path === "/console") path = "/console/overview";
-  const simple = ["/home", "/account", "/privacy", ...workspacePaths];
+  const simple = ["/home", "/account", "/privacy", "/personal", ...workspacePaths];
   const consoleRoute = /^\/console\/(overview|users|organizations|authorizations|approvals|audit|business)(?:\/([a-f0-9]{24}))?$/i.test(path) ||
     /^\/console\/(users|authorizations)\/(new|[a-f0-9]{24}\/edit)$/i.test(path) ||
     /^\/console\/organizations\/[a-f0-9]{24}\/members\/(new|[a-f0-9]{24}\/edit)$/i.test(path) ||
@@ -25,14 +25,17 @@ export function parseReturnTo(value: unknown): string | undefined {
     /^\/console\/business\/(content|assessment|reports|safety)$/.test(path);
   if (!simple.includes(path as WorkspacePath) && !consoleRoute) return;
   const keys = new Set<string>();
+  const courseSlug = /^[a-z][a-z0-9-]{0,79}$/;
   for (const [key, field] of query) {
     if (keys.has(key)) return;
     keys.add(key);
     if (path === "/training" && key === "tab" && Object.hasOwn(tabs, field)) continue;
+    if (path === "/personal" && ((key === "tab" && ["courses", "notes", "plan"].includes(field)) || (["course", "unit"].includes(key) && courseSlug.test(field)))) continue;
     if (/^\/console\/authorizations(?:\/new|\/[a-f0-9]{24}\/edit)?$/i.test(path) && ["user_id", "member_id"].includes(key) && id.test(field)) continue;
     if (/^\/console\/organizations\/[a-f0-9]{24}\/members\/[a-f0-9]{24}\/edit$/i.test(path) && key === "user_id" && id.test(field)) continue;
     return;
   }
+  if (path === "/personal" && query.has("unit") && !query.has("course")) return;
   const suffix = query.toString();
   return path + (suffix ? `?${suffix}` : "");
 }
@@ -67,7 +70,7 @@ export function availableWorkspaces(identity: Identity, consoleContext: ConsoleC
 }
 export function targetAllowed(target: string, identity: Identity, context: ConsoleContext | null): boolean {
   const path = target.split("?")[0]!;
-  if (["/home", "/account", "/privacy"].includes(path)) return true;
+  if (["/home", "/account", "/privacy", "/personal"].includes(path)) return true;
   const workspaces = availableWorkspaces(identity, context);
   if (!path.startsWith("/console/")) return workspaces.includes(path as WorkspacePath);
   if (!workspaces.includes("/console/overview") || !context) return false;
@@ -78,6 +81,18 @@ export function targetAllowed(target: string, identity: Identity, context: Conso
     (page === "users" && context.capabilities.includes("platform:govern") && !path.endsWith("/new"));
 }
 
+/** Task priority is a landing preference only; it never creates access. */
+export function preferredTaskWorkspace(identity: Identity, context: ConsoleContext | null): WorkspacePath | undefined {
+  const allowed = availableWorkspaces(identity, context);
+  const caps = identity.context?.capabilities || [];
+  const priorities: WorkspacePath[] = canUseStudentLearning(identity) && !caps.includes("teaching:class") ? ["/training", "/learning"]
+    : caps.includes("content:review") && !caps.includes("content:edit") ? ["/content", "/training"]
+      : caps.some(cap => ["assessment:manage", "assessment:review"].includes(cap)) && !caps.includes("course:edit") ? ["/assessment", "/teaching"]
+        : caps.includes("content:edit") ? ["/content"]
+          : caps.includes("teaching:class") ? ["/teaching", "/training"] : [];
+  return priorities.find(path => allowed.includes(path)) || allowed[0];
+}
+
 /** A single in-memory intent, bound to the last known account, never a cached permission. */
 export function createEntryCoordinator() {
   let intent: { target: string; userId?: string } | undefined;
@@ -86,6 +101,7 @@ export function createEntryCoordinator() {
   let awaitingAccountLanding = false;
   return {
     get outcome() { return outcome; },
+    get globalTarget() { return !!intent && ["/personal", "/account", "/privacy"].includes(intent.target.split("?")[0]!); },
     capture(target: unknown) {
       const safe = parseReturnTo(target);
       if (safe && safe !== "/home" && !outcome && !intent && !awaitingAccountLanding) intent = { target: safe, userId: lastUser };
@@ -120,7 +136,8 @@ export function createEntryCoordinator() {
     decide(identity: Identity, context: ConsoleContext | null, preference?: Preference): { target?: string; denied?: boolean } {
       this.identify(identity);
       if (identity.must_change_password || outcome) return {};
-      if (!identity.organizations.length) { intent = undefined; awaitingAccountLanding = false; return { target: "/account" }; }
+      if (intent && this.globalTarget) { const target = intent.target; intent = undefined; awaitingAccountLanding = false; return { target }; }
+      if (!identity.organizations.length) { intent = undefined; awaitingAccountLanding = false; return { target: "/personal" }; }
       if (!identity.context) return {};
       awaitingAccountLanding = false;
       if (intent) {
@@ -131,7 +148,7 @@ export function createEntryCoordinator() {
       }
       const workspaces = availableWorkspaces(identity, context);
       if (preference?.orgId === identity.context.org_id && preference.workspace && workspaces.includes(preference.workspace)) return { target: preference.workspace };
-      return { target: workspaces[0] || "/home" };
+      return { target: preferredTaskWorkspace(identity, context) || "/home" };
     },
   };
 }

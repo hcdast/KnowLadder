@@ -1,8 +1,9 @@
 const pages: Record<string, {title: string; description: string}> = {
- '/': {title:'AI 教学培训平台',description:'知阶连接课程、实践作业与教师反馈，在授权资料范围内提供 AI 教学建议。'},
+ '/': {title:'全龄终身学习平台',description:'从启蒙、学校、大学与职业发展，到兴趣生活和银龄学习，知阶连接知识、实践与成长。'},
+ '/explore': {title:'探索终身学习',description:'探索各阶段学习方向、跨阶段领域和个人、家庭及组织支持入口；实际可学资源按授权展示。'},
  '/features': {title:'产品功能',description:'了解知阶的组织班级、课程学习、实践作业与评估功能。'},
  '/ai-teaching': {title:'AI 教学',description:'了解有来源的学习答疑、教师备课、题目与任务报告建议，以及人工审核边界。'},
- '/solutions': {title:'解决方案',description:'面向成人职业培训的课程、实践与反馈方案，企业和学校场景按计划及准入逐步拓展。'},
+ '/solutions': {title:'学习场景',description:'了解从启蒙到银龄的终身学习场景，以及个人、家庭、学校、机构与社区的支持方式。'},
  '/help': {title:'使用帮助',description:'了解管理员开通账号、选择组织、学习课程和开展培训的操作步骤。'},
  '/about': {title:'关于知阶',description:'知阶 KnowLadder 尊重教师判断，依据真实记录支持持续学习。'},
  '/contact': {title:'联系咨询',description:'了解培训系统咨询与回执查询；咨询开放以组织配置和信息用途同意为前提。'},

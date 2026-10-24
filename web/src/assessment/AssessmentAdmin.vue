@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ApiError, type BusinessRequest, type Identity } from '../session';
 import type { AdminQuiz, AdminSubmission, AdminSubmissionSummary, AssessmentAudit, Candidate, Member, Page, Question, QuizSummary } from './types';
 import ResourceTable from '../administration/components/ResourceTable.vue';
@@ -12,6 +12,39 @@ const quizCursor = ref<string | null>(null), candidateCursor = ref<string | null
 type QuizDraft = Pick<AdminQuiz, 'id' | 'title' | 'subject_id' | 'status' | 'revision' | 'opens_at' | 'closes_at' | 'release_at' | 'duration_seconds' | 'max_attempts' | 'created_by' | 'contributors' | 'audience_member_ids'> & { items: { question_version_id: string; max_score: string }[] };
 const selected = ref<AdminQuiz>(), draft = ref<QuizDraft>(), preview = ref<Question>(), submission = ref<AdminSubmission>();
 const original = ref(''), busy = ref(false), error = ref(''), message = ref(''), reason = ref(''), correction = ref(''), subject = ref('');
+const quizStep = ref(0), stepHeading = ref<HTMLElement>(), quizzesLoaded = ref(false), membersLoaded = ref(false), candidatesLoaded = ref(false);
+const reviewOnly = ref(!manage && review);
+const quizSteps = ['基本设置', '选择题目', '参加人员', '确认预览'];
+const visibleQuizzes = computed(() => reviewOnly.value ? quizzes.value.filter(row => row.status === 'draft') : quizzes.value);
+const questionNames = ref<Record<string, string>>({});
+const candidateSubjects = computed(() => [...new Map(candidates.value.map(row => [row.subject_id, { id: row.subject_id, name: row.subject_name || `题目「${row.title}」所属学科` }])).values()]);
+const durationMinutes = computed({ get: () => (draft.value?.duration_seconds ?? 600) / 60, set: value => { if (draft.value) draft.value.duration_seconds = value * 60; } });
+const selectedMemberNames = computed(() => (draft.value?.audience_member_ids || []).map((id, index) => members.value.find(row => row.id === id)?.display_name || `已选成员 ${index + 1}（名称未读取）`));
+function draftProblem(step: number): string {
+  const row = draft.value; if (!row) return '请先创建或选择考试。';
+  if (step === 0) {
+    if (!row.title.trim()) return '请填写考试标题。';
+    if (![row.opens_at, row.closes_at, row.release_at].every(value => value && Number.isFinite(Date.parse(value)))) return '请填写开放、关闭和成绩发布时间。';
+    if (!(Date.parse(row.opens_at) < Date.parse(row.closes_at) && Date.parse(row.closes_at) <= Date.parse(row.release_at))) return '开放时间须早于关闭时间，成绩发布时间不能早于关闭时间。';
+    if (!Number.isInteger(row.duration_seconds) || row.duration_seconds < 60 || row.duration_seconds > 7200) return '考试时长须为1至120分钟，精确到秒。';
+    if (!Number.isInteger(row.max_attempts) || row.max_attempts < 1 || row.max_attempts > 3) return '参加次数须为1至3次。';
+  }
+  if (step === 1 && (!row.items.length || !/^[a-f0-9]{24}$/.test(row.subject_id))) return '请至少选择一道题目，学科会自动确定。';
+  if (step === 2 && !row.audience_member_ids.length) return '请至少选择一位参加人员。';
+  return '';
+}
+async function changeStep(next: number) {
+  if (busy.value || locked.value) return;
+  if (next > quizStep.value) { for (let step = quizStep.value; step < next; step++) { const problem = draftProblem(step); if (problem) { error.value = problem; return; } } }
+  error.value = ''; quizStep.value = next;
+  if (next === 1 && !candidatesLoaded.value) void loadCandidates();
+  if (next === 2 && !membersLoaded.value) void loadMembers();
+  await nextTick(); stepHeading.value?.focus();
+}
+function cancelQuiz() {
+  if (busy.value || !mayLeave()) return;
+  serial++; selected.value = undefined; draft.value = undefined; original.value = ''; preview.value = undefined; reason.value = ''; error.value = ''; quizStep.value = 0;
+}
 const life = new AbortController(); let alive = true, serial = 0;
 type PendingWrite = { path: string; method: 'POST' | 'PATCH'; key: string; resource: string; kind: 'quiz' | 'regrade' };
 const pending = ref<PendingWrite>(), storageBlocked = ref(false);
@@ -83,18 +116,20 @@ async function inspectPending() {
   try { const value = await props.request<AdminQuiz>(`/admin/quizzes/${request.resource}`, { signal: life.signal }); if (alive) { selected.value = value; if (!dirty.value) { draft.value = structuredClone(value); original.value = JSON.stringify(value); } } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; }
 }
 function mayLeave() { if (locked.value) { error.value = '请先恢复原管理请求；查询资源不会证明原请求失败。'; return false; } return !dirty.value || window.confirm('考试草稿未保存，确定放弃本地修改？'); }
-async function loadQuizzes(next = false) { if (busy.value) return; busy.value = true; try { const q = new URLSearchParams({ limit: '20' }); if (next && quizCursor.value) q.set('cursor', quizCursor.value); const page = await props.request<Page<QuizSummary>>(`/admin/quizzes?${q}`, { signal: life.signal }); if (alive) { quizzes.value = next ? [...quizzes.value, ...page.items] : page.items; quizCursor.value = page.next_cursor; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
-function newQuiz() { if (!mayLeave()) return; serial++; selected.value = undefined; draft.value = { id: '', title: '', subject_id: '', status: 'draft', revision: 0, opens_at: '', closes_at: '', release_at: '', duration_seconds: 600, max_attempts: 1, created_by: props.identity.user.id, contributors: [], items: [], audience_member_ids: [] }; original.value = ''; preview.value = undefined; reason.value = ''; }
-async function openQuiz(id: string) { if (busy.value || ((!locked.value || dirty.value) && !mayLeave())) return; busy.value = true; const token = ++serial; preview.value = undefined; draft.value = undefined; try { const value = await props.request<AdminQuiz>(`/admin/quizzes/${id}`, { signal: life.signal }); if (alive && token === serial) { selected.value = value; draft.value = structuredClone(value); original.value = JSON.stringify(value); subject.value = value.subject_id; reason.value = ''; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
-async function loadCandidates(next = false) { if (busy.value) return; busy.value = true; preview.value = undefined; try { const q = new URLSearchParams({ limit: '20' }); if (subject.value) q.set('subject_id', subject.value); if (next && candidateCursor.value) q.set('cursor', candidateCursor.value); const page = await props.request<Page<Candidate>>(`/admin/assessment-questions?${q}`, { signal: life.signal }); if (alive) { candidates.value = next ? [...candidates.value, ...page.items] : page.items; candidateCursor.value = page.next_cursor; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
+async function loadQuizzes(next = false) { if (busy.value) return; busy.value = true; try { const q = new URLSearchParams({ limit: '20' }); if (next && quizCursor.value) q.set('cursor', quizCursor.value); const page = await props.request<Page<QuizSummary>>(`/admin/quizzes?${q}`, { signal: life.signal }); if (alive) { quizzes.value = next ? [...quizzes.value, ...page.items] : page.items; quizCursor.value = page.next_cursor; quizzesLoaded.value = true; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
+function newQuiz() { if (!mayLeave()) return; serial++; selected.value = undefined; draft.value = { id: '', title: '', subject_id: '', status: 'draft', revision: 0, opens_at: '', closes_at: '', release_at: '', duration_seconds: 600, max_attempts: 1, created_by: props.identity.user.id, contributors: [], items: [], audience_member_ids: [] }; original.value = JSON.stringify(draft.value); preview.value = undefined; reason.value = ''; subject.value = ''; quizStep.value = 0; error.value = ''; candidates.value = []; candidateCursor.value = null; candidatesLoaded.value = false; }
+async function openQuiz(id: string) { if (busy.value || ((!locked.value || dirty.value) && !mayLeave())) return; busy.value = true; const token = ++serial; preview.value = undefined; draft.value = undefined; try { const value = await props.request<AdminQuiz>(`/admin/quizzes/${id}`, { signal: life.signal }); if (alive && token === serial) { selected.value = value; draft.value = structuredClone(value); original.value = JSON.stringify(value); subject.value = value.subject_id; reason.value = ''; quizStep.value = 0; for (const item of value.items) questionNames.value[item.question_version_id] = item.question.title; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
+async function loadCandidates(next = false) { if (busy.value) return; busy.value = true; preview.value = undefined; try { const q = new URLSearchParams({ limit: '20' }); if (subject.value) q.set('subject_id', subject.value); if (next && candidateCursor.value) q.set('cursor', candidateCursor.value); const page = await props.request<Page<Candidate>>(`/admin/assessment-questions?${q}`, { signal: life.signal }); if (alive) { candidates.value = next ? [...candidates.value, ...page.items] : page.items; candidateCursor.value = page.next_cursor; candidatesLoaded.value = true; for (const item of page.items) questionNames.value[item.id] = item.title; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
 async function showCandidate(id: string) { const token = ++serial; preview.value = undefined; try { const value = await props.request<Question>(`/admin/assessment-questions/${id}`, { signal: life.signal }); if (alive && token === serial) preview.value = value; } catch (cause) { fail(cause); } }
-async function loadMembers(next = false) { if (busy.value || !manage) return; busy.value = true; try { const q = new URLSearchParams({ limit: '50' }); if (next && memberCursor.value) q.set('cursor', memberCursor.value); const page = await props.request<Page<Member>>(`/admin/assessment-members?${q}`, { signal: life.signal }); if (alive) { members.value = next ? [...members.value, ...page.items] : page.items; memberCursor.value = page.next_cursor; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
-function addCandidate(row: Candidate) { if (!editable.value || !draft.value || draft.value.items!.length >= 50 || draft.value.items!.some(item => item.question_version_id === row.id)) return; if (draft.value.subject_id && draft.value.subject_id !== row.subject_id) { error.value = '题目学科必须一致。'; return; } draft.value.subject_id = row.subject_id; draft.value.items!.push({ question_version_id: row.id, max_score: '' }); }
+async function loadMembers(next = false) { if (busy.value || !manage) return; busy.value = true; try { const q = new URLSearchParams({ limit: '50' }); if (next && memberCursor.value) q.set('cursor', memberCursor.value); const page = await props.request<Page<Member>>(`/admin/assessment-members?${q}`, { signal: life.signal }); if (alive) { members.value = next ? [...members.value, ...page.items] : page.items; memberCursor.value = page.next_cursor; membersLoaded.value = true; } } catch (cause) { fail(cause); } finally { if (alive) busy.value = false; } }
+function addCandidate(row: Candidate) { if (busy.value || !editable.value || !draft.value || draft.value.items!.length >= 50 || draft.value.items!.some(item => item.question_version_id === row.id)) return; if (draft.value.subject_id && draft.value.subject_id !== row.subject_id) { error.value = '题目学科必须一致。'; return; } questionNames.value[row.id] = row.title; draft.value.subject_id = row.subject_id; draft.value.items!.push({ question_version_id: row.id, max_score: '' }); }
 function move(index: number, delta: number) { const rows = draft.value?.items; if (!rows || index + delta < 0 || index + delta >= rows.length) return; const row = rows.splice(index, 1)[0]; if (row) rows.splice(index + delta, 0, row); }
 function localDate(value: string) { if (!value) return ''; const date = new Date(value); return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16); }
 function setDate(field: 'opens_at' | 'closes_at' | 'release_at', event: Event) { if (draft.value) { const value = (event.target as HTMLInputElement).value; draft.value[field] = value ? new Date(value).toISOString() : ''; } }
 async function save() {
   const row = draft.value; if (!row || !editable.value || busy.value) return;
+  for (let step = 0; step < 3; step++) { const problem = draftProblem(step); if (problem) { error.value = problem; quizStep.value = step; return; } }
+  if (quizStep.value !== 3) { error.value = '请先完成确认预览，再保存草稿。'; return; }
   busy.value = true; error.value = ''; message.value = '';
   try {
     const body = { title: row.title, subject_id: row.subject_id, opens_at: row.opens_at, closes_at: row.closes_at, release_at: row.release_at, duration_seconds: row.duration_seconds, max_attempts: row.max_attempts, items: row.items!.map(item => ({ question_version_id: item.question_version_id, ...(item.max_score ? { max_score: item.max_score } : {}) })), audience_member_ids: [...row.audience_member_ids!], ...(row.id ? { expected_revision: row.revision } : {}) };
@@ -150,75 +185,88 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); pendingBody = und
 <template>
   <section class="stack content-section" :class="{ 'admin-card': consolePresentation }" aria-label="独立考试管理" :aria-busy="busy">
     <component :is="consolePresentation ? 'h2' : 'h3'">考试编排与独立审核</component>
-    <p class="field-help">仅展示服务端授予的测评能力；内容管理权限不能替代考试授权。发布后题单与受众不可修改。</p>
+<p class="field-help">编排考试并由独立账号审核发布，发布后题单和参加人员保持固定。</p>
     <p v-if="error" class="notice" role="alert">{{ error }}</p>
     <p v-if="message" role="status">{{ message }}</p>
     <div class="actions" :class="{ 'admin-toolbar': consolePresentation }">
       <button v-if="manage" class="button" :disabled="busy" @click="newQuiz">新建考试</button>
       <button class="button secondary" :disabled="busy" @click="loadQuizzes()">刷新考试列表</button>
     </div>
-    <ResourceTable v-if="consolePresentation" :headers="['考试标题', '发布状态', '修订', '操作']" :busy="busy" :empty="!quizzes.length" empty-label="尚无考试。编排者可新建，审核者等待独立账号提交草稿。">
-      <tr v-for="quiz in quizzes" :key="quiz.id">
+    <label v-if="review"><input v-model="reviewOnly" type="checkbox" />只看待发布草稿</label><p v-if="busy && !quizzesLoaded" role="status">正在读取考试…</p>
+    <ResourceTable v-if="consolePresentation" :headers="['考试标题', '发布状态', '修订', '操作']" :busy="busy" :empty="quizzesLoaded && !visibleQuizzes.length" empty-label="暂无符合当前筛选的考试。可调整筛选、读取更多，或等待编排者保存草稿。">
+      <tr v-for="quiz in visibleQuizzes" :key="quiz.id">
         <td>{{ quiz.title }}</td><td><StatusBadge :status="quiz.status" :label="quizStatusLabels[quiz.status]" /></td><td>{{ quiz.revision }}</td>
         <td><button class="button secondary" :disabled="busy" @click="openQuiz(quiz.id)">查看考试</button></td>
       </tr>
     </ResourceTable>
     <template v-else>
-      <ul class="content-list"><li v-for="quiz in quizzes" :key="quiz.id"><span>{{ quiz.title }} · {{ quiz.status }} · 修订 {{ quiz.revision }}</span><button class="button secondary" :disabled="busy" @click="openQuiz(quiz.id)">查看考试</button></li></ul>
-      <p v-if="!quizzes.length && !busy" class="content-empty">尚无考试。编排者可新建，审核者等待独立账号提交草稿。</p>
+      <ul class="content-list"><li v-for="quiz in visibleQuizzes" :key="quiz.id"><span>{{ quiz.title }} · {{ quizStatusLabels[quiz.status] }} · 修订 {{ quiz.revision }}</span><button class="button secondary" :disabled="busy" @click="openQuiz(quiz.id)">查看考试</button></li></ul>
+      <p v-if="quizzesLoaded && !visibleQuizzes.length && !busy && !error" class="content-empty">暂无符合当前筛选的考试。可调整筛选、读取更多，或等待编排者保存草稿。</p>
     </template>
     <button v-if="quizCursor" class="button secondary" @click="loadQuizzes(true)">更多考试</button>
     <section v-if="locked" class="notice stack" aria-label="管理请求恢复"><h4>管理请求结果待确认</h4><template v-if="pending"><p>原请求 {{ pending.path }} · 编号 {{ pending.key }}。已冻结管理写入，不能换请求编号重复提交。</p><p v-if="pendingBody === undefined">页面刷新后只保留原编号，不保存题面、答案或原请求正文。<template v-if="recoveryScope">请使用平台控制台上方“按原key查询真实幂等结果”；确认后重新读取资源。</template><template v-else>当前普通管理接口不支持按原幂等编号查询结果。请保留原编号，由管理员核实服务端幂等记录，不要清除存储后重复提交。</template>资源存在、修订变化或查询无结果均不能证明原请求受理与否，因此保持冻结。</p><div class="actions"><button v-if="pendingBody !== undefined" class="button" :disabled="busy" @click="recoverWrite">以原编号和原正文恢复请求</button><button class="button secondary" :disabled="busy" @click="inspectPending">查询相关资源（保持未知）</button></div></template></section>
     <p v-if="pending && pendingBody !== undefined" class="field-help">请保留当前页面，以原编号和原正文重试确认结果；刷新会丢失原正文，届时只能受控对账，不能自动解除未知状态。</p>
     <button v-if="selected" class="button secondary" :disabled="busy" @click="loadAudit('quiz', selected.id)">查询当前考试审计</button>
-    <form v-if="draft" class="stack content-section" :class="{ 'admin-card': consolePresentation }" @submit.prevent="save">
-      <h3>{{ draft.id ? '考试详情' : '新建考试' }}</h3>
-      <fieldset class="content-fields stack" :disabled="!editable || busy">
+    <form v-if="draft" id="quiz-draft-form" class="stack content-section quiz-wizard" :class="{ 'admin-card': consolePresentation }" novalidate @submit.prevent="save">
+      <div class="actions"><h3>{{ draft.id ? '考试详情' : '新建考试' }}</h3><button type="button" class="button secondary" :disabled="busy || locked" @click="cancelQuiz">{{ dirty ? '取消编辑' : '返回考试列表' }}</button></div>
+      <nav v-if="editable" class="quiz-steps" aria-label="考试创建步骤"><button v-for="(label, index) in quizSteps" :key="label" type="button" :aria-current="quizStep === index ? 'step' : undefined" :disabled="busy || locked" @click="changeStep(index)">{{ index + 1 }}. {{ label }}</button></nav>
+      <h4 v-if="editable" ref="stepHeading" tabindex="-1">{{ quizSteps[quizStep] }}</h4>
+      <fieldset v-if="editable && quizStep === 0" class="content-fields stack" :disabled="busy">
         <div class="field"><label for="quiz-title">考试标题</label><input id="quiz-title" v-model="draft.title" required maxlength="200" /></div>
-        <p v-if="consolePresentation" class="field-help">从下方候选题加入试卷，学科 ID 会自动带入；同一考试的题目须属于同一学科。</p>
-        <component :is="consolePresentation ? 'details' : 'div'" :class="consolePresentation ? 'stack' : 'field'">
-          <summary v-if="consolePresentation">高级定位</summary>
-          <label for="quiz-subject">学科 ID（选择题目时自动填入）</label><input id="quiz-subject" v-model="draft.subject_id" required @invalid="revealSubjectField" />
-        </component>
+        <p class="field-help">时间按本地时区（{{ Intl.DateTimeFormat().resolvedOptions().timeZone }}）填写，学科将在选题时自动确定。</p>
         <div class="content-columns">
           <div v-for="field in (['opens_at','closes_at','release_at'] as const)" :key="field" class="field"><label :for="`quiz-${field}`">{{ field === 'opens_at' ? '开放时间' : field === 'closes_at' ? '关闭时间' : '成绩发布时间' }}</label><input :id="`quiz-${field}`" type="datetime-local" :value="localDate(draft[field])" required @input="setDate(field, $event)" /></div>
-          <div class="field"><label for="quiz-duration">时长（秒）</label><input id="quiz-duration" v-model.number="draft.duration_seconds" type="number" min="60" max="7200" required /></div>
+          <div class="field"><label for="quiz-duration">考试时长（分钟）</label><input id="quiz-duration" v-model.number="durationMinutes" type="number" min="1" max="120" step="any" required /></div>
           <div class="field"><label for="quiz-attempts">最多参加次数</label><input id="quiz-attempts" v-model.number="draft.max_attempts" type="number" min="1" max="3" required /></div>
         </div>
-        <fieldset class="content-fields"><legend>有序题单 · {{ draft.items?.length || 0 }}/50</legend><ul class="content-list"><li v-for="(row,index) in draft.items" :key="row.question_version_id"><span>{{ index + 1 }}. {{ row.question_version_id }}</span><div class="field"><label :for="`score-${index}`">满分（留空用题目满分）</label><input :id="`score-${index}`" v-model="row.max_score" inputmode="decimal" /></div><div class="actions"><button type="button" class="text-button" :disabled="index === 0" @click="move(index,-1)">上移</button><button type="button" class="text-button" :disabled="index === draft.items!.length - 1" @click="move(index,1)">下移</button><button type="button" class="text-button" @click="draft.items!.splice(index,1)">移除</button></div></li></ul></fieldset>
-        <fieldset class="content-fields"><legend>显式受众 · {{ draft.audience_member_ids?.length || 0 }}/200</legend><p class="field-help">已选成员 ID：{{ draft.audience_member_ids?.join('、') || '未选择' }}</p><button type="button" class="button secondary" @click="loadMembers()">读取可参加成员</button><label v-for="member in members" :key="member.id" class="check-label"><input v-model="draft.audience_member_ids" type="checkbox" :value="member.id" />{{ member.display_name }}</label><button v-if="memberCursor" type="button" class="text-button" @click="loadMembers(true)">更多成员</button></fieldset>
       </fieldset>
-      <button v-if="editable" class="button" :disabled="busy || !dirty">保存考试草稿</button>
-      <p v-if="selfReview" class="field-help">作者或贡献者不能审核发布自己的考试。</p>
+      <fieldset v-else-if="editable && quizStep === 1" class="content-fields stack" :disabled="busy">
+        <legend>已选题目 · {{ draft.items.length }}/50</legend><p>从下方候选题加入试卷，所有题目须属于同一学科。</p>
+        <ul class="content-list"><li v-for="(row,index) in draft.items" :key="row.question_version_id"><span>{{ index + 1 }}. {{ questionNames[row.question_version_id] || '题目名称未读取' }}</span><div class="field"><label :for="`score-${index}`">满分（留空使用原题满分）</label><input :id="`score-${index}`" v-model="row.max_score" inputmode="decimal" /></div><div class="actions"><button type="button" class="text-button" :disabled="index === 0" @click="move(index,-1)">上移</button><button type="button" class="text-button" :disabled="index === draft.items.length - 1" @click="move(index,1)">下移</button><button type="button" class="text-button" @click="draft.items.splice(index,1)">移除</button></div></li></ul>
+      </fieldset>
+      <fieldset v-else-if="editable && quizStep === 2" class="content-fields stack" :disabled="busy">
+        <legend>参加人员 · {{ draft.audience_member_ids.length }}/200</legend><p>已选：{{ selectedMemberNames.join('、') || '尚未选择' }}</p>
+        <button type="button" class="button secondary" @click="loadMembers()">重新读取可参加人员</button>
+        <p v-if="busy" role="status">正在读取可参加人员…</p><p v-else-if="membersLoaded && !members.length">当前没有可选人员，请联系组织管理员确认成员与学习权限。</p>
+        <label v-for="member in members" :key="member.id" class="check-label"><input v-model="draft.audience_member_ids" type="checkbox" :value="member.id" :disabled="!draft.audience_member_ids.includes(member.id) && draft.audience_member_ids.length >= 200" />{{ member.display_name }}</label>
+        <button v-if="memberCursor" type="button" class="text-button" @click="loadMembers(true)">更多人员</button>
+      </fieldset>
+      <section v-else class="stack quiz-preview" aria-label="考试预览">
+        <h4>{{ draft.title }}</h4><p>开放：{{ new Date(draft.opens_at).toLocaleString('zh-CN') }} · 关闭：{{ new Date(draft.closes_at).toLocaleString('zh-CN') }}</p><p>成绩发布：{{ new Date(draft.release_at).toLocaleString('zh-CN') }} · {{ draft.duration_seconds / 60 }} 分钟 · 最多 {{ draft.max_attempts }} 次</p>
+        <h4>有序题单 · {{ draft.items.length }}题</h4><ol><li v-for="row in draft.items" :key="row.question_version_id">{{ questionNames[row.question_version_id] || '题目名称未读取' }} · 满分 {{ row.max_score || '使用原题满分' }}</li></ol>
+        <h4>参加人员 · {{ draft.audience_member_ids.length }}人</h4><p>{{ selectedMemberNames.join('、') }}</p>
+        <p v-if="!editable">{{ quizStatusLabels[draft.status] }} · 修订 {{ draft.revision }}</p>
+        <details><summary>高级定位信息</summary><p>学科编号：{{ draft.subject_id }}</p><p>参加成员编号：{{ draft.audience_member_ids.join('、') }}</p><p v-for="row in draft.items" :key="row.question_version_id">题目版本：{{ row.question_version_id }}</p></details>
+      </section>
+      <p v-if="selfReview" class="field-help">请由独立审核账号发布此考试。</p>
       <div v-if="review && selected?.status === 'draft' && !selfReview" class="stack"><div class="field"><label for="publish-reason">发布审核原因</label><input id="publish-reason" v-model="reason" :disabled="busy || locked" /></div><button type="button" class="button" :disabled="busy || locked || dirty || !reason.trim()" @click="publish">审核并发布考试</button></div>
     </form>
-    <section class="stack content-section" :class="{ 'admin-card': consolePresentation }" aria-label="独立题目候选">
-      <component :is="consolePresentation ? 'h2' : 'h3'">合法题目候选与勘误依据</component>
+    <section class="stack content-section" :class="{ 'admin-card': consolePresentation }" aria-label="独立题目候选" v-if="editable && quizStep === 1 || review && submission">
+      <component :is="consolePresentation ? 'h2' : 'h3'">{{ editable ? '可选题目' : '勘误依据' }}</component>
       <div class="content-toolbar" :class="{ 'admin-toolbar': consolePresentation }">
-        <component :is="consolePresentation ? 'details' : 'div'" :class="consolePresentation ? 'stack' : 'field'">
-          <summary v-if="consolePresentation">高级定位</summary>
-          <label for="candidate-subject">按学科 ID 筛选（可留空）</label><input id="candidate-subject" v-model="subject" />
-        </component>
+        <div class="field"><label for="candidate-subject-name">学科范围</label><select id="candidate-subject-name" v-model="subject"><option value="">全部可用题目</option><option v-for="item in candidateSubjects" :key="item.id" :value="item.id">{{ item.name }}</option><option v-if="subject && !candidateSubjects.some(item => item.id === subject)" :value="subject">当前考试学科</option></select></div>
+        <details class="stack"><summary>按已知学科编号定位</summary><label for="candidate-subject">学科编号（可留空）</label><input id="candidate-subject" v-model="subject" /></details>
         <button class="button secondary" :disabled="busy" @click="loadCandidates()">查询候选题</button>
       </div>
       <p v-if="consolePresentation && subject" class="field-help">当前按学科 ID 筛选；可在“高级定位”中查看、更改或清空。</p>
-      <ResourceTable v-if="consolePresentation" :headers="['题目标题', '难度', '题型', '操作']" :busy="busy" :empty="!candidates.length" empty-label="暂无候选题，请查询合法题目候选；如已设置学科筛选，可在高级定位中调整。">
+      <ResourceTable v-if="consolePresentation" :headers="['题目标题', '难度', '题型', '操作']" :busy="busy" :empty="candidatesLoaded && !candidates.length" empty-label="暂无候选题，请查询合法题目候选；如已设置学科筛选，可在高级定位中调整。">
         <tr v-for="row in candidates" :key="row.id">
           <td>{{ row.title }}</td><td>{{ row.difficulty }}</td><td>{{ questionTypeLabels[row.question_type] }}</td>
-          <td><div class="actions"><button class="button secondary" @click="showCandidate(row.id)">预览题目</button><button v-if="editable" class="button secondary" @click="addCandidate(row)">加入试卷</button><button v-if="review && submission && !locked" class="button secondary" @click="correction = row.id">选择勘误版本</button></div></td>
+          <td><div class="actions"><button class="button secondary" :disabled="busy || locked" @click="showCandidate(row.id)">预览题目</button><button v-if="editable" class="button secondary" :disabled="busy || locked || draft?.items.some(item => item.question_version_id === row.id)" @click="addCandidate(row)">加入试卷</button><button v-if="review && submission && !locked" class="button secondary" @click="correction = row.id">选择勘误版本</button></div></td>
         </tr>
       </ResourceTable>
-      <ul v-else class="content-list"><li v-for="row in candidates" :key="row.id"><span>{{ row.title }} · {{ row.difficulty }} · {{ row.question_type }}</span><div class="actions"><button class="button secondary" @click="showCandidate(row.id)">预览题目</button><button v-if="editable" class="button secondary" @click="addCandidate(row)">加入试卷</button><button v-if="review && submission && !locked" class="button secondary" @click="correction = row.id">选择勘误版本</button></div></li></ul>
+      <ul v-else class="content-list"><li v-for="row in candidates" :key="row.id"><span>{{ row.title }} · {{ row.difficulty }} · {{ questionTypeLabels[row.question_type] }}</span><div class="actions"><button class="button secondary" :disabled="busy || locked" @click="showCandidate(row.id)">预览题目</button><button v-if="editable" class="button secondary" :disabled="busy || locked || draft?.items.some(item => item.question_version_id === row.id)" @click="addCandidate(row)">加入试卷</button><button v-if="review && submission && !locked" class="button secondary" @click="correction = row.id">选择勘误版本</button></div></li></ul>
       <button v-if="candidateCursor" class="button secondary" @click="loadCandidates(true)">更多候选题</button>
       <article v-if="preview" class="stack content-section"><h4>{{ preview.title }}</h4><p class="reading-body">{{ preview.prompt }}</p><p v-for="option in preview.options" :key="option.id">{{ option.id }} · {{ option.text }}</p><p>标准答案：{{ preview.answer }}</p><p class="reading-body">{{ preview.explanation }}</p><button v-for="file in preview.resource_ids" :key="file" class="button secondary" @click="download(file)">下载审核附件 {{ file }}</button></article>
     </section>
+    <div v-if="editable" class="actions quiz-step-actions"><button v-if="quizStep > 0" type="button" class="button secondary" :disabled="busy || locked" @click="changeStep(quizStep - 1)">上一步</button><button v-if="quizStep < 3" type="button" class="button" :disabled="busy || locked" @click="changeStep(quizStep + 1)">下一步</button><button v-else type="submit" form="quiz-draft-form" class="button" :disabled="busy || locked || !dirty">保存考试草稿</button><p v-if="quizStep === 3" class="field-help">保存后由独立审核账号发布，不会直接向学生开放。</p></div>
     <section v-if="review" class="stack content-section" :class="{ 'admin-card': consolePresentation }" aria-label="提交复核">
       <component :is="consolePresentation ? 'h2' : 'h3'">提交复核与重批</component>
       <p class="field-help">{{ selected ? `当前考试 ${selected.title}` : '请先选择考试，或按提交 ID 定位练习及考试提交' }}。指定提交 ID 时优先按该 ID 查询。重批不修改原试卷满分，不由客户端计算成绩。</p>
-      <component :is="consolePresentation ? 'details' : 'div'" :class="consolePresentation ? 'stack' : 'field'">
-        <summary v-if="consolePresentation">高级定位</summary>
+      <details class="stack">
+        <summary>高级定位</summary>
         <label for="submission-id">提交 ID（含练习，可留空查询当前考试）</label><input id="submission-id" v-model="submissionId" :disabled="busy" />
-      </component>
+      </details>
       <p v-if="consolePresentation && submissionId.trim()" class="field-help">当前优先按提交 ID 定位；清空高级定位后可查询当前考试。</p>
       <button class="button secondary" :disabled="busy || (!selected && !submissionId.trim())" @click="loadSubmissions()">查询提交记录</button>
       <ResourceTable v-if="consolePresentation" :headers="['提交 ID', '评分任务状态', '操作']" :busy="busy" :empty="!submissions.length" empty-label="暂无提交记录，请选择考试查询，或在高级定位中输入提交 ID。">
@@ -250,10 +298,10 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); pendingBody = und
           <legend>受审计重批</legend>
           <div class="field"><label for="regrade-reason">重批原因</label><input id="regrade-reason" v-model="reason" required /></div>
           <p v-if="consolePresentation" class="field-help">{{ correction ? `已选勘误依据版本：${correction}` : '未选勘误版本，将按原标准重批。可从候选题选择勘误依据，或使用高级定位。' }}</p>
-          <component :is="consolePresentation ? 'details' : 'div'" :class="consolePresentation ? 'stack' : 'field'">
-            <summary v-if="consolePresentation">高级定位</summary>
+          <details class="stack">
+            <summary>高级定位</summary>
             <label for="correction-version">勘误来源版本（可从候选列表选择；留空按原标准重批）</label><input id="correction-version" v-model="correction" />
-          </component>
+          </details>
           <button class="button" :disabled="!reason.trim() || ['pending','running'].includes(submission.grading_status)">发起受审计重批</button>
         </fieldset>
         <div class="actions"><button type="button" class="button secondary" :disabled="busy" @click="openSubmission(submission.id)">刷新复核状态</button><button type="button" class="button secondary" :disabled="busy" @click="loadAudit('submission', submission.id)">查询提交审计</button><button type="button" class="button secondary" :disabled="busy" @click="loadAudit('session', submission.session_id)">查询会话审计</button></div>
@@ -262,3 +310,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); pendingBody = und
     <section v-if="auditResource" class="stack content-section" :class="{ 'admin-card': consolePresentation }" aria-label="测评审计"><component :is="consolePresentation ? 'h2' : 'h3'">审计 · {{ auditResource.type }} · {{ auditResource.id }}</component><p v-if="!audits.length" :class="{ 'admin-empty': consolePresentation }">当前资源暂无审计记录。</p><ul class="content-list"><li v-for="event in audits" :key="event.id"><div><p>{{ event.created_at }} · {{ event.action }} · 操作人 {{ event.actor_id }}</p><p>原因：{{ event.reason }}</p><p>修订 {{ event.revision_before ?? '—' }} → {{ event.revision_after ?? '—' }} · 请求 {{ event.request_id }}</p></div></li></ul><button v-if="auditCursor" class="button secondary" :disabled="busy" @click="loadAudit(auditResource.type, auditResource.id, true)">更多审计记录</button></section>
   </section>
 </template>
+
+<style scoped>
+.quiz-steps{display:flex;flex-wrap:wrap;gap:.5rem}.quiz-steps button{border:1px solid var(--color-border,#cfdae6);border-radius:.6rem;background:#f6f9fc;padding:.65rem .9rem;min-height:44px}.quiz-steps button[aria-current="step"]{background:var(--color-primary,#1265b3);color:#fff}.quiz-preview{background:#f4f8fc;padding:1rem;border-radius:.75rem;overflow-wrap:anywhere}.quiz-step-actions{padding-block:1rem;border-top:1px solid var(--color-border,#cfdae6)}.quiz-wizard h3{margin:0}
+</style>

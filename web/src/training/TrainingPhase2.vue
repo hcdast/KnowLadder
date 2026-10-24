@@ -7,6 +7,7 @@ import {
   watch,
   nextTick,
 } from "vue";
+import GrowthInbox from "./GrowthInbox.vue";
 import { ApiError, type BusinessRequest } from "../session";
 type Row = Record<string, any>;
 const props = defineProps<{
@@ -17,8 +18,11 @@ const props = defineProps<{
   blocked: boolean;
   userId: string;
   receipt: Row | null;
+  growthEnabled?:boolean;
+  contextKey?:string;
+  growthReceipt?:Row|null;
 }>();
-const emit = defineEmits<{ dirty: [boolean] }>();
+const emit = defineEmits<{ dirty: [boolean]; growthSource:[{kind:string;id:string}] }>();
 const rows = ref<Record<string, Row[]>>({
   locations: [],
   schedule: [],
@@ -33,7 +37,7 @@ const courses = ref<Row[]>([]),
   teachers = ref<Row[]>([]),
   message = ref(""),
   busy = ref(false),
-  dirty = ref(false),
+  dirty = ref(false), growthDirty = ref(false),
   page = ref("schedule"),
   selected = ref<Row | null>(null),
   note = ref(""),
@@ -208,7 +212,7 @@ async function load() {
   }
 }
 function choosePage(next: string) {
-  if (dirty.value) {
+  if (dirty.value || growthDirty.value) {
     message.value = "请先保存当前表单，再切换功能。";
     return;
   }
@@ -993,7 +997,7 @@ watch(
             标记已读
           </button>
         </li>
-      </ul></template
+      </ul><GrowthInbox v-if="growthEnabled" :request="request" :write="props.write" :context-key="contextKey || userId" :blocked="blocked || busy" :recovered="growthReceipt" @dirty="growthDirty=$event;emit('dirty',dirty || $event)" @source="emit('growthSource',$event)" /></template
     >
     <div v-if="has('training:operations-read')">
       <h4>本组织授课范围概览</h4>

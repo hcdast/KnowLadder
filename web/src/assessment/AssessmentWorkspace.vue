@@ -76,7 +76,7 @@ onBeforeUnmount(() => { alive = false; serial++; life.abort(); window.removeEven
 </script>
 <template>
   <section class="panel content-workspace stack learning-surface" aria-labelledby="assessment-title">
-    <header class="page-heading"><p class="eyebrow"><BrandIcon name="notebook-pen" />练习与测评</p><h2 id="assessment-title">从作答到反馈，每一步都有记录</h2><p class="muted">次数、截止与成绩由服务器确认。尚未保存的作答不会在刷新后恢复。</p></header>
+    <header class="page-heading"><p class="eyebrow"><BrandIcon name="notebook-pen" />{{ learner ? '练习与测评' : '考试工作区' }}</p><h2 id="assessment-title">{{ learner ? '从作答到反馈，每一步都有记录' : caps.includes('assessment:manage') ? '编排考试，清楚地完成每一步' : '核对考试与成绩，完成独立审核' }}</h2><p class="muted">{{ learner ? '次数、截止与成绩由服务器确认。尚未保存的作答不会在刷新后恢复。' : '查看试卷与参加范围，按职责保存草稿、审核发布或复核成绩。' }}</p></header>
     <nav class="content-toolbar" aria-label="测评导航">
       <button v-if="learner" class="button secondary" :aria-pressed="mode === 'practice'" @click="navigate('practice')">开始练习</button>
       <button v-if="learner" class="button secondary" :aria-pressed="mode === 'quizzes'" @click="navigate('quizzes')">参加考试</button>

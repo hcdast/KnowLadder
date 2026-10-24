@@ -4,6 +4,7 @@ import type { ConsoleContext } from "../src/administration/types";
 import { createApp, nextTick } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 import TrainingWorkspace from "../src/training/TrainingWorkspace.vue";
+import PublicSite from "../src/site/PublicSite.vue";
 import { ApiError, type BusinessRequest } from "../src/session";
 const user = "111111111111111111111111", other = "222222222222222222222222", org = "333333333333333333333333";
 const identity = (caps: string[], userId = user): Identity => ({ user: { id: userId, login_name: "boundary", display_name: "边界" }, organizations: [{ id: org, name: "边界组织", kind: "school" }], context: { org_id: org, member_id: "444444444444444444444444", capabilities: caps, student_conflict: false }, must_change_password: false } as Identity);
@@ -18,6 +19,7 @@ run("逐路由白名单拒绝外部、编码绕过、token、未知query与重�
   for (const value of ["https://evil.invalid/content", "//evil.invalid/content", "/%2f%2fevil.invalid", "/content#token", "/auth/reset?token=x", "/unknown", "/training?tab=constructor", "/training?tab=courses&tab=tasks", "/training?tab=%2563ourses", "/content?returnTo=/learning", "/console/users/new?password=x", "/training?tab=%2fcourses", "/console/users/../organizations", "/content?token=secret"])
     assert(parseReturnTo(value) === undefined, `未拒绝 ${value}`);
   assert(parseReturnTo("/training?tab=tasks") === "/training?tab=tasks", "培训tab未保留");
+  assert(parseReturnTo("/training?tab=discover") === "/training?tab=discover", "发现资源安全目标未保留");
   assert(parseReturnTo(`/console/authorizations/new?user_id=${user}&member_id=${other}`)?.includes(`user_id=${user}`), "真实管理预选目标被拒绝");
 });
 run("首次匿名意图在安全步骤后重新判权", () => {
@@ -31,11 +33,33 @@ run("首次匿名意图在安全步骤后重新判权", () => {
   const denied = createEntryCoordinator(); denied.capture("/teaching");
   assert(denied.decide(actor, null).denied, "登录后未重新判权");
 });
+run("个人空间保留安全目标并允许零组织或待选组织，首次安全步骤不能绕过", () => {
+  for (const zero of [true, false]) {
+    const actor = identity([]); actor.context = null;
+    if (zero) actor.organizations = [];
+    const coordinator = createEntryCoordinator(); coordinator.capture("/personal");
+    actor.must_change_password = true;
+    assert(!coordinator.decide(actor, null).target, "个人空间绕过首次改密");
+    actor.must_change_password = false;
+    assert(coordinator.globalTarget && coordinator.decide(actor, null).target === "/personal", "个人目标被组织选择吞掉");
+  }
+  assert(parseReturnTo("/personal?code=private") === undefined && parseReturnTo("/personal?user_id=" + user) === undefined, "个人路由接受凭证或他人身份参数");
+});
 run("已知旧账号绑定目标；换账号丢弃资源意图", () => {
   const coordinator = createEntryCoordinator();
   coordinator.identify(identity(["learning:self"]));
   coordinator.capture(`/console/users/${user}`);
   assert(coordinator.decide(identity(["site:edit"], other), consoleContext).target === "/training", "换号仍恢复原资源");
+});
+run("个人课程、笔记与周计划深链可恢复，零组织保留目标且拒绝多余参数", () => {
+  for (const target of ["/personal?tab=plan", "/personal?tab=courses", "/personal?tab=courses&course=story-observer&unit=notice", "/personal?tab=notes", "/personal?tab=notes&course=story-observer&unit=notice"]) {
+    assert(parseReturnTo(target) === target, "课程合法目标未保留");
+    const actor = identity([]); actor.organizations = []; actor.context = null;
+    const coordinator = createEntryCoordinator(); coordinator.capture(target);
+    assert(coordinator.globalTarget && coordinator.decide(actor, null).target === target, "零组织吞掉课程目标");
+  }
+  for (const target of ["/personal?unit=notice", "/personal?tab=other", "/personal?course=%2foutside", "/personal?course=story&course=other", "/personal?course=story&token=secret"])
+    assert(parseReturnTo(target) === undefined, `课程接受非法目标${target}`);
 });
 run("普通业务入口不等待ConsoleContext，只有实际管理候选需要它", () => {
   const actor = identity(["learning:self", "ai:assist"]);
@@ -65,7 +89,7 @@ run("换号等待组织期间不得重捕获旧URL，确认组织后使用新账
   next.context = identity(["learning:self"], other).context;
   assert(!coordinator.needsManagementContext(next, "/teaching", undefined, true), "新账号默认仍等待旧页面管理上下文");
   const decision = coordinator.decide(next, null);
-  assert(decision.target === "/learning" && !decision.denied, "多组织换号恢复旧teaching并制造403，而非新账号学习默认");
+  assert(decision.target === "/training" && !decision.denied, "多组织换号恢复旧teaching并制造403，而非新账号学习默认");
 });
 run("被拒目标终态不会因恢复身份重新请求原目标", () => {
   for (const status of [403, 404] as const) {
@@ -75,7 +99,7 @@ run("被拒目标终态不会因恢复身份重新请求原目标", () => {
     assert(!coordinator.decide(actor, consoleContext).target && coordinator.outcome?.status === status, "身份恢复清除了拒绝终态");
     assert(Object.keys(coordinator.outcome!).every(key => ["status", "reason", "userId"].includes(key)), "终态携带资源或私有内容");
     coordinator.explicitNavigation();
-    assert(coordinator.decide(actor, consoleContext).target === "/learning", "明确新操作无法恢复有权入口");
+    assert(coordinator.decide(actor, consoleContext).target === "/training", "明确新操作无法恢复有权入口");
   }
 });
 run("业务优先、有效偏好、仅培训与零组织入口", () => {
@@ -85,9 +109,19 @@ run("业务优先、有效偏好、仅培训与零组织入口", () => {
   assert(createEntryCoordinator().decide(actor, consoleContext, { orgId: other, workspace: "/training" }).target === "/teaching", "跨组织偏好被当作当前权限");
   assert(createEntryCoordinator().decide(identity(["course:assign"]), null).target === "/training", "仅培训停在空首页");
   const zero = identity([]); zero.organizations = []; zero.context = null;
-  assert(createEntryCoordinator().decide(zero, null).target === "/account", "零组织未到账号页");
+  assert(createEntryCoordinator().decide(zero, null).target === "/personal", "零组织未到个人学习空间");
   const multiple = identity([]); multiple.context = null;
   assert(!createEntryCoordinator().decide(multiple, null).target, "无有效组织上下文仍选择业务");
+});
+run("任务能力默认入口与深链/偏好优先级", () => {
+  for (const [caps, expected] of [[['learning:self'], '/training'], [['teaching:class', 'assessment:manage'], '/assessment'], [['teaching:class', 'assessment:review'], '/assessment'], [['course:review', 'content:review'], '/content'], [['teaching:class', 'course:edit'], '/teaching']] as [string[], string][]) {
+    assert(createEntryCoordinator().decide(identity(caps), null).target === expected, `任务入口错误 ${caps}`);
+  }
+  const student = identity(['learning:self']);
+  assert(createEntryCoordinator().decide(student, null, { orgId: org, workspace: '/learning' }).target === '/learning', '有效学情偏好被新默认覆盖');
+  const coordinator = createEntryCoordinator(); coordinator.capture('/training?tab=tasks');
+  assert(coordinator.decide(student, null).target === '/training?tab=tasks', '原任务意图被工作台默认覆盖');
+  assert(parseReturnTo('/training?tab=workbench') === '/training?tab=workbench', '本人工作台深链未纳入白名单');
 });
 run("学生冲突与实时管理菜单不能由角色或旧上下文补齐", () => {
   const conflict = identity(["learning:self", "content:edit"]);
@@ -160,7 +194,7 @@ async function verifyTrainingConsumer() {
     await nextTick();
     const form = Array.from(stage.querySelectorAll("form")).find(element => element.textContent?.includes("新增网站内容草稿"));
     assert(form?.querySelector("input") && form.querySelector("textarea"), "真正有权网站编辑表单被学生预加载403卸载");
-    assert(!stage.textContent?.includes("我的学习工作台"), "学生冲突仍暴露本人学习操作");
+    assert(!Array.from(stage.querySelectorAll("h2,h3,button")).some(row => row.textContent?.trim() === "我的学习"), "学生冲突仍暴露本人学习操作");
     assert(forbidden.length === 0, `真实组件发出无权请求：${forbidden.join(",")}`);
     results.push({ name, passed: true });
   } catch (error) { results.push({ name, passed: false, detail: error instanceof Error ? error.message : String(error) }); }
@@ -173,4 +207,49 @@ async function verifyTrainingConsumer() {
   output.textContent = JSON.stringify({ passed: results.filter(row => row.passed).length, failed: results.filter(row => !row.passed).length, results }, null, 2);
   output.dataset.complete = "true";
 }
-void verifyTrainingConsumer();
+async function verifyPublicEntry() {
+  const name = "官网探索三个私有入口交给统一登录并保留目标，修饰点击与公开帮助不被截获";
+  const stage = document.createElement("section");
+  document.body.append(stage);
+  const router = createRouter({ history: createMemoryHistory(), routes: ["/explore", "/help"].map(path => ({ path, component: { render: () => null } })) });
+  const targets: (string | undefined)[] = [];
+  const app = createApp(PublicSite, { onLogin: (target?: string) => targets.push(target) });
+  try {
+    await router.push("/explore");
+    app.use(router).mount(stage);
+    await nextTick();
+    for (const target of ["/training?tab=discover", "/home", "/personal"]) {
+      const link = stage.querySelector<HTMLAnchorElement>(`a[href="${target}"]`);
+      assert(link, `入口缺失 ${target}`);
+      const click = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+      link!.dispatchEvent(click);
+      assert(click.defaultPrevented && targets.at(-1) === target, `入口未保留目标 ${target}`);
+      const modified = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0, ctrlKey: true });
+      const before = targets.length;
+      let nativeNavigation = false;
+      // Prevent native new-tab navigation after the production listener runs.
+      link!.addEventListener("click", event => {
+        nativeNavigation = !event.defaultPrevented && targets.length === before;
+        event.preventDefault();
+      }, { once: true });
+      link!.dispatchEvent(modified);
+      assert(nativeNavigation, "修饰点击被弹窗截获");
+    }
+    const help = stage.querySelector<HTMLAnchorElement>(".public-footer a[href='/help']");
+    const navigated = new Promise<void>(resolve => {
+      const remove = router.afterEach(to => { if (to.path === "/help") { remove(); resolve(); } });
+    });
+    help!.click();
+    await navigated;
+    assert(targets.length === 3, "公开帮助被误作登录入口");
+    assert(router.currentRoute.value.path === "/help", "公开帮助没有正常导航");
+    const coordinator = createEntryCoordinator();
+    coordinator.capture(targets[0]);
+    assert(coordinator.decide(identity(["learning:self"]), null).target === "/training?tab=discover", "登录后资源目标丢失");
+    const denied = createEntryCoordinator(); denied.capture(targets[0]);
+    assert(denied.decide(identity([]), null).denied, "资源目标绕过登录后权限核对");
+    results.push({ name, passed: true });
+  } catch (error) { results.push({ name, passed: false, detail: error instanceof Error ? error.message : String(error) }); }
+  finally { app.unmount(); stage.remove(); }
+}
+void verifyPublicEntry().then(verifyTrainingConsumer);
